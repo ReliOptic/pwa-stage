@@ -182,8 +182,12 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
   });
 
   setFloatingPin(win, state.alwaysOnTop);
-  win.show();
-  win.focus();
+  if (state.alwaysOnTop) {
+    win.show();
+    win.focus();
+  } else {
+    win.showInactive();
+  }
 
   win.on('will-resize', (event, newBounds) => {
     event.preventDefault();
