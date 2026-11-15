@@ -177,6 +177,10 @@ export async function applyEmulationToTarget(
 ): Promise<Result<EmulationProfile, EmulationFailureError>> {
   const profile = buildEmulationProfile(input);
   const effectiveZoom = 1.0;
+  const innerSafeArea =
+    input.shellMode === BrowserShellMode.PWA_STANDALONE
+      ? resolveSafeAreaInsets(input.preset, input.orientation)
+      : { top: 0, right: 0, bottom: 0, left: 0 };
 
   try {
     if (!target.debugger.isAttached()) {
@@ -202,6 +206,20 @@ export async function applyEmulationToTarget(
           }
         ]
       }),
+      target.debugger
+        .sendCommand('Emulation.setSafeAreaInsetsOverride', {
+          insets: {
+            top: innerSafeArea.top,
+            bottom: innerSafeArea.bottom,
+            left: innerSafeArea.left,
+            right: innerSafeArea.right,
+            topMax: innerSafeArea.top,
+            bottomMax: innerSafeArea.bottom,
+            leftMax: innerSafeArea.left,
+            rightMax: innerSafeArea.right
+          }
+        })
+        .catch(() => undefined),
       target.insertCSS(profile.safeAreaCss),
       target.executeJavaScript(profile.standaloneInitScript)
     ]);

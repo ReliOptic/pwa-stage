@@ -146,25 +146,46 @@ function registerIpcHandlers(ctx: MenuControllerContext): void {
   });
 }
 
-function getFrontmostAppBundleId(): Promise<string | null> {
+function getBundleIdForAsn(asn: string): Promise<string | null> {
   return new Promise((resolve) => {
-    execFile('lsappinfo', ['front'], (err, stdout) => {
-      if (err || !stdout.trim()) {
+    execFile('lsappinfo', ['info', '-only', 'bundleid', asn], (err, out) => {
+      if (err) {
         resolve(null);
         return;
       }
-      const asn = stdout.trim();
-      execFile('lsappinfo', ['info', '-only', 'bundleid', asn], (err2, out2) => {
-        if (err2) {
+      const match = /"CFBundleIdentifier"\s*=\s*"([^"]+)"/.exec(out);
+      resolve(match ? match[1] : null);
+    });
+  });
+}
+
+function getTopmostOtherAppBundleId(): Promise<string | null> {
+  const selfBundleIds = new Set(['com.reliqbit.iphone-pwa-simulator', 'com.github.Electron']);
+  return new Promise((resolve) => {
+    execFile('lsappinfo', ['visibleProcessList'], async (err, stdout) => {
+      if (!err && stdout.trim()) {
+        const asns = Array.from(stdout.matchAll(/ASN:0x[0-9a-fA-F-]+(?=-)/g)).map((m) => m[0]);
+        for (const asn of asns) {
+          const bundleId = await getBundleIdForAsn(asn);
+          if (bundleId && !selfBundleIds.has(bundleId)) {
+            resolve(bundleId);
+            return;
+          }
+        }
+      }
+      execFile('lsappinfo', ['front'], async (err2, frontOut) => {
+        if (err2 || !frontOut.trim()) {
           resolve(null);
           return;
         }
-        const match = /"CFBundleIdentifier"\s*=\s*"([^"]+)"/.exec(out2);
-        resolve(match ? match[1] : null);
+        const bundleId = await getBundleIdForAsn(frontOut.trim());
+        resolve(bundleId && !selfBundleIds.has(bundleId) ? bundleId : null);
       });
     });
   });
 }
+
+let capturedLaunchFrontBundleIdPromise: Promise<string | null> | null = null;
 
 export function createFloatingSimulatorWindow(ctx: MenuControllerContext): BrowserWindow {
   const loadedState = readCurrentState(ctx.deps);
@@ -236,12 +257,19 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
       win.focus();
       return;
     }
-    void getFrontmostAppBundleId().then((frontBundleId) => {
+    void getTopmostOtherAppBundleId().then(async (currentOtherBundleId) => {
       if (win.isDestroyed()) return;
+      const targetBundleId = currentOtherBundleId ?? (await capturedLaunchFrontBundleIdPromise);
       win.showInactive();
       win.blur();
-      if (frontBundleId && frontBundleId !== 'com.reliqbit.iphone-pwa-simulator') {
-        execFile('open', ['-b', frontBundleId], () => {});
+      if (targetBundleId) {
+        execFile('open', ['-b', targetBundleId], () => {});
+        setTimeout(() => {
+          if (!win.isDestroyed() && win.isFocused()) {
+            win.blur();
+            execFile('open', ['-b', targetBundleId], () => {});
+          }
+        }, 120);
       }
     });
   });
@@ -300,6 +328,7 @@ export function bootstrapElectronApp(): void {
 
   void app.whenReady().then(async () => {
     app.dock?.hide();
+    capturedLaunchFrontBundleIdPromise = getTopmostOtherAppBundleId();
     const rebootRoot = resolveRebootStaticRoot(__dirname, process.resourcesPath);
     const rebootServerUrl = await startEmbeddedRebootServer(rebootRoot, 18765);
     const deps = buildCoordinatorDependencies(rebootServerUrl);
