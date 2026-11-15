@@ -15,17 +15,23 @@ import {
 import { buildAppleSquirclePath } from '../../src/utils/squircle.util';
 import {
   clampSimulatorScale,
+  computeReasonableDesktopScale,
   computeShellChromeHeights,
   computeViewportMetrics,
   resolveSafeAreaInsets
 } from '../../src/utils/viewport-math.util';
 
 describe('viewport-math.util & logger.util', () => {
-  it('clamps simulator scale between 0.5 and 1.25', () => {
-    expect(clampSimulatorScale(0.2)).toBe(0.5);
-    expect(clampSimulatorScale(2.0)).toBe(1.25);
+  it('clamps simulator scale between 0.45 and 1.15 and computes reasonable desktop scale', () => {
+    expect(clampSimulatorScale(0.2)).toBe(0.45);
+    expect(clampSimulatorScale(2.0)).toBe(1.15);
     expect(clampSimulatorScale(0.854)).toBe(0.85);
-    expect(clampSimulatorScale(Number.NaN)).toBe(0.85);
+    expect(clampSimulatorScale(Number.NaN)).toBe(0.72);
+
+    const pro = getDevicePresetById(DeviceModelId.IPHONE_17_PRO);
+    const fitScale = computeReasonableDesktopScale(pro, Orientation.PORTRAIT, 1.0, true, false, 1710, 1073);
+    expect(fitScale).toBeLessThanOrEqual(0.82);
+    expect(fitScale).toBeGreaterThanOrEqual(0.65);
   });
 
   it('computes portrait and landscape viewport metrics accurately for iPhone 17 Pro', () => {

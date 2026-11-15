@@ -20,10 +20,30 @@ const FLOATING_WINDOW_PADDING = 16;
 
 export function clampSimulatorScale(scale: number): number {
   if (!Number.isFinite(scale)) {
-    return 0.85;
+    return 0.72;
   }
   const rounded = Math.round(scale * 100) / 100;
-  return Math.min(1.25, Math.max(0.5, rounded));
+  return Math.min(1.15, Math.max(0.45, rounded));
+}
+
+export function computeReasonableDesktopScale(
+  preset: DevicePreset,
+  orientation: Orientation,
+  requestedScale: number,
+  isFramed: boolean,
+  hudCollapsed: boolean,
+  workAreaWidth: number,
+  workAreaHeight: number
+): number {
+  const base = computeViewportMetrics(preset, orientation, 1.0, isFramed, hudCollapsed);
+  const overheadW = base.scaledOuterWidth - base.outerFrameWidth;
+  const overheadH = base.scaledOuterHeight - base.outerFrameHeight;
+  const targetMaxW = Math.max(320, workAreaWidth * 0.88 - overheadW);
+  const targetMaxH = Math.max(480, workAreaHeight * 0.78 - overheadH);
+  const maxByW = targetMaxW / Math.max(1, base.outerFrameWidth);
+  const maxByH = targetMaxH / Math.max(1, base.outerFrameHeight);
+  const maxReasonable = clampSimulatorScale(Math.min(maxByW, maxByH));
+  return Math.min(clampSimulatorScale(requestedScale), maxReasonable);
 }
 
 export function resolveSafeAreaInsets(

@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
@@ -41,7 +42,11 @@ import {
 } from './types/ipc-coordinator.types';
 import { SimulatorState } from './types/simulator.types';
 import { logStructured } from './utils/logger.util';
-import { clampSimulatorScale, computeViewportMetrics } from './utils/viewport-math.util';
+import {
+  clampSimulatorScale,
+  computeReasonableDesktopScale,
+  computeViewportMetrics
+} from './utils/viewport-math.util';
 
 let mainFloatingWindow: BrowserWindow | null = null;
 let menuBarTray: Tray | null = null;
@@ -141,9 +146,47 @@ function registerIpcHandlers(ctx: MenuControllerContext): void {
   });
 }
 
+function getFrontmostAppBundleId(): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile('lsappinfo', ['front'], (err, stdout) => {
+      if (err || !stdout.trim()) {
+        resolve(null);
+        return;
+      }
+      const asn = stdout.trim();
+      execFile('lsappinfo', ['info', '-only', 'bundleid', asn], (err2, out2) => {
+        if (err2) {
+          resolve(null);
+          return;
+        }
+        const match = /"CFBundleIdentifier"\s*=\s*"([^"]+)"/.exec(out2);
+        resolve(match ? match[1] : null);
+      });
+    });
+  });
+}
+
 export function createFloatingSimulatorWindow(ctx: MenuControllerContext): BrowserWindow {
-  const state = readCurrentState(ctx.deps);
-  const preset = getDevicePresetById(state.selectedDeviceId ?? DeviceModelId.IPHONE_17_PRO);
+  const loadedState = readCurrentState(ctx.deps);
+  const preset = getDevicePresetById(loadedState.selectedDeviceId ?? DeviceModelId.IPHONE_17_PRO);
+  const area = screen.getPrimaryDisplay().workArea;
+  const reasonableScale = computeReasonableDesktopScale(
+    preset,
+    loadedState.orientation,
+    loadedState.scale,
+    loadedState.isFramed,
+    loadedState.hudCollapsed ?? false,
+    area.width,
+    area.height
+  );
+  const state: SimulatorState =
+    reasonableScale !== loadedState.scale
+      ? { ...loadedState, scale: reasonableScale }
+      : loadedState;
+  if (reasonableScale !== loadedState.scale) {
+    handleUpdateSimulatorState(ctx.deps, state);
+  }
+
   const metrics = computeViewportMetrics(
     preset,
     state.orientation,
@@ -152,7 +195,6 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
     state.hudCollapsed
   );
 
-  const area = screen.getPrimaryDisplay().workArea;
   const initialX = Math.max(
     area.x + 24,
     area.x + area.width - metrics.scaledOuterWidth - 36
@@ -192,10 +234,16 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
     if (latest.alwaysOnTop) {
       win.show();
       win.focus();
-    } else {
+      return;
+    }
+    void getFrontmostAppBundleId().then((frontBundleId) => {
+      if (win.isDestroyed()) return;
       win.showInactive();
       win.blur();
-    }
+      if (frontBundleId && frontBundleId !== 'com.reliqbit.iphone-pwa-simulator') {
+        execFile('open', ['-b', frontBundleId], () => {});
+      }
+    });
   });
 
   win.on('will-resize', (event, newBounds) => {
