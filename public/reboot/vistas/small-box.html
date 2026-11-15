@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>작은 상자</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="vista.css"></head>
+<body><div id="stage" style="position: absolute; inset: 0; overflow: hidden; color: #ededed; background: #15130f">
+
+              <div style="position: absolute; left: 24px; top: 24px; display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 13px; line-height: 20px; color: #b3ab9a">사물</span>
+                <span style="font-size: 28px; line-height: 32px; font-weight: 500">작은 상자</span>
+              </div>
+              <button aria-label="작은 상자" data-link="play/box.html" data-kind="play" data-label="작은 상자" style="position: absolute; left: 50%; top: 168px; width: 240px; height: 240px; margin-left: -120px; perspective: 800px">
+                <span class="spin" style="position: absolute; left: 50px; top: 50px; width: 140px; height: 140px; transform-style: preserve-3d; transform: rotateX(-22deg) rotateY(32deg)">
+                  <span style="position: absolute; inset: 0; border-radius: 12px; background: #e6c98f; transform: translateZ(70px)"></span>
+                  <span style="position: absolute; inset: 0; border-radius: 12px; background: #e6c98f; transform: rotateY(180deg) translateZ(70px)"></span>
+                  <span style="position: absolute; inset: 0; border-radius: 12px; background: #b89a5e; transform: rotateY(90deg) translateZ(70px)"></span>
+                  <span style="position: absolute; inset: 0; border-radius: 12px; background: #b89a5e; transform: rotateY(-90deg) translateZ(70px)"></span>
+                  <span style="position: absolute; inset: 0; border-radius: 12px; background: #f3e2bd; transform: rotateX(90deg) translateZ(70px)"></span>
+                  <span style="position: absolute; inset: 0; border-radius: 12px; background: #f3e2bd; transform: rotateX(-90deg) translateZ(70px)"></span>
+                </span>
+              </button>
+              <span style="position: absolute; left: 24px; bottom: 24px; font-size: 13px; line-height: 20px; color: #b3ab9a">돌려 보고, 뒤집어 보고</span>
+            
+</div><script src="vista.js" data-duration="12000"></script></body></html>

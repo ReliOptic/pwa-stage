@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>작은 상자</title>
+<style>
+html,body{margin:0;height:100%;background:transparent;overflow:hidden;touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none}
+body{display:flex;align-items:center;justify-content:center;perspective:900px}
+#c{position:relative;width:180px;height:180px;transform-style:preserve-3d}
+#c span{position:absolute;inset:0;border-radius:16px}
+</style></head><body>
+<div id="c">
+<span style="background:#e6c98f;transform:translateZ(90px)"></span><span style="background:#e6c98f;transform:rotateY(180deg) translateZ(90px)"></span>
+<span style="background:#b89a5e;transform:rotateY(90deg) translateZ(90px)"></span><span style="background:#b89a5e;transform:rotateY(-90deg) translateZ(90px)"></span>
+<span style="background:#f3e2bd;transform:rotateX(90deg) translateZ(90px)"></span><span style="background:#f3e2bd;transform:rotateX(-90deg) translateZ(90px)"></span>
+</div>
+<script>
+const c=document.getElementById('c');let rx=-22,ry=32,d=null,v=0,raf=0;const draw=()=>c.style.transform='rotateX('+rx+'deg) rotateY('+ry+'deg)';draw();
+addEventListener('pointerdown',e=>{cancelAnimationFrame(raf);d={x:e.clientX,y:e.clientY,rx,ry,lx:e.clientX,lt:Date.now()};});
+addEventListener('pointermove',e=>{if(!d)return;const n=Date.now();ry=d.ry+(e.clientX-d.x)*0.6;rx=Math.max(-80,Math.min(80,d.rx-(e.clientY-d.y)*0.6));v=((e.clientX-d.lx)*0.6)/Math.max(n-d.lt,1)*16;d.lx=e.clientX;d.lt=n;draw();});
+const up=()=>{if(!d)return;d=null;const step=()=>{v*=0.95;if(Math.abs(v)<0.05)return;ry+=v;draw();raf=requestAnimationFrame(step);};raf=requestAnimationFrame(step);};
+addEventListener('pointerup',up);addEventListener('pointercancel',up);
+</script></body></html>

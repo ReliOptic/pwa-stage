@@ -1,0 +1,26 @@
+/* 견본 Vista 공용. 제품의 Vista는 각자 자기 스타일을 가진다. */
+html,body{margin:0;height:100%;overflow:hidden;font-family:'IBM Plex Sans KR',system-ui,sans-serif;font-size:15px;line-height:22px;-webkit-user-select:none;user-select:none}
+button{font:inherit;color:inherit;border:0;padding:0;background:none}
+.run .moon{animation:moon 12s linear infinite}
+.run .pop{animation:pop 6s cubic-bezier(0.3,1.4,0.5,1) infinite both}
+.run .beat{animation:beat 12s cubic-bezier(0.22,1,0.36,1) infinite both}
+.run .fill{animation:fill 12s cubic-bezier(0.22,1,0.36,1) infinite both}
+.run .fillslow{animation:fillslow 12s linear infinite both}
+.run .drop{animation:drop 12s cubic-bezier(0.3,1.4,0.5,1) infinite both}
+.run .dim{animation:dim 12s linear infinite both}
+.run .steam{animation:steam 2.4s linear infinite both}
+.run .tilt{animation:tilt 4s cubic-bezier(0.45,0,0.55,1) infinite}
+.run .third{animation:third 12s cubic-bezier(0.22,1,0.36,1) infinite both}
+.run .spin{animation:spin 12s linear infinite}
+.run *{animation-play-state:var(--ps,running)}
+@keyframes moon{from{transform:translateX(-104%)}to{transform:translateX(104%)}}
+@keyframes pop{0%{opacity:0;transform:scale(0.5)}10%,84%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}}
+@keyframes beat{0%{opacity:0;transform:translateY(20px)}3%,22%{opacity:1;transform:translateY(0)}25%,100%{opacity:0;transform:translateY(-20px)}}
+@keyframes fill{0%,2%{transform:scaleX(0)}11%,100%{transform:scaleX(1)}}
+@keyframes fillslow{0%,2%{transform:scaleX(0)}24%,100%{transform:scaleX(0.6)}}
+@keyframes drop{0%,2%{opacity:0;transform:translateY(-32px)}8%,100%{opacity:1;transform:translateY(0)}}
+@keyframes dim{0%,6%{background-color:#e9e6df}14%,100%{background-color:#1c2128}}
+@keyframes steam{0%{opacity:0;transform:translateY(8px) scaleY(0.6)}30%{opacity:0.6}100%{opacity:0;transform:translateY(-32px) scaleY(1.2)}}
+@keyframes tilt{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
+@keyframes third{0%{opacity:0;transform:translateY(8px)}4%,30%{opacity:1;transform:translateY(0)}34%,100%{opacity:0;transform:translateY(-8px)}}
+@keyframes spin{from{transform:rotateX(-22deg) rotateY(0deg)}to{transform:rotateX(-22deg) rotateY(360deg)}}
