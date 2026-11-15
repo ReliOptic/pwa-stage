@@ -152,7 +152,19 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
     state.hudCollapsed
   );
 
+  const area = screen.getPrimaryDisplay().workArea;
+  const initialX = Math.max(
+    area.x + 24,
+    area.x + area.width - metrics.scaledOuterWidth - 36
+  );
+  const initialY = Math.max(
+    area.y + 20,
+    area.y + Math.round((area.height - metrics.scaledOuterHeight) / 2)
+  );
+
   const win = new BrowserWindow({
+    x: initialX,
+    y: initialY,
     width: metrics.scaledOuterWidth,
     height: metrics.scaledOuterHeight,
     transparent: true,
@@ -170,6 +182,8 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
   });
 
   setFloatingPin(win, state.alwaysOnTop);
+  win.show();
+  win.focus();
 
   win.on('will-resize', (event, newBounds) => {
     event.preventDefault();
