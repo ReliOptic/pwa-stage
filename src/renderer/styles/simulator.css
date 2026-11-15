@@ -19,9 +19,10 @@ html, body, #root {
 }
 
 .shadcn-row { display: flex; align-items: center; justify-content: space-between; gap: 3.5px; width: 100%; min-width: 0; }
-.shadcn-group { display: flex; align-items: center; gap: 3px; min-width: 0; }
-.shadcn-group:first-child { flex: 1; min-width: 0; }
-.shadcn-group:last-child { flex-shrink: 0; }
+.shadcn-row-top { flex-wrap: wrap; row-gap: 4px; }
+.shadcn-group { display: flex; align-items: center; gap: 3px; min-width: 0; flex-wrap: wrap; }
+.shadcn-group:first-child { flex: 1 1 auto; min-width: 0; }
+.shadcn-group:last-child { flex-shrink: 0; margin-left: auto; }
 .shadcn-sep { width: 1px; height: 14px; background: rgba(255, 255, 255, 0.1); margin: 0 1px; flex-shrink: 0; }
 .traffic-lights { display: flex; align-items: center; gap: 5px; padding: 0 2px; flex-shrink: 0; }
 

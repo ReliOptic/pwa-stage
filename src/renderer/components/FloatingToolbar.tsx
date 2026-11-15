@@ -82,7 +82,7 @@ function TopControlRow(props: FloatingToolbarProps): React.ReactElement {
   };
 
   return (
-    <div className="shadcn-row">
+    <div className="shadcn-row shadcn-row-top">
       <div className="shadcn-group">
         <div className="traffic-lights">
           <button
