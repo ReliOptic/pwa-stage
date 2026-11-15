@@ -1,0 +1,94 @@
+{
+  "name": "macos-iphone-pwa-simulator",
+  "version": "1.0.0",
+  "description": "Floating macOS Xcode-style iPhone 17 & iPhone Duo PWA Simulator for campsite.ing",
+  "main": "dist-electron/index.js",
+  "author": "reliqbit",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && tsc -p tsconfig.electron.json",
+    "start": "npm run build && electron .",
+    "dev:electron": "tsc -p tsconfig.electron.json && concurrently -k \"vite --port 5199\" \"wait-on tcp:5199 && cross-env SIMULATOR_DEV_SERVER_URL=http://localhost:5199 electron .\"",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dist": "npm run build && electron-builder --mac",
+    "dist:dmg": "npm run build && electron-builder --mac dmg",
+    "dist:app": "npm run build && electron-builder --mac dir"
+  },
+  "build": {
+    "appId": "com.reliqbit.iphone-pwa-simulator",
+    "productName": "iPhone PWA Simulator",
+    "copyright": "Copyright © 2026 reliqbit",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64", "x64"]
+        },
+        {
+          "target": "dir",
+          "arch": ["arm64", "x64"]
+        }
+      ],
+      "icon": "public/assets/ios27/icon-512.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist"
+    },
+    "dmg": {
+      "title": "iPhone PWA Simulator",
+      "background": "public/assets/ios27/dmg-background.png",
+      "icon": "public/assets/ios27/icon-512.png",
+      "iconSize": 128,
+      "contents": [
+        { "x": 180, "y": 170, "type": "link", "path": "/Applications" },
+        { "x": 480, "y": 170, "type": "file" }
+      ],
+      "window": { "x": 400, "y": 200, "width": 660, "height": 400 }
+    },
+    "directories": {
+      "output": "dist_dmg",
+      "buildResources": "public/assets/ios27"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "public/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "public/assets/ios27/",
+        "to": "assets/ios27",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "public/reboot/",
+        "to": "reboot",
+        "filter": ["**/*"]
+      }
+    ]
+  },
+  "dependencies": {
+    "lucide-react": "^1.57.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.2",
+    "concurrently": "^9.0.1",
+    "cross-env": "^7.0.3",
+    "electron": "^33.0.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.3",
+    "wait-on": "^8.0.1"
+  }
+}
