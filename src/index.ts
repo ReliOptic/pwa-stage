@@ -194,6 +194,7 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
       win.focus();
     } else {
       win.showInactive();
+      win.blur();
     }
   });
 
@@ -250,6 +251,7 @@ export function bootstrapElectronApp(): void {
   });
 
   void app.whenReady().then(async () => {
+    app.dock?.hide();
     const rebootRoot = resolveRebootStaticRoot(__dirname, process.resourcesPath);
     const rebootServerUrl = await startEmbeddedRebootServer(rebootRoot, 18765);
     const deps = buildCoordinatorDependencies(rebootServerUrl);
