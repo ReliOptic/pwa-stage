@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from 'react';
+import { getDevicePresetById } from '../../config/device-presets.config';
 import { getSimulatorBridge, isElectronRuntime } from '../../utils/renderer-bridge.util';
+import { computeShellChromeHeights, resolveSafeAreaInsets } from '../../utils/viewport-math.util';
 import { ElectronWebviewElement } from '../../types/renderer.types';
 import { DuoDisplayMode, SimulatorState } from '../../types/simulator.types';
 
@@ -71,6 +73,29 @@ function useWebviewEffects(
       iframeRef.current.src = props.targetUrl;
     }
   }, [props.reloadTick, electronMode, props.targetUrl]);
+
+  useEffect((): (() => void) | void => {
+    if (!electronMode) {
+      return;
+    }
+    const handleNav = (evt: Event): void => {
+      const action = (evt as CustomEvent<'back' | 'forward'>).detail;
+      const el = webviewRef.current as (ElectronWebviewElement & {
+        canGoBack?: () => boolean;
+        canGoForward?: () => boolean;
+        goBack?: () => void;
+        goForward?: () => void;
+      }) | null;
+      if (!el) return;
+      if (action === 'back' && el.canGoBack?.()) {
+        el.goBack?.();
+      } else if (action === 'forward' && el.canGoForward?.()) {
+        el.goForward?.();
+      }
+    };
+    window.addEventListener('sim:webview-nav', handleNav);
+    return (): void => window.removeEventListener('sim:webview-nav', handleNav);
+  }, [electronMode]);
 }
 
 function SingleViewportPane(props: SingleViewportPaneProps): React.ReactElement {
@@ -116,12 +141,27 @@ export function WebviewContainer(props: WebviewContainerProps): React.ReactEleme
   const { state, isDualUnfolded, reloadTick, onRegisterWebContentsId } = props;
   const isSplitDuo =
     isDualUnfolded && state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON;
+  const preset = getDevicePresetById(state.selectedDeviceId);
+  const safeArea = resolveSafeAreaInsets(preset, state.orientation);
+  const chrome = computeShellChromeHeights(state.shellMode, safeArea);
+  const chromeInsetStyle: React.CSSProperties = {
+    paddingTop: `${chrome.topBarHeight}px`,
+    paddingBottom: `${chrome.bottomBarHeight}px`,
+    boxSizing: 'border-box',
+    background: state.darkMode ? '#09090c' : '#f4f4f6'
+  };
 
   if (isSplitDuo) {
     return (
       <div
         className="webview-full-bleed"
-        style={{ display: 'flex', flexDirection: 'row', gap: '2px', background: '#000000' }}
+        style={{
+          ...chromeInsetStyle,
+          display: 'flex',
+          flexDirection: 'row',
+          gap: '2px',
+          background: '#000000'
+        }}
       >
         <SingleViewportPane
           targetUrl={state.currentUrl}
@@ -135,7 +175,7 @@ export function WebviewContainer(props: WebviewContainerProps): React.ReactEleme
   }
 
   return (
-    <div className="webview-full-bleed">
+    <div className="webview-full-bleed" style={chromeInsetStyle}>
       <SingleViewportPane
         targetUrl={state.currentUrl}
         state={state}

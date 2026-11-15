@@ -1,5 +1,15 @@
 import React from 'react';
-import { Lock, RotateCw } from 'lucide-react';
+import {
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Lock,
+  MoreHorizontal,
+  Plus,
+  RotateCw,
+  Share
+} from 'lucide-react';
 import { IOS27_NOTCH_03_SVG_PATH, IOS27_STATUS_ICONS } from '../../config/ios27-assets.config';
 import {
   DeviceModelId,
@@ -176,6 +186,10 @@ export function IosStatusBar(props: BrowserShellOverlayProps): React.ReactElemen
   );
 }
 
+function dispatchWebviewNav(direction: 'back' | 'forward'): void {
+  window.dispatchEvent(new CustomEvent('sim:webview-nav', { detail: direction }));
+}
+
 export function BrowserShellBarOverlay(props: {
   readonly shellMode: BrowserShellMode;
   readonly currentUrl: string;
@@ -187,27 +201,110 @@ export function BrowserShellBarOverlay(props: {
   }
   const host = getHostnameForDisplay(props.currentUrl);
   const isSafari = props.shellMode === BrowserShellMode.IOS_SAFARI;
+  const glassClass = props.darkMode ? 'ios-liquid-glass-dark' : 'ios-liquid-glass-light';
+  const chromeSurfaceClass = props.darkMode ? 'ios-browser-surface-dark' : 'ios-browser-surface-light';
+
+  if (isSafari) {
+    return (
+      <>
+        <div className={`ios-browser-top-backdrop ${chromeSurfaceClass}`} aria-hidden="true" />
+        <div className={`ios-safari-bottom-dock ${chromeSurfaceClass}`}>
+          <div className={`ios-browser-shell-pill ios-safari-address-pill ${glassClass}`}>
+            <button
+              type="button"
+              className="ios-shell-icon-btn"
+              onClick={(): void => dispatchWebviewNav('back')}
+              title="뒤로"
+              aria-label="뒤로"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <button
+              type="button"
+              className="ios-shell-icon-btn"
+              onClick={(): void => dispatchWebviewNav('forward')}
+              title="앞으로"
+              aria-label="앞으로"
+            >
+              <ChevronRight size={14} />
+            </button>
+            <span className="ios-shell-aa">가A</span>
+            <span className="ios-shell-domain">
+              <Lock size={10} />
+              <span>{host}</span>
+            </span>
+            <button
+              type="button"
+              className="ios-shell-reload"
+              onClick={props.onReload}
+              title="새로고침"
+              aria-label="새로고침"
+            >
+              <RotateCw size={12} />
+            </button>
+            <span className="ios-shell-icon-passive" aria-hidden="true">
+              <Share size={12} />
+            </span>
+            <span className="ios-shell-icon-passive" aria-hidden="true">
+              <BookOpen size={12} />
+            </span>
+            <span className="ios-shell-icon-passive" aria-hidden="true">
+              <Copy size={12} />
+            </span>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
-    <div
-      className={`ios-browser-shell-pill ${isSafari ? 'ios-safari-bottom-pill' : 'ios-chrome-top-pill'} ${
-        props.darkMode ? 'ios-liquid-glass-dark' : 'ios-liquid-glass-light'
-      }`}
-    >
-      <span className="ios-shell-aa">{isSafari ? '가A' : 'Chrome'}</span>
-      <span className="ios-shell-domain">
-        <Lock size={10} />
-        <span>{host}</span>
-      </span>
-      <button
-        type="button"
-        className="ios-shell-reload"
-        onClick={props.onReload}
-        title="새로고침"
-      >
-        <RotateCw size={12} />
-      </button>
-    </div>
+    <>
+      <div className={`ios-chrome-top-dock ${chromeSurfaceClass}`}>
+        <div className={`ios-browser-shell-pill ios-chrome-omnibox ${glassClass}`}>
+          <span className="ios-shell-aa">G</span>
+          <span className="ios-shell-domain">
+            <Lock size={10} />
+            <span>{host}</span>
+          </span>
+          <button
+            type="button"
+            className="ios-shell-reload"
+            onClick={props.onReload}
+            title="새로고침"
+            aria-label="새로고침"
+          >
+            <RotateCw size={12} />
+          </button>
+        </div>
+      </div>
+      <div className={`ios-chrome-bottom-dock ${chromeSurfaceClass}`}>
+        <button
+          type="button"
+          className="ios-shell-icon-btn"
+          onClick={(): void => dispatchWebviewNav('back')}
+          title="뒤로"
+          aria-label="뒤로"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <button
+          type="button"
+          className="ios-shell-icon-btn"
+          onClick={(): void => dispatchWebviewNav('forward')}
+          title="앞으로"
+          aria-label="앞으로"
+        >
+          <ChevronRight size={16} />
+        </button>
+        <span className="ios-chrome-plus-btn" aria-hidden="true">
+          <Plus size={15} />
+        </span>
+        <span className="ios-chrome-tab-badge" aria-hidden="true">1</span>
+        <span className="ios-shell-icon-passive" aria-hidden="true">
+          <MoreHorizontal size={15} />
+        </span>
+      </div>
+    </>
   );
 }
 

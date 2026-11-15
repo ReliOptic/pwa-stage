@@ -93,6 +93,14 @@ describe('viewport-math.util & logger.util', () => {
     const pwa = computeShellChromeHeights(BrowserShellMode.PWA_STANDALONE, safeArea);
     expect(pwa.topBarHeight).toBe(0);
     expect(pwa.bottomBarHeight).toBe(0);
+
+    const safari = computeShellChromeHeights(BrowserShellMode.IOS_SAFARI, safeArea);
+    expect(safari.topBarHeight).toBeGreaterThanOrEqual(44);
+    expect(safari.bottomBarHeight).toBeGreaterThanOrEqual(68);
+
+    const chrome = computeShellChromeHeights(BrowserShellMode.IOS_CHROME, safeArea);
+    expect(chrome.topBarHeight).toBeGreaterThan(safari.topBarHeight);
+    expect(chrome.bottomBarHeight).toBeGreaterThanOrEqual(44);
   });
 
   it('formats structured JSON logs with timestamp, domain, and context', () => {

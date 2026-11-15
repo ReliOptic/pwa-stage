@@ -600,25 +600,175 @@ html, body, #root {
 .ios-status-pad-right { padding-right: 28px; }
 .ios-status-time { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; line-height: 1; }
 
+.ios-browser-surface-dark {
+  background: rgba(14, 14, 18, 0.88);
+  backdrop-filter: blur(22px) saturate(180%);
+  color: #f4f4f5;
+}
+
+.ios-browser-surface-light {
+  background: rgba(246, 246, 250, 0.90);
+  backdrop-filter: blur(22px) saturate(180%);
+  color: #111114;
+}
+
+.ios-browser-top-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 59px;
+  z-index: 33;
+  pointer-events: none;
+  border-bottom: 0.5px solid rgba(128, 128, 140, 0.16);
+}
+
+.ios-safari-bottom-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 72px;
+  padding: 6px 12px 18px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 34;
+  border-top: 0.5px solid rgba(128, 128, 140, 0.18);
+}
+
+.ios-chrome-top-dock {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 111px;
+  padding: 58px 12px 8px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 34;
+  border-bottom: 0.5px solid rgba(128, 128, 140, 0.18);
+}
+
+.ios-chrome-bottom-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 48px;
+  padding: 0 22px 12px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 34;
+  border-top: 0.5px solid rgba(128, 128, 140, 0.18);
+}
+
 .ios-browser-shell-pill {
-  position: absolute; left: 16px; right: 16px; height: 42px; border-radius: 21px;
-  display: flex; align-items: center; justify-content: space-between; padding: 0 14px;
-  z-index: 36; pointer-events: auto; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  width: 100%;
+  height: 40px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 11px;
+  z-index: 36;
+  pointer-events: auto;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  box-sizing: border-box;
 }
 
-.ios-safari-bottom-pill { bottom: 22px; }
-.ios-chrome-top-pill { top: 54px; }
+.ios-safari-address-pill {
+  height: 42px;
+  border-radius: 21px;
+}
 
-.ios-shell-aa { font-size: 12px; font-weight: 600; opacity: 0.78; }
+.ios-chrome-omnibox {
+  height: 38px;
+  border-radius: 19px;
+}
+
+.ios-shell-aa {
+  font-size: 11.5px;
+  font-weight: 600;
+  opacity: 0.78;
+  flex-shrink: 0;
+}
+
 .ios-shell-domain {
-  display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 500;
-  max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+.ios-shell-icon-btn,
 .ios-shell-reload {
-  width: 26px; height: 26px; border: none; border-radius: 50%; background: transparent;
-  color: inherit; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.82;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.85;
+  flex-shrink: 0;
+  padding: 0;
 }
-.ios-shell-reload:hover { background: rgba(255, 255, 255, 0.12); opacity: 1; }
+
+.ios-shell-icon-btn:hover,
+.ios-shell-reload:hover {
+  background: rgba(128, 128, 140, 0.18);
+  opacity: 1;
+}
+
+.ios-shell-icon-passive {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.65;
+  flex-shrink: 0;
+}
+
+.ios-chrome-plus-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(128, 128, 140, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ios-chrome-tab-badge {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid currentColor;
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+}
 
 .ios-duo-vertical-rail {
   position: absolute; bottom: 20px; right: 5px; width: 47px;

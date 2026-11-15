@@ -70,12 +70,25 @@ export function resolveCornerRadii(
 }
 
 export function computeShellChromeHeights(
-  _shellMode: BrowserShellMode,
-  _safeArea: SafeAreaInsets
+  shellMode: BrowserShellMode,
+  safeArea: SafeAreaInsets
 ): ShellChromeHeights {
+  if (shellMode === BrowserShellMode.PWA_STANDALONE) {
+    return {
+      topBarHeight: 0,
+      bottomBarHeight: 0
+    };
+  }
+  if (shellMode === BrowserShellMode.IOS_CHROME) {
+    return {
+      topBarHeight: Math.max(44, safeArea.top) + 52,
+      bottomBarHeight: Math.max(44, safeArea.bottom + 14)
+    };
+  }
+  // IOS_SAFARI: top status bar + bottom Liquid Glass address/nav bar
   return {
-    topBarHeight: 0,
-    bottomBarHeight: 0
+    topBarHeight: Math.max(44, safeArea.top),
+    bottomBarHeight: Math.max(68, safeArea.bottom + 38)
   };
 }
 

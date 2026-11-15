@@ -6,7 +6,7 @@ import {
 } from '../types/emulation.types';
 import { BrowserShellMode, EmulationFailureError, Result } from '../types/simulator.types';
 import { logStructured } from '../utils/logger.util';
-import { resolveSafeAreaInsets } from '../utils/viewport-math.util';
+import { computeShellChromeHeights, resolveSafeAreaInsets } from '../utils/viewport-math.util';
 
 export function buildMobileUserAgent(
   shellMode: BrowserShellMode,
@@ -71,6 +71,7 @@ export function buildSafeAreaCss(safeArea: SafeAreaInsets, darkMode: boolean): s
     '  -webkit-tap-highlight-color: transparent;',
     '  -webkit-touch-callout: none;',
     '  overscroll-behavior-y: contain;',
+    '  overflow-x: clip;',
     '}',
     '::-webkit-scrollbar {',
     '  width: 0px;',
@@ -128,8 +129,17 @@ export function buildStandaloneInitScript(
 export function buildEmulationProfile(input: EmulationProfileInput): EmulationProfile {
   const isPortrait = input.orientation === Orientation.PORTRAIT;
   const width = isPortrait ? input.preset.width : input.preset.height;
-  const height = isPortrait ? input.preset.height : input.preset.width;
-  const safeArea = resolveSafeAreaInsets(input.preset, input.orientation);
+  const rawHeight = isPortrait ? input.preset.height : input.preset.width;
+  const rawSafeArea = resolveSafeAreaInsets(input.preset, input.orientation);
+  const chromeHeights = computeShellChromeHeights(input.shellMode, rawSafeArea);
+  const viewportHeight = Math.max(
+    240,
+    rawHeight - chromeHeights.topBarHeight - chromeHeights.bottomBarHeight
+  );
+  const innerSafeArea: SafeAreaInsets =
+    input.shellMode === BrowserShellMode.PWA_STANDALONE
+      ? rawSafeArea
+      : { top: 0, right: rawSafeArea.right, bottom: 0, left: rawSafeArea.left };
 
   return {
     userAgent: buildMobileUserAgent(
@@ -140,7 +150,7 @@ export function buildEmulationProfile(input: EmulationProfileInput): EmulationPr
     platform: 'iPhone',
     metrics: {
       width,
-      height,
+      height: viewportHeight,
       deviceScaleFactor: input.preset.deviceScaleFactor,
       mobile: true,
       screenOrientation: {
@@ -152,10 +162,10 @@ export function buildEmulationProfile(input: EmulationProfileInput): EmulationPr
       enabled: true,
       maxTouchPoints: 5
     },
-    safeAreaCss: buildSafeAreaCss(safeArea, input.darkMode),
+    safeAreaCss: buildSafeAreaCss(innerSafeArea, input.darkMode),
     standaloneInitScript: buildStandaloneInitScript(
       input.shellMode,
-      safeArea,
+      innerSafeArea,
       Boolean(input.touchCursorEnabled)
     )
   };
@@ -176,6 +186,14 @@ export async function applyEmulationToTarget(
     target.setZoomFactor?.(effectiveZoom);
 
     await Promise.all([
+      target.debugger.sendCommand('Emulation.setDeviceMetricsOverride', {
+        width: profile.metrics.width,
+        height: profile.metrics.height,
+        deviceScaleFactor: profile.metrics.deviceScaleFactor,
+        mobile: profile.metrics.mobile,
+        screenOrientation: profile.metrics.screenOrientation,
+        dontSetVisibleSize: true
+      }),
       target.debugger.sendCommand('Emulation.setUserAgentOverride', {
         userAgent: profile.userAgent,
         platform: profile.platform
