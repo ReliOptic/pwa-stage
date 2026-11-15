@@ -186,14 +186,6 @@ export async function applyEmulationToTarget(
     target.setZoomFactor?.(effectiveZoom);
 
     await Promise.all([
-      target.debugger.sendCommand('Emulation.setDeviceMetricsOverride', {
-        width: profile.metrics.width,
-        height: profile.metrics.height,
-        deviceScaleFactor: profile.metrics.deviceScaleFactor,
-        mobile: profile.metrics.mobile,
-        screenOrientation: profile.metrics.screenOrientation,
-        dontSetVisibleSize: true
-      }),
       target.debugger.sendCommand('Emulation.setUserAgentOverride', {
         userAgent: profile.userAgent,
         platform: profile.platform

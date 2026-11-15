@@ -76,15 +76,6 @@ describe('emulation service', () => {
     expect(result.ok).toBe(true);
     expect(setZoomMock).toHaveBeenCalled();
     expect(sendCommandMock).toHaveBeenCalledWith(
-      'Emulation.setDeviceMetricsOverride',
-      expect.objectContaining({
-        width: 402,
-        mobile: true,
-        deviceScaleFactor: 3,
-        dontSetVisibleSize: true
-      })
-    );
-    expect(sendCommandMock).toHaveBeenCalledWith(
       'Emulation.setTouchEmulationEnabled',
       expect.objectContaining({ enabled: true, maxTouchPoints: 5 })
     );
