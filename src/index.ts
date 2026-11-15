@@ -167,6 +167,7 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
     y: initialY,
     width: metrics.scaledOuterWidth,
     height: metrics.scaledOuterHeight,
+    show: false,
     transparent: true,
     frame: false,
     hasShadow: false,
@@ -182,12 +183,19 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
   });
 
   setFloatingPin(win, state.alwaysOnTop);
-  if (state.alwaysOnTop) {
-    win.show();
-    win.focus();
-  } else {
-    win.showInactive();
-  }
+  win.once('ready-to-show', () => {
+    if (win.isDestroyed()) {
+      return;
+    }
+    const latest = readCurrentState(ctx.deps);
+    setFloatingPin(win, latest.alwaysOnTop);
+    if (latest.alwaysOnTop) {
+      win.show();
+      win.focus();
+    } else {
+      win.showInactive();
+    }
+  });
 
   win.on('will-resize', (event, newBounds) => {
     event.preventDefault();
