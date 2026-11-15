@@ -214,8 +214,8 @@ export function BrowserShellBarOverlay(props: {
               type="button"
               className="ios-shell-icon-btn"
               onClick={(): void => dispatchWebviewNav('back')}
-              title="뒤로"
-              aria-label="뒤로"
+              title="Back"
+              aria-label="Back"
             >
               <ChevronLeft size={14} />
             </button>
@@ -223,12 +223,12 @@ export function BrowserShellBarOverlay(props: {
               type="button"
               className="ios-shell-icon-btn"
               onClick={(): void => dispatchWebviewNav('forward')}
-              title="앞으로"
-              aria-label="앞으로"
+              title="Forward"
+              aria-label="Forward"
             >
               <ChevronRight size={14} />
             </button>
-            <span className="ios-shell-aa">가A</span>
+            <span className="ios-shell-aa">AA</span>
             <span className="ios-shell-domain">
               <Lock size={10} />
               <span>{host}</span>
@@ -237,8 +237,8 @@ export function BrowserShellBarOverlay(props: {
               type="button"
               className="ios-shell-reload"
               onClick={props.onReload}
-              title="새로고침"
-              aria-label="새로고침"
+              title="Reload"
+              aria-label="Reload"
             >
               <RotateCw size={12} />
             </button>
@@ -270,8 +270,8 @@ export function BrowserShellBarOverlay(props: {
             type="button"
             className="ios-shell-reload"
             onClick={props.onReload}
-            title="새로고침"
-            aria-label="새로고침"
+            title="Reload"
+            aria-label="Reload"
           >
             <RotateCw size={12} />
           </button>
@@ -282,8 +282,8 @@ export function BrowserShellBarOverlay(props: {
           type="button"
           className="ios-shell-icon-btn"
           onClick={(): void => dispatchWebviewNav('back')}
-          title="뒤로"
-          aria-label="뒤로"
+          title="Back"
+          aria-label="Back"
         >
           <ChevronLeft size={16} />
         </button>
@@ -291,8 +291,8 @@ export function BrowserShellBarOverlay(props: {
           type="button"
           className="ios-shell-icon-btn"
           onClick={(): void => dispatchWebviewNav('forward')}
-          title="앞으로"
-          aria-label="앞으로"
+          title="Forward"
+          aria-label="Forward"
         >
           <ChevronRight size={16} />
         </button>

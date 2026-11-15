@@ -350,37 +350,37 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
     >
       {state.hudCollapsed && (
         <div className="bezel-mini-hud">
-          <span className="bezel-mini-drag" title="드래그하여 창 이동">
+          <span className="bezel-mini-drag" title="Drag to move window">
             <GripHorizontal size={12} />
           </span>
           <button
             type="button"
             className={`bezel-mini-btn ${state.alwaysOnTop ? 'bezel-mini-pin-on' : ''}`}
-            title={`항상 위에 고정 (${state.alwaysOnTop ? '켜짐' : '꺼짐'}) — ⌘T`}
+            title={`Always on Top across all spaces (${state.alwaysOnTop ? 'Pinned' : 'Unpinned'}) — ⌘T`}
             onClick={(): void => props.onUpdateState({ alwaysOnTop: !state.alwaysOnTop })}
           >
             {state.alwaysOnTop ? <Pin size={11} /> : <PinOff size={11} />}
-            <span>{state.alwaysOnTop ? '항상위 ON' : '항상위 OFF'}</span>
+            <span>{state.alwaysOnTop ? 'Pinned' : 'Pin'}</span>
           </button>
           <button
             type="button"
             className={`bezel-mini-btn ${state.touchCursorEnabled ? 'bezel-mini-swipe-direct' : ''}`}
-            title="스와이프 모드 전환: 눌러서 스와이프 vs 바로 스와이프"
+            title="Switch swipe mode: Drag vs Hover"
             onClick={(): void =>
               props.onUpdateState({ touchCursorEnabled: !state.touchCursorEnabled })
             }
           >
             {state.touchCursorEnabled ? <Sparkles size={11} /> : <MousePointerClick size={11} />}
-            <span>{state.touchCursorEnabled ? '바로 스와이프' : '눌러서 스와이프'}</span>
+            <span>{state.touchCursorEnabled ? 'Hover' : 'Drag'}</span>
           </button>
           <button
             type="button"
             className="bezel-mini-btn"
-            title="상단 컨트롤 바 열기 (⌘B)"
+            title="Show Toolbar (⌘B)"
             onClick={props.onExpandHud}
           >
             <SlidersHorizontal size={11} />
-            <span>툴바</span>
+            <span>Toolbar</span>
           </button>
         </div>
       )}
@@ -486,25 +486,25 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
           </div>
         )}
 
-        {/* 모서리 드래그로 비율 유지 자유 크기 조절 */}
+        {/* Corner drag handles for aspect-ratio resizing */}
         <div
           className="corner-resize-grip corner-se"
-          title="드래그하여 아이폰 크기 조절 (비율 고정)"
+          title="Drag to resize iPhone (aspect ratio locked)"
           onPointerDown={(e): void => startCornerResize(e, 1, 1)}
         />
         <div
           className="corner-resize-grip corner-sw"
-          title="드래그하여 아이폰 크기 조절 (비율 고정)"
+          title="Drag to resize iPhone (aspect ratio locked)"
           onPointerDown={(e): void => startCornerResize(e, -1, 1)}
         />
         <div
           className="corner-resize-grip corner-ne"
-          title="드래그하여 아이폰 크기 조절 (비율 고정)"
+          title="Drag to resize iPhone (aspect ratio locked)"
           onPointerDown={(e): void => startCornerResize(e, 1, -1)}
         />
         <div
           className="corner-resize-grip corner-nw"
-          title="드래그하여 아이폰 크기 조절 (비율 고정)"
+          title="Drag to resize iPhone (aspect ratio locked)"
           onPointerDown={(e): void => startCornerResize(e, -1, -1)}
         />
       </div>

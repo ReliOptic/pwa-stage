@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ComputedViewportMetrics,
-  CornerRadiiSpec,
   DevicePreset,
   HardwareCutoutType,
   Orientation
@@ -12,7 +11,6 @@ import {
   Duo3DHardwareEngine
 } from '../../utils/duo-3d-engine.util';
 import { DuoPostureId } from '../../utils/duo-fold-math.util';
-import { buildAppleSquirclePath } from '../../utils/squircle.util';
 import {
   BrowserShellBarOverlay,
   HardwareCutout,
@@ -182,25 +180,17 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const primaryShiftX = isBentInner && !isHorizontalSplit ? -475.5 : 0;
   const primaryShiftY = isBentInner && isHorizontalSplit ? -475.5 : 0;
 
-  const primarySquircleRadii: CornerRadiiSpec = isOuterPrimary
-    ? { topLeft: 12, topRight: 52, bottomRight: 52, bottomLeft: 12 }
+  const primaryBorderRadius = isOuterPrimary
+    ? '12px 46px 46px 12px'
     : !isBentInner
-      ? { topLeft: 52, topRight: 52, bottomRight: 52, bottomLeft: 52 }
+      ? '44px'
       : isHorizontalSplit
-        ? { topLeft: 0, topRight: 0, bottomRight: 52, bottomLeft: 52 }
-        : { topLeft: 0, topRight: 52, bottomRight: 52, bottomLeft: 0 };
+        ? '0 0 44px 44px'
+        : '0 44px 44px 0';
 
-  const secondarySquircleRadii: CornerRadiiSpec = isHorizontalSplit
-    ? { topLeft: 52, topRight: 52, bottomRight: 0, bottomLeft: 0 }
-    : { topLeft: 52, topRight: 0, bottomRight: 0, bottomLeft: 52 };
-
-  const primaryClipPath = primarySlice
-    ? `path('${buildAppleSquirclePath(primarySlice.width, primarySlice.height, primarySquircleRadii)}')`
-    : undefined;
-  const secondaryClipPath =
-    projection && projection.left.active
-      ? `path('${buildAppleSquirclePath(projection.left.width, projection.left.height, secondarySquircleRadii)}')`
-      : undefined;
+  const secondaryBorderRadius = isHorizontalSplit
+    ? '44px 44px 0 0'
+    : '44px 0 0 44px';
 
   const foldDepthIntensity = projection
     ? Math.sin(projection.phi * Math.PI)
@@ -219,7 +209,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
       onPointerMove={handleStagePointerMove}
       onPointerUp={handleStagePointerUp}
       onPointerCancel={handleStagePointerUp}
-      title="여백을 드래그하여 3D 기기 회전 (Alt+드래그: 화면 위에서도 회전)"
+      title="Drag margin to orbit 3D device (Alt+drag over screen)"
     >
       {/* 1. Apple Official 3D Skinned glTF Hardware Mesh Canvas */}
       <canvas
@@ -239,7 +229,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
             height: `${projection.left.height}px`,
             transform: projection.left.matrix3d,
             opacity: projection.left.opacity,
-            clipPath: secondaryClipPath,
+            borderRadius: secondaryBorderRadius,
             zIndex: projection.left.zIndex
           }}
         >
@@ -290,7 +280,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
             height: `${primarySlice.height}px`,
             transform: primarySlice.matrix3d,
             opacity: primarySlice.opacity,
-            clipPath: primaryClipPath,
+            borderRadius: primaryBorderRadius,
             zIndex: primarySlice.zIndex
           }}
         >

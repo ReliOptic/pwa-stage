@@ -35,12 +35,12 @@ const POSTURE_ITEMS: readonly {
   readonly angleLabel: string;
   readonly title: string;
 }[] = [
-  { id: 'closed', label: '닫힘', angleLabel: '0°', title: '외부 커버 디스플레이 (5.4″ · 466×678pt)' },
-  { id: 'standing', label: '세우기', angleLabel: '70°', title: '스탠드 / 텐트 거치 모드 (70° ∧형)' },
-  { id: 'book', label: '책처럼', angleLabel: '100°', title: '북 모드 입체 접힘 (100° Free-Stop)' },
-  { id: 'tabletop', label: '테이블', angleLabel: '108°', title: '테이블탑 / 노트북 거치 모드 (108° 상·하 분할)' },
-  { id: 'open', label: '펼침', angleLabel: '180°', title: '내부 와이드 디스플레이 (7.6″ · 951×669pt)' },
-  { id: 'portrait', label: '세로', angleLabel: '180°', title: '내부 세로 펼침 (669×951pt)' }
+  { id: 'closed', label: 'Closed', angleLabel: '0°', title: 'Cover Display (5.4″ · 466×678pt)' },
+  { id: 'standing', label: 'Stand', angleLabel: '70°', title: 'Tent / Stand Mode (70°)' },
+  { id: 'book', label: 'Book', angleLabel: '100°', title: 'Book Mode Free-Stop (100°)' },
+  { id: 'tabletop', label: 'Table', angleLabel: '108°', title: 'Tabletop Mode (108° Split)' },
+  { id: 'open', label: 'Open', angleLabel: '180°', title: 'Inner Wide Display (7.6″ · 951×669pt)' },
+  { id: 'portrait', label: 'Portrait', angleLabel: '180°', title: 'Inner Portrait (669×951pt)' }
 ];
 
 const DETENT_TICKS: readonly number[] = [0, 70, 100, 108, 180];
@@ -64,7 +64,7 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
   const phi = sampleFoldCurve(foldAngle / 180);
   const status = resolveDeviceHingeStatus(foldAngle);
   const statusBadgeText =
-    status === 'closed' ? '닫힘' : status === 'fullyOpen' ? '완전 펼침' : '프리-스탑 3D';
+    status === 'closed' ? 'Closed' : status === 'fullyOpen' ? 'Open' : 'Free-Stop 3D';
 
   const renderPostureIcon = (id: DuoPostureId): React.ReactNode => {
     switch (id) {
@@ -85,7 +85,7 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
 
   return (
     <div className="duo-bottom-minibar" role="region" aria-label="iPhone Duo 3D Hinge Control">
-      <div className="duo-posture-strip" role="group" aria-label="프리뷰 자세">
+      <div className="duo-posture-strip" role="group" aria-label="Preview Posture">
         {POSTURE_ITEMS.map((item) => {
           const isActive = posture === item.id;
           return (
@@ -105,13 +105,13 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
         })}
       </div>
 
-      <div className="duo-scrub-deck" title="1° 프레임 단위 Free-Stop 힌지 각도 조절 (0°–180°)">
+      <div className="duo-scrub-deck" title="Free-Stop hinge angle (0°–180°)">
         <button
           type="button"
           className="duo-frame-step-btn"
           onClick={(e): void => onStepAngle(e.shiftKey ? -5 : -1)}
-          title="1° 닫기 (Shift+클릭: 5° 닫기)"
-          aria-label="1도 닫기"
+          title="Fold 1° (Shift+Click: 5°)"
+          aria-label="Fold 1 degree"
         >
           <ChevronLeft size={11} />
           <span>-1°</span>
@@ -143,8 +143,8 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
           type="button"
           className="duo-frame-step-btn"
           onClick={(e): void => onStepAngle(e.shiftKey ? 5 : 1)}
-          title="1° 열기 (Shift+클릭: 5° 열기)"
-          aria-label="1도 열기"
+          title="Unfold 1° (Shift+Click: 5°)"
+          aria-label="Unfold 1 degree"
         >
           <span>+1°</span>
           <ChevronRight size={11} />
@@ -162,16 +162,16 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
           type="button"
           className={`duo-finish-dot duo-finish-${finish}`}
           onClick={onToggleFinish}
-          title={finish === 'night' ? 'Night Sky 마감 (클릭하여 Star White 전환)' : 'Star White 마감 (클릭하여 Night Sky 전환)'}
-          aria-label="기기 마감 색상 전환"
+          title={finish === 'night' ? 'Night Sky finish (click for Star White)' : 'Star White finish (click for Night Sky)'}
+          aria-label="Toggle device finish"
         />
         {hasCustomOrbit && (
           <button
             type="button"
             className="duo-reset-orbit-btn"
             onClick={onResetOrbit}
-            title="3D 카메라 회전 시점 초기화"
-            aria-label="3D 시점 초기화"
+            title="Reset 3D camera view"
+            aria-label="Reset 3D camera view"
           >
             <RotateCcw size={10} />
           </button>

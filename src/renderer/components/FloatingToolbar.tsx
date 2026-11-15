@@ -88,7 +88,7 @@ function TopControlRow(props: FloatingToolbarProps): React.ReactElement {
           <button
             type="button"
             className="traffic-dot traffic-close"
-            title="상단바로 숨기기 (⌘⇧S)"
+            title="Hide to Menu Bar (⌘⇧S)"
             onClick={props.onClose}
           >
             <X size={8} strokeWidth={3} />
@@ -96,7 +96,7 @@ function TopControlRow(props: FloatingToolbarProps): React.ReactElement {
           <button
             type="button"
             className="traffic-dot traffic-min"
-            title="Dock으로 최소화 (⌘M)"
+            title="Minimize to Dock (⌘M)"
             onClick={props.onMinimize}
           >
             <Minus size={8} strokeWidth={3} />
@@ -125,26 +125,26 @@ function TopControlRow(props: FloatingToolbarProps): React.ReactElement {
         <div
           className="swipe-mode-segmented"
           role="group"
-          aria-label="화면 내 스와이프 방식"
-          title="화면 내 스와이프 방식: 눌러서(클릭 드래그) vs 바로(무클릭 커서 이동/트랙패드)"
+          aria-label="Swipe Mode"
+          title="Swipe mode: Drag (click & drag) vs Hover (cursor / trackpad)"
         >
           <button
             type="button"
             className={`swipe-seg-btn ${!state.touchCursorEnabled ? 'swipe-seg-active' : ''}`}
-            title="눌러서 스와이프: 마우스를 클릭한 채 드래그하여 스와이프"
+            title="Drag mode: click and drag to scroll or swipe"
             onClick={(): void => onUpdateState({ touchCursorEnabled: false })}
           >
-            <MousePointerClick size={9.5} />
-            <span>눌러서</span>
+            <MousePointerClick size={9} />
+            <span>Drag</span>
           </button>
           <button
             type="button"
             className={`swipe-seg-btn ${state.touchCursorEnabled ? 'swipe-seg-active swipe-seg-direct' : ''}`}
-            title="바로 스와이프: 클릭 없이 커서를 움직이거나 트랙패드 스크롤로 즉시 스와이프"
+            title="Hover mode: direct swipe with cursor or trackpad without clicking"
             onClick={(): void => onUpdateState({ touchCursorEnabled: true })}
           >
-            {state.touchCursorEnabled ? <Sparkles size={9.5} /> : <Hand size={9.5} />}
-            <span>바로</span>
+            {state.touchCursorEnabled ? <Sparkles size={9} /> : <Hand size={9} />}
+            <span>Hover</span>
           </button>
         </div>
 
@@ -161,8 +161,8 @@ function TopControlRow(props: FloatingToolbarProps): React.ReactElement {
               })
             }
           >
-            {isDuoFolded ? <BookOpen size={10.5} /> : <FolderClosed size={10.5} />}
-            <span>{isDuoFolded ? '펼치기' : '접기'}</span>
+            {isDuoFolded ? <BookOpen size={10} /> : <FolderClosed size={10} />}
+            <span>{isDuoFolded ? 'Unfold' : 'Fold'}</span>
           </button>
         )}
       </div>
@@ -171,26 +171,26 @@ function TopControlRow(props: FloatingToolbarProps): React.ReactElement {
         <button
           type="button"
           className={`pin-toggle-pill ${state.alwaysOnTop ? 'pin-toggle-on' : 'pin-toggle-off'}`}
-          title={`항상 위에 고정 토글 (현재: ${state.alwaysOnTop ? '켜짐' : '꺼짐'}, 단축키 ⌘T)`}
+          title={`Always on Top across all spaces (${state.alwaysOnTop ? 'Pinned' : 'Unpinned'}, ⌘T)`}
           onClick={(): void => onUpdateState({ alwaysOnTop: !state.alwaysOnTop })}
         >
-          {state.alwaysOnTop ? <Pin size={9.5} /> : <PinOff size={9.5} />}
-          <span>{state.alwaysOnTop ? '고정 ON' : '고정'}</span>
+          {state.alwaysOnTop ? <Pin size={9} /> : <PinOff size={9} />}
+          <span>{state.alwaysOnTop ? 'Pinned' : 'Pin'}</span>
         </button>
 
         <div className="scale-stepper" role="group" aria-label="Scale">
           <button
             type="button"
             className="scale-step-btn"
-            title="축소 (⌘-)"
+            title="Zoom Out (⌘-)"
             onClick={(): void => stepScale(-0.05)}
           >
-            <Minus size={9.5} />
+            <Minus size={9} />
           </button>
           <button
             type="button"
             className="scale-readout-btn"
-            title="클릭하여 85% / 100% 전환 (모서리 드래그로 자유 조절 가능)"
+            title="Click to toggle 85% / 100% (or drag corners to resize)"
             onClick={(): void =>
               onUpdateState({ scale: Math.abs(state.scale - 0.85) < 0.02 ? 1.0 : 0.85 })
             }
@@ -200,20 +200,20 @@ function TopControlRow(props: FloatingToolbarProps): React.ReactElement {
           <button
             type="button"
             className="scale-step-btn"
-            title="확대 (⌘+)"
+            title="Zoom In (⌘+)"
             onClick={(): void => stepScale(0.05)}
           >
-            <Plus size={9.5} />
+            <Plus size={9} />
           </button>
         </div>
 
         <button
           type="button"
           className="shadcn-icon-btn"
-          title="컨트롤 바 접기 (⌘B)"
+          title="Collapse Toolbar (⌘B)"
           onClick={(): void => onUpdateState({ hudCollapsed: true })}
         >
-          <EyeOff size={11} />
+          <EyeOff size={10.5} />
         </button>
       </div>
     </div>
@@ -249,7 +249,7 @@ function UrlBarRow(props: FloatingToolbarProps): React.ReactElement {
       <button
         type="button"
         className="shadcn-btn shadcn-btn-outline"
-        title="셸 모드 전환: PWA Standalone / iOS Safari / iOS Chrome"
+        title="Switch shell: PWA Standalone / iOS Safari / iOS Chrome"
         onClick={(): void => onUpdateState({ shellMode: nextShellMode(state.shellMode) })}
       >
         <Layers size={10} />
@@ -263,9 +263,9 @@ function UrlBarRow(props: FloatingToolbarProps): React.ReactElement {
           className="shadcn-input"
           value={urlDraft}
           onChange={(e): void => setUrlDraft(e.target.value)}
-          placeholder="URL 또는 :5173 입력..."
+          placeholder="Enter URL or :5173..."
         />
-        <button type="submit" className="shadcn-input-submit" title="이동 (Enter)">
+        <button type="submit" className="shadcn-input-submit" title="Go (Enter)">
           <CornerDownLeft size={9} />
         </button>
       </div>
@@ -284,7 +284,7 @@ function UrlBarRow(props: FloatingToolbarProps): React.ReactElement {
               }
             }}
           >
-            <option value="" disabled>프리셋</option>
+            <option value="" disabled>Presets</option>
             {bookmarks.map((bm) => (
               <option key={bm.id} value={bm.url}>
                 {bm.label}
@@ -307,7 +307,7 @@ function UrlBarRow(props: FloatingToolbarProps): React.ReactElement {
         <button
           type="button"
           className="shadcn-icon-btn"
-          title="화면 회전 (세로/가로)"
+          title="Rotate Device (Portrait / Landscape)"
           onClick={(): void => onUpdateState({ orientation: nextOrientation })}
         >
           <RotateCw size={11} />
@@ -315,7 +315,7 @@ function UrlBarRow(props: FloatingToolbarProps): React.ReactElement {
         <button
           type="button"
           className="shadcn-icon-btn"
-          title="다크/라이트 상태바 테마"
+          title="Toggle Dark / Light Status Bar"
           onClick={(): void => onUpdateState({ darkMode: !state.darkMode })}
         >
           {state.darkMode ? <Moon size={11} /> : <Sun size={11} />}
@@ -323,7 +323,7 @@ function UrlBarRow(props: FloatingToolbarProps): React.ReactElement {
         <button
           type="button"
           className="shadcn-icon-btn"
-          title="개발자 도구 열기 (DevTools)"
+          title="Open DevTools"
           onClick={props.onOpenDevTools}
         >
           <Terminal size={11} />

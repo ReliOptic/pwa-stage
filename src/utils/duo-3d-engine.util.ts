@@ -350,22 +350,22 @@ export class Duo3DHardwareEngine {
     const p = (x: number, y: number, z: number, j: number) => this.asset.point(x, y, z, j);
     if (name === 'outer') {
       const q = [
-        p(-0.245, -0.278, -5.58, 24),
-        p(-7.955, -0.278, -5.58, 24),
-        p(-7.955, -0.278, 5.58, 24),
-        p(-0.245, -0.278, 5.58, 24)
+        p(-0.25, -0.288, -5.56, 24),
+        p(-7.94, -0.288, -5.56, 24),
+        p(-7.94, -0.288, 5.56, 24),
+        p(-0.25, -0.288, 5.56, 24)
       ];
       return isStanding ? [q[3], q[0], q[1], q[2]] : q;
     }
     const isLeft = name === 'left';
     const joint = isLeft ? 24 : 25;
-    const x0 = isLeft ? -7.88 : 0;
-    const x1 = isLeft ? 0 : 7.88;
+    const x0 = isLeft ? -7.87 : 0;
+    const x1 = isLeft ? 0 : 7.87;
     let q = [
-      p(x0, 0.251, -5.505, joint),
-      p(x1, 0.251, -5.505, joint),
-      p(x1, 0.251, 5.505, joint),
-      p(x0, 0.251, 5.505, joint)
+      p(x0, 0.268, -5.49, joint),
+      p(x1, 0.268, -5.49, joint),
+      p(x1, 0.268, 5.49, joint),
+      p(x0, 0.268, 5.49, joint)
     ];
     if (Math.abs(rotationY) > 1.1) {
       q = [q[3], q[0], q[1], q[2]];

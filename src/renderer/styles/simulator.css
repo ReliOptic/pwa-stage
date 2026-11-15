@@ -18,9 +18,9 @@ html, body, #root {
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.52), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-.shadcn-row { display: flex; align-items: center; justify-content: space-between; gap: 3.5px; width: 100%; min-width: 0; }
+.shadcn-row { display: flex; align-items: center; justify-content: space-between; gap: 3px; width: 100%; min-width: 0; }
 .shadcn-row-top { flex-wrap: wrap; row-gap: 4px; }
-.shadcn-group { display: flex; align-items: center; gap: 3px; min-width: 0; flex-wrap: wrap; }
+.shadcn-group { display: flex; align-items: center; gap: 2.5px; min-width: 0; flex-wrap: nowrap; }
 .shadcn-group:first-child { flex: 1 1 auto; min-width: 0; }
 .shadcn-group:last-child { flex-shrink: 0; margin-left: auto; }
 .shadcn-sep { width: 1px; height: 14px; background: rgba(255, 255, 255, 0.1); margin: 0 1px; flex-shrink: 0; }
@@ -38,8 +38,8 @@ html, body, #root {
 .traffic-pin-active { background: #28c840; box-shadow: 0 0 6px rgba(40, 200, 64, 0.6); }
 
 .pin-toggle-pill {
-  -webkit-app-region: no-drag; height: 23px; padding: 0 6px; border-radius: 7px;
-  display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600;
+  -webkit-app-region: no-drag; height: 23px; padding: 0 5.5px; border-radius: 7px;
+  display: inline-flex; align-items: center; gap: 2.5px; font-size: 9.5px; font-weight: 600;
   cursor: pointer; white-space: nowrap; transition: all 0.14s ease; flex-shrink: 0;
 }
 
@@ -70,15 +70,15 @@ html, body, #root {
 
 .swipe-mode-segmented {
   -webkit-app-region: no-drag; display: inline-flex; align-items: center;
-  height: 23px; padding: 2px; border-radius: 7px;
+  height: 23px; padding: 1.5px; border-radius: 7px;
   background: rgba(20, 20, 24, 0.92); border: 1px solid rgba(255, 255, 255, 0.11);
   flex-shrink: 0; gap: 1px;
 }
 
 .swipe-seg-btn {
-  height: 100%; padding: 0 5.5px; border: none; border-radius: 5px;
-  background: transparent; color: #a1a1aa; font-size: 10px; font-weight: 600;
-  display: inline-flex; align-items: center; gap: 3px; cursor: pointer;
+  height: 100%; padding: 0 4.5px; border: none; border-radius: 5px;
+  background: transparent; color: #a1a1aa; font-size: 9.5px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 2.5px; cursor: pointer;
   white-space: nowrap; transition: all 0.14s ease;
 }
 
@@ -98,7 +98,7 @@ html, body, #root {
 .shadcn-select-wrap {
   -webkit-app-region: no-drag; position: relative; display: inline-flex; align-items: center; min-width: 0;
 }
-.shadcn-select-device-wrap { flex: 1; min-width: 82px; max-width: 146px; }
+.shadcn-select-device-wrap { flex: 1 1 68px; min-width: 68px; max-width: 146px; }
 .shadcn-select-icon { position: absolute; left: 5px; color: #a1a1aa; pointer-events: none; }
 .shadcn-select-chevron { position: absolute; right: 4px; color: #71717a; pointer-events: none; }
 
@@ -121,14 +121,14 @@ html, body, #root {
 }
 
 .scale-step-btn {
-  width: 16px; height: 100%; border: none; background: transparent; color: #a1a1aa;
+  width: 14px; height: 100%; border: none; background: transparent; color: #a1a1aa;
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
 
 .scale-step-btn:hover { background: rgba(255, 255, 255, 0.08); color: #fafafa; }
 
 .scale-readout-btn {
-  height: 100%; padding: 0 2.5px; border: none; background: transparent; color: #e4e4e7;
+  height: 100%; padding: 0 2px; border: none; background: transparent; color: #e4e4e7;
   font-size: 9.5px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer;
 }
 
@@ -357,13 +357,15 @@ html, body, #root {
   -webkit-app-region: no-drag;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 36px;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 34px;
   background: rgba(14, 14, 18, 0.92);
   backdrop-filter: blur(28px) saturate(200%);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 999px;
-  padding: 0 9px;
+  border-radius: 18px;
+  padding: 4px 8px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   z-index: 65;
   max-width: calc(100% - 8px);
@@ -421,6 +423,12 @@ html, body, #root {
 
 .duo-frame-step-btn {
   -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  white-space: nowrap;
+  flex-shrink: 0;
   height: 20px;
   padding: 0 5px;
   border: none;
@@ -443,13 +451,13 @@ html, body, #root {
   position: relative;
   display: inline-flex;
   align-items: center;
-  width: 96px;
+  width: 76px;
   height: 20px;
 }
 
 .duo-hinge-slider {
   -webkit-app-region: no-drag;
-  width: 96px;
+  width: 76px;
   height: 4px;
   accent-color: #38bdf8;
   cursor: pointer;

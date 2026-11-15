@@ -46,23 +46,23 @@ export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
 
   return Menu.buildFromTemplate([
     {
-      label: `항상 위에 고정 (Always on Top: ${state.alwaysOnTop ? 'ON' : 'OFF'})`,
+      label: `Pin Always on Top (${state.alwaysOnTop ? 'ON' : 'OFF'})`,
       type: 'checkbox',
       checked: state.alwaysOnTop,
       accelerator: 'CommandOrControl+T',
       click: (): void => applyStatePatchFromMenu(ctx, { alwaysOnTop: !state.alwaysOnTop })
     },
     {
-      label: '화면 내 스와이프 방식 (Swipe Experience)',
+      label: 'Swipe Mode',
       submenu: [
         {
-          label: '눌러서 스와이프 (클릭 & 드래그)',
+          label: 'Drag (Click & Drag)',
           type: 'radio',
           checked: !state.touchCursorEnabled,
           click: (): void => applyStatePatchFromMenu(ctx, { touchCursorEnabled: false })
         },
         {
-          label: '바로 스와이프 (클릭 없이 커서 이동 / 트랙패드)',
+          label: 'Hover (Cursor / Trackpad)',
           type: 'radio',
           checked: state.touchCursorEnabled,
           click: (): void => applyStatePatchFromMenu(ctx, { touchCursorEnabled: true })
@@ -70,20 +70,20 @@ export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
       ]
     },
     {
-      label: state.hudCollapsed ? '상단 컨트롤 바 열기 (⌘B)' : '상단 컨트롤 바 숨기기 (⌘B)',
+      label: state.hudCollapsed ? 'Show Toolbar (⌘B)' : 'Hide Toolbar (⌘B)',
       accelerator: 'CommandOrControl+B',
       click: (): void => applyStatePatchFromMenu(ctx, { hudCollapsed: !state.hudCollapsed })
     },
     { type: 'separator' },
     {
-      label: '최소화 (Dock으로 내리기)',
+      label: 'Minimize to Dock',
       accelerator: 'CommandOrControl+M',
       click: (): void => {
         win?.minimize();
       }
     },
     {
-      label: visible ? '맥북 상단바로 숨기기 (⌘⇧S)' : '시뮬레이터 화면 보이기 (⌘⇧S)',
+      label: visible ? 'Hide to Menu Bar (⌘⇧S)' : 'Show Simulator (⌘⇧S)',
       accelerator: 'CommandOrControl+Shift+S',
       click: (): void => {
         if (win) {
@@ -92,7 +92,7 @@ export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
       }
     },
     {
-      label: '닫기 (시뮬레이터 종료)',
+      label: 'Quit Simulator',
       accelerator: 'CommandOrControl+Q',
       click: (): void => {
         ctx.onQuitApp();
@@ -103,8 +103,8 @@ export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
       ? [
           {
             label: isDuoFolded
-              ? 'iPhone Duo 안으로 펼치기 (Open Inner Display)'
-              : 'iPhone Duo 밖으로 접기 (Close to Outer Display)',
+              ? 'Unfold iPhone Duo (Inner Display)'
+              : 'Fold iPhone Duo (Outer Display)',
             click: (): void =>
               applyStatePatchFromMenu(ctx, {
                 selectedDeviceId: isDuoFolded
@@ -117,26 +117,26 @@ export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
         ]
       : []),
     {
-      label: `화면 회전 (${state.orientation === Orientation.PORTRAIT ? '가로 모드' : '세로 모드'})`,
+      label: `Rotate (${state.orientation === Orientation.PORTRAIT ? 'Landscape' : 'Portrait'})`,
       click: (): void => applyStatePatchFromMenu(ctx, { orientation: nextOrient })
     },
     {
-      label: '브라우저 셸 모드 (Shell Mode)',
+      label: 'Browser Shell Mode',
       submenu: [
         {
-          label: 'PWA Standalone (전체 화면)',
+          label: 'PWA Standalone (Full Screen)',
           type: 'radio',
           checked: state.shellMode === BrowserShellMode.PWA_STANDALONE,
           click: (): void => applyStatePatchFromMenu(ctx, { shellMode: BrowserShellMode.PWA_STANDALONE })
         },
         {
-          label: 'iOS Safari (하단 주소창)',
+          label: 'iOS Safari (Bottom Address Bar)',
           type: 'radio',
           checked: state.shellMode === BrowserShellMode.IOS_SAFARI,
           click: (): void => applyStatePatchFromMenu(ctx, { shellMode: BrowserShellMode.IOS_SAFARI })
         },
         {
-          label: 'iOS Chrome (상단 주소창)',
+          label: 'iOS Chrome (Top Omnibox)',
           type: 'radio',
           checked: state.shellMode === BrowserShellMode.IOS_CHROME,
           click: (): void => applyStatePatchFromMenu(ctx, { shellMode: BrowserShellMode.IOS_CHROME })
@@ -144,7 +144,7 @@ export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
       ]
     },
     {
-      label: `화면 배율 (${Math.round(state.scale * 100)}%)`,
+      label: `Scale (${Math.round(state.scale * 100)}%)`,
       submenu: [0.65, 0.75, 0.85, 0.92, 1.0, 1.15].map((sc) => ({
         label: `${Math.round(sc * 100)}%`,
         type: 'radio' as const,
@@ -154,7 +154,7 @@ export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
     },
     { type: 'separator' },
     ...ctx.deps.envConfig.quickBookmarks.map((bm) => ({
-      label: `화면 대상: ${bm.label}`,
+      label: `Target: ${bm.label}`,
       type: 'radio' as const,
       checked: state.currentUrl === bm.url,
       click: (): void => applyStatePatchFromMenu(ctx, { currentUrl: bm.url })
@@ -190,7 +190,7 @@ export function createMacMenuBarTray(ctx: MenuControllerContext): Tray {
 
   const tray = new Tray(icon);
   tray.setTitle(' iPhone');
-  tray.setToolTip('iPhone PWA Simulator — 클릭하여 숨기기/보이기 (⌘⇧S)');
+  tray.setToolTip('iPhone PWA Simulator — Click to Show/Hide (⌘⇧S)');
 
   tray.on('click', () => {
     const win = ctx.getWindow();
