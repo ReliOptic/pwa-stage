@@ -44,11 +44,29 @@ export interface SimulatorBridgeApi {
   readonly onPermissionPrompt?: (listener: (prompt: GuestPermissionPrompt) => void) => () => void;
   readonly respondPermission?: (id: string, granted: boolean) => Promise<unknown>;
   readonly onShortcut?: (listener: (shortcut: { key: string; shift: boolean }) => void) => () => void;
+  readonly setGuestMirror?: (webContentsId: number, on: boolean) => Promise<unknown>;
+  readonly onGuestFrame?: (listener: (frame: GuestFrameMessage) => void) => () => void;
+  readonly sendGuestInput?: (webContentsId: number, event: GuestInputMessage) => Promise<unknown>;
   readonly inspectPage?: (webContentsId: number) => Promise<Result<PageInspectionReport, SimulatorError>>;
   readonly captureScreenshot?: (
     rect: { x: number; y: number; width: number; height: number },
     deviceName: string
   ) => Promise<{ ok: boolean; value: string | null }>;
+}
+
+export interface GuestFrameMessage {
+  readonly guestId: number;
+  readonly width: number;
+  readonly height: number;
+  readonly jpeg: Uint8Array;
+}
+
+export interface GuestInputMessage {
+  readonly type: 'mouseDown' | 'mouseUp' | 'mouseMove' | 'mouseWheel';
+  readonly x: number;
+  readonly y: number;
+  readonly deltaX?: number;
+  readonly deltaY?: number;
 }
 
 export interface PageInspectionReport {

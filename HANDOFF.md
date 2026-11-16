@@ -20,6 +20,13 @@ Done in this round (see README for user-facing behaviour):
 - **Duo crease**: both leaves share one hinge edge (midpoint of the two bones) and guests are opaque, which removed a light 1px seam at mid-fold angles. A faint dark hairline can remain in the crease under software compositing; not yet checked on a real GPU.
 - **Software keyboard** (`SoftwareKeyboard.tsx`, `resolveKeyboardHeight`, guest script in `emulation.ts`).
 
+- **Duo display continuity** (`services/guest-mirror.ts`, `GuestMirrorPane.tsx`, `duo-3d-engine.util.ts`):
+  - exactly one `<webview>` guest; it moves between cover and inner at `COVER_HANDOFF_DEG` (20°, same as `DeviceHinge.Status`), so state survives folding;
+  - the left/top half of the bent inner display is a live frame mirror of that guest (capture loop in main, ≤30 fps, ~24 fps under SwiftShader) with pointer and wheel input forwarded, replacing the old second, unsynchronised page;
+  - the lit display wakes with a 380 ms time-based fade instead of angle-driven opacity;
+  - `rightVisibleClip` hides the part of the right leaf that the raised left leaf occludes from the camera.
+  - Known limits: the mirrored half lags the live half by about one frame while scrolling; Split mode still runs two independent pages by design; no Apple reference build was available in the repo, so the hand-off follows the physical model above rather than a frame-matched reference.
+
 Verification note: in headless Xvfb, Playwright's `page.screenshot()` of the shell can show stale/blank frames for the out-of-process `<webview>` after scrolling. Use `BrowserWindow.webContents.capturePage()` (what the app's Screenshot uses) for visual checks, and pass `--enable-unsafe-swiftshader` so WebGL works without a GPU.
 
 ### Should this become Rust / Tauri?

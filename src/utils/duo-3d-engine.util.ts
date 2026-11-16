@@ -21,6 +21,15 @@ export interface Duo3DFrameProjection {
   readonly isOuterPrimary: boolean;
   readonly isFlatSinglePlane: boolean;
   readonly isHorizontalSplit: boolean;
+  /** Which physical surfaces face the camera right now (lit or not). */
+  readonly outerFacing: boolean;
+  readonly leftFacing: boolean;
+  /**
+   * CSS polygon (right-leaf local px) of the part of the right leaf the camera
+   * can actually see when the left leaf is still raised in front of it.
+   * null = unobstructed.
+   */
+  readonly rightVisibleClip: string | null;
   readonly outer: ProjectedSurfaceSlice;
   readonly left: ProjectedSurfaceSlice;
   readonly right: ProjectedSurfaceSlice;
@@ -48,6 +57,9 @@ declare global {
     };
   }
 }
+
+/** Hinge angle at which the lit display hands off between cover and inner. */
+export const COVER_HANDOFF_DEG = 20;
 
 function clamp(val: number, min = 0, max = 1): number {
   return Math.max(min, Math.min(max, val));
@@ -437,7 +449,9 @@ export class Duo3DHardwareEngine {
     const box = new T.Box3().setFromPoints(allBounds);
     const center = box.getCenter(new T.Vector3());
 
-    const isOuterPrimary = isStanding || u < 0.16;
+    // One threshold for everything: DeviceHinge.Status leaves "closed" at 20°.
+    // Below it the cover display is the lit one, from it on the inner display.
+    const isOuterPrimary = isStanding || u < COVER_HANDOFF_DEG / 180;
 
     // Automatic 3D presentation tilt during intermediate fold angles so the 3D V-valley is vivid
     const foldBell = Math.sin(Math.PI * phi);
@@ -532,16 +546,14 @@ export class Duo3DHardwareEngine {
     const fullW = isRotatedRig ? 669 : 951;
     const fullH = isRotatedRig ? 951 : 669;
 
-    const outerOpacity = isStanding
-      ? 1
-      : u === 0
-        ? 1
-        : clamp((0.18 - u) / 0.08, 0, 1);
-    const innerOpacity = isStanding
-      ? 0
-      : u === 1
-        ? 1
-        : clamp((u - 0.12) / 0.1, 0, 1);
+    // Displays are either lit or off; the wake fade is time-based (see
+    // Duo3DStage), not a function of the hinge angle.
+    const outerOpacity = isOuterPrimary ? 1 : 0;
+    const innerOpacity = isOuterPrimary ? 0 : 1;
+    const leftFacing = signedQuadArea(leftCorners) > 10;
+    const outerFacing = signedQuadArea(outerCorners) > 10;
+    const rightVisibleClip =
+      isStanding || leftFacing ? null : this.computeRightLeafVisibleClip(isRotatedRig);
 
     const isFlatSinglePlane =
       !isStanding &&
@@ -555,6 +567,9 @@ export class Duo3DHardwareEngine {
       isOuterPrimary,
       isFlatSinglePlane,
       isHorizontalSplit: isRotatedRig,
+      outerFacing,
+      leftFacing,
+      rightVisibleClip,
       outer: {
         active: outerOpacity > 0.02 && signedQuadArea(outerCorners) > 10,
         opacity: outerOpacity,
@@ -592,6 +607,64 @@ export class Duo3DHardwareEngine {
         zIndex: 18
       }
     };
+  }
+
+  /**
+   * While the device is barely open and the camera still sees the back of the
+   * left leaf, that leaf hides most of the right half of the inner display.
+   * The hidden part is bounded by a straight line on the right leaf: the left
+   * leaf's free edge projected from the camera onto the right-leaf plane.
+   */
+  private computeRightLeafVisibleClip(isRotatedRig: boolean): string | null {
+    const T = this.T;
+    const LEAF_X = 7.87;
+    const LEAF_Z = 5.49;
+    const origin = this.asset.point(0, 0.268, -LEAF_Z, 25);
+    const ex = this.asset.point(LEAF_X, 0.268, -LEAF_Z, 25).clone().sub(origin);
+    const ez = this.asset.point(0, 0.268, LEAF_Z, 25).clone().sub(origin);
+    const normal = new T.Vector3().crossVectors(ex, ez);
+    const cam = this.camera.position;
+    const hidden = 'polygon(0 0, 0 0, 0 0)';
+
+    const project = (z: number): { x: number; z: number } | null => {
+      // free edge of the left leaf body (slightly outside the glass)
+      const edge = this.asset.point(-8.05, 0.0, z, 24);
+      const dir = edge.clone().sub(cam);
+      const denom = normal.dot(dir);
+      if (Math.abs(denom) < 1e-6) return null;
+      const t = normal.dot(origin.clone().sub(cam)) / denom;
+      if (t <= 0) return null;
+      const hit = cam.clone().addScaledVector(dir, t).sub(origin);
+      return {
+        x: (hit.dot(ex) / ex.lengthSq()) * LEAF_X,
+        z: (hit.dot(ez) / ez.lengthSq()) * 2 * LEAF_Z - LEAF_Z
+      };
+    };
+    const a = project(-LEAF_Z - 0.2);
+    const b = project(LEAF_Z + 0.2);
+    if (!a || !b) return hidden;
+    if (Math.min(a.x, b.x) >= LEAF_X) return hidden;
+    if (Math.max(a.x, b.x) <= 0) return null;
+
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const pa = { x: a.x - dx * 4, z: a.z - dz * 4 };
+    const pb = { x: b.x + dx * 4, z: b.z + dz * 4 };
+    const FAR = 1000;
+    const toLocal = (pt: { x: number; z: number }): string => {
+      const along = (pt.x / LEAF_X) * 475.5;
+      const across = ((pt.z + LEAF_Z) / (2 * LEAF_Z)) * 669;
+      // rotated rig: corners are re-ordered so the hinge is the top edge
+      const lx = isRotatedRig ? 669 - across : along;
+      const ly = isRotatedRig ? along : across;
+      return `${lx.toFixed(1)}px ${ly.toFixed(1)}px`;
+    };
+    return `polygon(${[
+      toLocal(pa),
+      toLocal({ x: pa.x + FAR, z: pa.z }),
+      toLocal({ x: pb.x + FAR, z: pb.z }),
+      toLocal(pb)
+    ].join(', ')})`;
   }
 
   public dispose(): void {

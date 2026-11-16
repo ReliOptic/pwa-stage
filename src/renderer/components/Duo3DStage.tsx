@@ -5,13 +5,14 @@ import {
   HardwareCutoutType,
   Orientation
 } from '../../types/device.types';
-import { SimulatorState } from '../../types/simulator.types';
+import { DuoDisplayMode, SimulatorState } from '../../types/simulator.types';
 import {
   Duo3DFrameProjection,
   Duo3DHardwareEngine
 } from '../../utils/duo-3d-engine.util';
 import { DuoPostureId } from '../../utils/duo-fold-math.util';
 import { ScreenSystemOverlay } from './BrowserShellOverlay';
+import { acquireGuestMirror } from './GuestMirrorPane';
 import { AppSurface, HomeScreen, LaunchSplash, ScreenModalLayer } from './ScreenLayers';
 import { WebviewContainer } from './WebviewContainer';
 
@@ -87,6 +88,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<Duo3DHardwareEngine | null>(null);
   const [projection, setProjection] = useState<Duo3DFrameProjection | null>(null);
+  const [primaryGuestId, setPrimaryGuestId] = useState<number | null>(null);
   const dragRef = useRef<{
     readonly startX: number;
     readonly startY: number;
@@ -150,7 +152,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     dragRef.current = null;
   };
 
-  const isOuterPrimary = projection ? projection.isOuterPrimary : foldAngle < 30;
+  const isOuterPrimary = projection ? projection.isOuterPrimary : foldAngle < 20;
   const isBentInner =
     projection !== null &&
     !projection.isOuterPrimary &&
@@ -185,18 +187,28 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     ? '44px 44px 0 0'
     : '44px 0 0 44px';
 
-  // Display power choreography while the hinge moves:
-  //  - the cover display dims out as soon as the device starts opening,
-  //  - the inner panel wakes from black (u≈0.12) to full brightness (u≈0.42),
-  //    so the content "blooms" across the crease instead of popping in.
-  const u = projection?.u ?? (foldAngle / 180);
-  const innerWake = Math.min(1, Math.max(0, (u - 0.12) / 0.3));
-  const innerWakeEased = innerWake * innerWake * (3 - 2 * innerWake);
-  const coverSleep = Math.min(1, Math.max(0, u / 0.16));
-  const innerFilter =
-    innerWakeEased >= 0.999 ? undefined : `brightness(${(0.08 + 0.92 * innerWakeEased).toFixed(3)})`;
-  const coverFilter =
-    posture === 'standing' || coverSleep <= 0.001 ? undefined : `brightness(${(1 - 0.85 * coverSleep).toFixed(3)})`;
+  // Display power, as on the device: exactly one panel is lit. When the
+  // hinge crosses the hand-off angle the app moves to the other display, which
+  // wakes from black (time-based, like a real panel) while the page re-lays
+  // out for its new size underneath.
+  const wakeTickRef = useRef<number>(0);
+  const lastOuterPrimaryRef = useRef<boolean>(isOuterPrimary);
+  if (lastOuterPrimaryRef.current !== isOuterPrimary) {
+    lastOuterPrimaryRef.current = isOuterPrimary;
+    wakeTickRef.current += 1;
+  }
+  const wakeClass =
+    wakeTickRef.current === 0 ? '' : wakeTickRef.current % 2 === 0 ? 'duo-wake-a' : 'duo-wake-b';
+  const primaryClip = isBentInner ? projection?.rightVisibleClip ?? undefined : undefined;
+  const mirrorLeft = state.duoDisplayMode !== DuoDisplayMode.SPLIT_COMPARISON;
+
+  // Keep the mirror stream warm from the moment the inner display is lit, so
+  // the left half already has a frame when it turns towards the camera.
+  const needsMirror = mirrorLeft && isBentInner && primaryGuestId !== null;
+  useEffect((): (() => void) | void => {
+    if (!needsMirror || primaryGuestId === null) return;
+    return acquireGuestMirror(primaryGuestId);
+  }, [needsMirror, primaryGuestId]);
 
   const foldDepthIntensity = projection
     ? Math.sin(projection.phi * Math.PI)
@@ -229,7 +241,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
       {/* 2. Secondary Left / Upper Leaf Slice when in 3D Bent Posture (20°..177°) */}
       {isBentInner && projection && projection.left.active && projection.left.matrix3d && (
         <div
-          className="duo-interactive-slice duo-slice-secondary"
+          className={`duo-interactive-slice duo-slice-secondary ${wakeClass}`}
           style={{
             // Extend 2px past the hinge, underneath the primary leaf: the
             // anti-aliased edges of two transformed layers otherwise leave a
@@ -238,7 +250,6 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
             height: `${projection.left.height + (isHorizontalSplit ? 2 : 0)}px`,
             transform: projection.left.matrix3d,
             opacity: projection.left.opacity,
-            filter: innerFilter,
             borderRadius: secondaryBorderRadius,
             zIndex: projection.left.zIndex
           }}
@@ -258,6 +269,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
                 isDualUnfolded={true}
                 reloadTick={props.reloadTick}
                 onRegisterWebContentsId={(): void => {}}
+                mirrorGuestId={mirrorLeft ? primaryGuestId : undefined}
               />
             </AppSurface>
             <SystemOverlayLayer
@@ -288,13 +300,13 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
       {/* 3. Primary Persistent Live Screen Slice (Outer at 0°..28°/Stand, Right/Bottom Leaf when Bent, Full at 180°) */}
       {primarySlice && primarySlice.matrix3d && (
         <div
-          className="duo-interactive-slice duo-slice-primary"
+          className={`duo-interactive-slice duo-slice-primary ${wakeClass}`}
           style={{
             width: `${primarySlice.width}px`,
             height: `${primarySlice.height}px`,
             transform: primarySlice.matrix3d,
             opacity: primarySlice.opacity,
-            filter: isOuterPrimary ? coverFilter : innerFilter,
+            clipPath: primaryClip,
             borderRadius: primaryBorderRadius,
             zIndex: primarySlice.zIndex
           }}
@@ -313,7 +325,10 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
                 state={state}
                 isDualUnfolded={!isOuterPrimary}
                 reloadTick={props.reloadTick}
-                onRegisterWebContentsId={props.onRegisterWebContentsId}
+                onRegisterWebContentsId={(id: number): void => {
+                  setPrimaryGuestId(id);
+                  props.onRegisterWebContentsId(id);
+                }}
                 onPageReady={props.onPageReady}
               />
             </AppSurface>

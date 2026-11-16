@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import {
   ApplyWebviewEmulationPayload,
+  GuestFrameMessage,
+  GuestInputMessage,
   GuestPermissionPrompt,
   MoveWindowPayload,
   SimulatorBridgeApi,
@@ -61,6 +63,19 @@ export const simulatorBridge: SimulatorBridgeApi = {
       ipcRenderer.removeListener('simulator:shortcut', handler);
     };
   },
+  setGuestMirror: (webContentsId: number, on: boolean): Promise<unknown> =>
+    ipcRenderer.invoke('simulator:guest-mirror', webContentsId, on),
+  onGuestFrame: (listener: (frame: GuestFrameMessage) => void): (() => void) => {
+    const handler = (_event: unknown, frame: GuestFrameMessage): void => {
+      listener(frame);
+    };
+    ipcRenderer.on('simulator:guest-frame', handler);
+    return (): void => {
+      ipcRenderer.removeListener('simulator:guest-frame', handler);
+    };
+  },
+  sendGuestInput: (webContentsId: number, event: GuestInputMessage): Promise<unknown> =>
+    ipcRenderer.invoke('simulator:guest-input', webContentsId, event),
   inspectPage: (webContentsId: number) =>
     ipcRenderer.invoke('simulator:inspect-page', webContentsId),
   captureScreenshot: (

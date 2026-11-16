@@ -31,6 +31,12 @@ import {
 import { createDefaultSimulatorState, mergeStoredStateWithDefaults } from './services/storage';
 import { forgetEmulationTarget } from './services/emulation';
 import {
+  forwardGuestPointerEvent,
+  sanitizeGuestPointerEvent,
+  startGuestMirror,
+  stopGuestMirror
+} from './services/guest-mirror';
+import {
   evaluatePwaChecks,
   PAGE_INSPECTION_EXPRESSION,
   resolveHomeScreenIdentity,
@@ -226,6 +232,34 @@ function registerIpcHandlers(ctx: MenuControllerContext): void {
   });
   handleTrusted('simulator:capture-screenshot', async (_event, rawRect, rawName) => {
     return captureScreenScreenshot(rawRect, rawName);
+  });
+  handleTrusted('simulator:guest-mirror', (_event, rawId, rawOn) => {
+    const id = resolveGuestId(rawId);
+    if (id === null) {
+      return GUEST_ID_REJECTED;
+    }
+    const guest = webContents.fromId(id);
+    if (rawOn === true && guest) {
+      startGuestMirror(guest, (frame) => {
+        const win = mainFloatingWindow;
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('simulator:guest-frame', frame);
+        }
+      });
+    } else {
+      stopGuestMirror(id);
+    }
+    return { ok: true, value: true };
+  });
+  handleTrusted('simulator:guest-input', (_event, rawId, rawEvent) => {
+    const id = resolveGuestId(rawId);
+    const pointer = sanitizeGuestPointerEvent(rawEvent);
+    const guest = id === null ? undefined : webContents.fromId(id);
+    if (!guest || !pointer) {
+      return { ok: false, value: false };
+    }
+    forwardGuestPointerEvent(guest, pointer);
+    return { ok: true, value: true };
   });
   handleTrusted('simulator:permission-response', (_event, rawId, rawGranted) => {
     if (typeof rawId === 'string') {

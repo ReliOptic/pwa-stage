@@ -7,6 +7,7 @@ import {
   resolveSafeAreaInsets
 } from '../../utils/viewport-math.util';
 import { setKeyboardVisible, setSafariBarCollapsed, useSafariBarCollapsed } from '../sim-events';
+import { GuestMirrorPane } from './GuestMirrorPane';
 import { ElectronWebviewElement } from '../../types/renderer.types';
 import { DuoDisplayMode, SimulatorState } from '../../types/simulator.types';
 
@@ -16,6 +17,11 @@ export interface WebviewContainerProps {
   readonly reloadTick: number;
   readonly onRegisterWebContentsId: (id: number) => void;
   readonly onPageReady?: (webContentsId: number) => void;
+  /**
+   * When set (even to null while the id is still unknown), this container
+   * shows a live mirror of that guest instead of loading its own page.
+   */
+  readonly mirrorGuestId?: number | null;
 }
 
 interface SingleViewportPaneProps {
@@ -246,6 +252,14 @@ export function WebviewContainer(props: WebviewContainerProps): React.ReactEleme
     boxSizing: 'border-box',
     background: state.darkMode ? '#09090c' : '#f4f4f6'
   };
+
+  if (props.mirrorGuestId !== undefined && !isSplitDuo) {
+    return (
+      <div className="webview-full-bleed" style={chromeInsetStyle}>
+        <GuestMirrorPane guestId={props.mirrorGuestId} />
+      </div>
+    );
+  }
 
   if (isSplitDuo) {
     return (

@@ -18,7 +18,7 @@ Screen web app present it, on every iPhone viewport class, without opening Xcode
 | **Web App Check** | iOS-specific installability checks: HTTPS, viewport / `viewport-fit`, manifest, `display`, `apple-touch-icon`, status-bar style, service worker, startup image. |
 | **Keyboard** | Focusing a text field raises the iOS keyboard: the layout viewport stays put, `visualViewport` shrinks and the field scrolls clear, as on device. Type with the Mac keyboard. |
 | **Permissions** | Camera / mic / location / notifications / motion requests show an iOS alert inside the screen; desktop-only APIs are denied. |
-| **iPhone Duo** | Live 3D hinge (glTF) with six postures, free-stop scrub, inner-display wake animation, 84pt iOS 27.3 system rail, span / split. |
+| **iPhone Duo** | Live 3D hinge (glTF) with six postures and free-stop scrub. One app instance moves between the two displays: the cover is lit below 20°, the inner display from 20° on, waking from black while the page re-lays out (scroll position and JS state carry over, nothing reloads). The inner display is a single continuous page across the crease, and a barely-open device hides the inner half the way the raised leaf really would. 84pt iOS 27.3 system rail, span / split. |
 
 For the final pixel check use real WebKit: tray menu → **Open URL in Xcode iOS Simulator**.
 
