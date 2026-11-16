@@ -141,7 +141,7 @@ export function computeShellChromeHeights(
   }
   if (shellMode === BrowserShellMode.IOS_CHROME) {
     return {
-      topBarHeight: Math.max(44, safeArea.top) + 52,
+      topBarHeight: safeArea.top + 52,
       bottomBarHeight: Math.max(44, safeArea.bottom + 14)
     };
   }
@@ -150,12 +150,14 @@ export function computeShellChromeHeights(
   // the layout viewport (innerHeight / dvh) exactly like on device.
   if (safariBarCollapsed) {
     return {
-      topBarHeight: Math.max(44, safeArea.top),
+      topBarHeight: safeArea.top,
       bottomBarHeight: Math.max(30, safeArea.bottom + 6)
     };
   }
+  // The top bar is only the status bar: 0 in landscape (iPhone hides it),
+  // 20pt on Touch ID phones, 47–62pt under a notch / Dynamic Island.
   return {
-    topBarHeight: Math.max(44, safeArea.top),
+    topBarHeight: safeArea.top,
     bottomBarHeight: Math.max(68, safeArea.bottom + 38)
   };
 }

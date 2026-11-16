@@ -9,7 +9,7 @@ import {
   evaluateFoldDriveEasing
 } from '../../utils/duo-fold-math.util';
 import { getSimulatorBridge } from '../../utils/renderer-bridge.util';
-import { clampSimulatorScale } from '../../utils/viewport-math.util';
+import { clampSimulatorScale, hasDuoSystemRail } from '../../utils/viewport-math.util';
 import {
   ComputedViewportMetrics,
   DeviceFormFactor,
@@ -547,7 +547,11 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
                   onPageReady={props.onPageReady}
                 />
               </AppSurface>
-              <HomeScreen />
+              <HomeScreen
+                trailingInset={
+                  hasDuoSystemRail(preset, state.orientation) ? eff.safeArea.right : 0
+                }
+              />
               <LaunchSplash />
               {isDuoFamily && interp.foldShadowOpacity > 0 && (
                 <div className="duo-book-fold-lighting" style={{ opacity: interp.foldShadowOpacity }} />

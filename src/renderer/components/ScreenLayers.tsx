@@ -162,7 +162,7 @@ function useClock(): Date {
   return now;
 }
 
-export function HomeScreen(): React.ReactElement | null {
+export function HomeScreen(props: { readonly trailingInset?: number }): React.ReactElement | null {
   const screen = useScreen();
   const now = useClock();
   if (screen.phase !== 'home' && screen.phase !== 'closing' && screen.phase !== 'launching') {
@@ -174,7 +174,10 @@ export function HomeScreen(): React.ReactElement | null {
     : true;
   const weekday = now.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
   return (
-    <div className={`home-screen home-screen-${screen.phase}`}>
+    <div
+      className={`home-screen home-screen-${screen.phase}`}
+      style={{ ['--home-trailing' as string]: `${props.trailingInset ?? 0}px` }}
+    >
       <div className="home-wallpaper" aria-hidden="true" />
       <div className="home-content">
         <div className="home-widget" aria-label="Date">

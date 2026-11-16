@@ -88,30 +88,45 @@ export function HardwareCutout(props: {
       </div>
     );
   }
-  if (orientation === Orientation.LANDSCAPE) {
-    return null;
-  }
+  // Landscape = device rotated counter-clockwise (home indicator at the
+  // bottom, sensor housing on the leading/left edge).
+  const isLandscape = orientation === Orientation.LANDSCAPE;
   if (cutoutType === HardwareCutoutType.NOTCH) {
     return (
       <svg
         width="176"
         height="34"
         viewBox="0 0 176 34"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 40,
-          pointerEvents: 'none'
-        }}
+        style={
+          isLandscape
+            ? {
+                position: 'absolute',
+                top: '50%',
+                left: 0,
+                transformOrigin: '0 0',
+                transform: 'rotate(-90deg) translate(-50%, 0)',
+                zIndex: 40,
+                pointerEvents: 'none'
+              }
+            : {
+                position: 'absolute',
+                top: 0,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 40,
+                pointerEvents: 'none'
+              }
+        }
       >
         <path d={IOS27_NOTCH_03_SVG_PATH} fill="#000000" />
       </svg>
     );
   }
   return (
-    <div className="cutout-island" style={{ zIndex: 40 }}>
+    <div
+      className={isLandscape ? 'cutout-island cutout-island-landscape' : 'cutout-island'}
+      style={{ zIndex: 40 }}
+    >
       <div className="island-sensor-ir" />
       <div className="camera-lens-ring" />
     </div>

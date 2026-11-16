@@ -62,4 +62,8 @@ npm run dist:app   # dist_dmg/mac-arm64/iPhone PWA Simulator.app
 npm run dist:dmg   # .dmg installer
 ```
 
+## License
+
+Source code: [MIT](LICENSE). The bundled binary assets (`public/duo-3d`, `public/assets/ios27`, `public/reboot`) are not covered by that grant until their provenance is confirmed by the maintainers. This project is not affiliated with Apple; iPhone 18 and iPhone Duo presets are projections, not shipped hardware.
+
 See [`HANDOFF.md`](HANDOFF.md) for architecture notes and the roadmap.

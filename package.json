@@ -1,7 +1,7 @@
 {
   "name": "macos-iphone-pwa-simulator",
   "version": "1.0.0",
-  "description": "Floating macOS Xcode-style iPhone 17 & iPhone Duo PWA Simulator for campsite.ing",
+  "description": "Floating macOS iPhone & iPhone Duo simulator for Progressive Web App developers",
   "main": "dist-electron/index.js",
   "author": "reliqbit",
   "scripts": {
@@ -114,5 +114,6 @@
     "vite": "^5.4.8",
     "vitest": "^2.1.3",
     "wait-on": "^8.0.1"
-  }
+  },
+  "license": "MIT"
 }

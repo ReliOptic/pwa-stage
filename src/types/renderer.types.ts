@@ -8,6 +8,7 @@ export interface ElectronWebviewElement extends HTMLElement {
   goBack: () => void;
   goForward: () => void;
   getWebContentsId: () => number;
+  loadURL?: (url: string) => Promise<void>;
 }
 
 declare global {

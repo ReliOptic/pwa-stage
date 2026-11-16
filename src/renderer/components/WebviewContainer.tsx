@@ -33,6 +33,15 @@ function useWebviewEffects(
   props: SingleViewportPaneProps
 ): void {
   const readyRef = useRef<boolean>(false);
+  // A `src` change made before the guest is attached is dropped by <webview>
+  // (e.g. switching device and URL back to back). Remember what the element
+  // was mounted with and catch up on the first dom-ready.
+  const mountedUrlRef = useRef<string>(props.targetUrl);
+  const latestUrlRef = useRef<string>(props.targetUrl);
+  latestUrlRef.current = props.targetUrl;
+  if (readyRef.current) {
+    mountedUrlRef.current = props.targetUrl;
+  }
   const shellModeRef = useRef(props.state.shellMode);
 
   useEffect((): (() => void) | void => {
@@ -80,33 +89,33 @@ function useWebviewEffects(
       else if (message === '__sim:safari-bar:expand') setSafariBarCollapsed(false);
     };
     const onNavigate = (): void => setSafariBarCollapsed(false);
-    // Chromium's mobile metrics override is computed against the guest size at
-    // the time it is sent; when the <webview> box changes (Safari bar
-    // collapsing, Duo folding, rotation) it must be re-sent or the page paints
-    // offset inside the new box.
-    let resizeTimer: number | null = null;
-    const resizeObserver = new ResizeObserver((): void => {
-      if (!readyRef.current) return;
-      if (resizeTimer !== null) window.clearTimeout(resizeTimer);
-      resizeTimer = window.setTimeout(syncEmulation, 60);
-    });
-    resizeObserver.observe(el);
     el.addEventListener('console-message', onConsole);
     el.addEventListener('did-navigate', onNavigate);
     el.addEventListener('did-finish-load', notifyReady);
     el.addEventListener('did-navigate-in-page', notifyReady);
+    const catchUpUrl = (): void => {
+      if (latestUrlRef.current !== mountedUrlRef.current) {
+        mountedUrlRef.current = latestUrlRef.current;
+        try {
+          void el.loadURL?.(latestUrlRef.current)?.catch((): void => undefined);
+        } catch {
+          // not attached yet: the next dom-ready retries
+          mountedUrlRef.current = '';
+        }
+      }
+    };
+    el.addEventListener('dom-ready', catchUpUrl);
     el.addEventListener('dom-ready', syncEmulation);
     el.addEventListener('did-navigate', syncEmulation);
     el.addEventListener('did-navigate-in-page', syncEmulation);
     el.addEventListener('enter-html-full-screen', handleEnterFs);
     el.addEventListener('leave-html-full-screen', handleLeaveFs);
     return (): void => {
-      resizeObserver.disconnect();
-      if (resizeTimer !== null) window.clearTimeout(resizeTimer);
       el.removeEventListener('console-message', onConsole);
       el.removeEventListener('did-navigate', onNavigate);
       el.removeEventListener('did-finish-load', notifyReady);
       el.removeEventListener('did-navigate-in-page', notifyReady);
+      el.removeEventListener('dom-ready', catchUpUrl);
       el.removeEventListener('dom-ready', syncEmulation);
       el.removeEventListener('did-navigate', syncEmulation);
       el.removeEventListener('did-navigate-in-page', syncEmulation);
@@ -177,7 +186,9 @@ function SingleViewportPane(props: SingleViewportPaneProps): React.ReactElement 
         height: '100%',
         border: 'none',
         flex: 1,
-        background: '#000000'
+        // Guests are transparent by default; iOS paints a white canvas behind
+        // pages that set no background (also in Dark Mode).
+        background: '#ffffff'
       }
     });
   }

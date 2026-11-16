@@ -9,11 +9,13 @@ This document captures the current architecture, verified state, exact remaining
 Done in this round (see README for user-facing behaviour):
 
 - **Security**: `src/services/security.ts` (guest webPreferences enforcement, navigation/popup guards, iOS-style permission prompts, trusted-sender IPC), validated state in `storage.ts`, hardened `reboot-server.ts`, shell CSP (`vite.config.ts`), Electron 33 (EOL) → 44.
-- **Emulation** (`services/emulation.ts`): DPR + screen via `setDeviceMetricsOverride(width:0,height:0)`, init script via `Page.addScriptToEvaluateOnNewDocument` (runs before page JS), `display-mode` / `navigator.vendor` / `userAgentData`, no page-altering CSS, re-applied on every `<webview>` resize.
+- **Emulation** (`services/emulation.ts`): DPR + screen via `setDeviceMetricsOverride(width:0,height:0)`, init script via `Page.addScriptToEvaluateOnNewDocument` (runs before page JS), `display-mode` / `navigator.vendor` / `userAgentData`, no page-altering CSS. Guest canvas is white like iOS (webviews are transparent by default).
 - **Geometry** (`utils/viewport-math.util.ts`): `hasDuoSystemRail`, `resolvePageSafeArea`, status-bar-style aware web-app geometry, Safari bar collapse.
 - **Duo**: posture animation no longer cancelled on Outer↔Inner swap; posture ↔ orientation sync; Stand uses the cover display; inner-display wake animation.
 - **Devices**: viewport-class catalogue incl. SE (Touch ID chassis), 13 mini, 11 (@2x), 16e/14, 14 Plus, 16/16 Plus.
 - **Home Screen / tools** (`renderer/components/ScreenLayers.tsx`, `renderer/useScreenController.ts`, `services/page-inspector.ts`): Home, Add to Home Screen, launch splash, permission alerts, Web App Check, screenshots, Xcode shortcuts.
+
+- **Audit fixes**: `<webview>` `src` changes made before attach are caught up on first dom-ready (Duo primary slice showed a stale URL); Dynamic Island / notch drawn on the leading edge in landscape; Safari/Chrome top bar = status bar height only (0 in landscape, 20pt on SE); Home Screen content stays clear of the Duo rail.
 
 Verification note: in headless Xvfb, Playwright's `page.screenshot()` of the shell can show stale/blank frames for the out-of-process `<webview>` after scrolling. Use `BrowserWindow.webContents.capturePage()` (what the app's Screenshot uses) for visual checks, and pass `--enable-unsafe-swiftshader` so WebGL works without a GPU.
 
@@ -23,7 +25,7 @@ Assessed, not done. Tauri on macOS would render with WKWebView, which is *more* 
 
 ### Next
 
-1. Duo 3D slices still use a 44px radius instead of the glTF aperture squircle (Priority 1 below).
+1. Duo 3D slices use a 44px radius instead of the glTF aperture squircle. At 2× zoom the resting postures (0°, 180°) show no bleed onto the bezel; mid-fold angles are not yet audited at pixel level (Priority 1 below).
 2. Keyboard: an iOS software keyboard that shrinks the visual viewport on input focus.
 3. Optional Playwright-based visual regression suite using `capturePage()` on each viewport class.
 

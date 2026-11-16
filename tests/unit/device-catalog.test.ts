@@ -71,6 +71,13 @@ describe('screen geometry', () => {
     expect(collapsed.topBarHeight).toBe(full.topBarHeight);
   });
 
+  it('Safari top chrome is exactly the status bar (none in landscape)', () => {
+    expect(computeShellChromeHeights(BrowserShellMode.IOS_SAFARI, pro.safeAreaPortrait).topBarHeight).toBe(62);
+    expect(computeShellChromeHeights(BrowserShellMode.IOS_SAFARI, pro.safeAreaLandscape).topBarHeight).toBe(0);
+    const se = getDevicePresetById(DeviceModelId.IPHONE_SE_3);
+    expect(computeShellChromeHeights(BrowserShellMode.IOS_SAFARI, se.safeAreaPortrait).topBarHeight).toBe(20);
+  });
+
   it('window height fits the whole device under the 3-row toolbar', () => {
     const m = computeViewportMetrics(pro, Orientation.PORTRAIT, 1, true, false);
     // root padding 6 + toolbar 93 + margin 8 + device + bottom padding

@@ -580,6 +580,10 @@ html, body, #root {
   color: #fafafa;
 }
 
+.cutout-island-landscape {
+  top: 50% !important; left: 11px !important; width: 36px !important; height: 122px !important;
+  transform: translateY(-50%) !important; flex-direction: column-reverse; padding: 11px 0 !important;
+}
 .cutout-island {
   position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
   width: 122px; height: 36px; background: #000000; border-radius: 18px;
@@ -939,7 +943,7 @@ html, body, #root {
     radial-gradient(120% 80% at 50% 110%, #0b7285 0%, transparent 65%),
     #101527;
 }
-.home-content { position: relative; padding: 72px 22px 0; display: flex; flex-direction: column; gap: 22px; }
+.home-content { position: relative; padding: 72px calc(22px + var(--home-trailing, 0px)) 0 22px; display: flex; flex-direction: column; gap: 22px; }
 .home-widget {
   display: flex; flex-direction: column; padding: 14px 16px; border-radius: 22px; width: 100%; max-width: 360px;
   background: rgba(255, 255, 255, 0.14); backdrop-filter: blur(24px) saturate(160%);
@@ -962,12 +966,12 @@ html, body, #root {
 .home-app-icon-ghost { background: rgba(255, 255, 255, 0.12); border: 1.5px dashed rgba(255, 255, 255, 0.55); color: #fff; box-shadow: none; }
 .home-app-label { font-size: 11.5px; font-weight: 500; max-width: 74px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
 .home-search-pill {
-  position: absolute; left: 50%; bottom: 122px; transform: translateX(-50%); height: 28px; padding: 0 12px;
+  position: absolute; left: calc((100% - var(--home-trailing, 0px)) / 2); bottom: 122px; transform: translateX(-50%); height: 28px; padding: 0 12px;
   display: inline-flex; align-items: center; gap: 5px; border-radius: 14px; font-size: 12px; font-weight: 600;
   background: rgba(255, 255, 255, 0.18); backdrop-filter: blur(20px);
 }
 .home-dock {
-  position: absolute; left: 12px; right: 12px; bottom: 14px; height: 92px; border-radius: 34px;
+  position: absolute; left: 12px; right: calc(12px + var(--home-trailing, 0px)); bottom: 14px; height: 92px; border-radius: 34px;
   display: flex; align-items: center; justify-content: space-around; padding: 0 12px;
   background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(28px) saturate(170%); border: 0.5px solid rgba(255, 255, 255, 0.25);
 }

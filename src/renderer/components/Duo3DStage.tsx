@@ -314,7 +314,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
                 onPageReady={props.onPageReady}
               />
             </AppSurface>
-            <HomeScreen />
+            <HomeScreen trailingInset={isOuterPrimary || !isHorizontalSplit ? 84 : 0} />
             <LaunchSplash />
             <SystemOverlayLayer
               preset={preset}
