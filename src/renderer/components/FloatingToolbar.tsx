@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import {
   BookOpen,
+  Camera,
   ChevronDown,
+  ClipboardCheck,
   Columns2,
   CornerDownLeft,
   EyeOff,
   FolderClosed,
   Globe,
-  Hand,
-  Layers,
+  House,
   Minus,
   Moon,
   MousePointerClick,
@@ -22,6 +23,7 @@ import {
   Terminal,
   X
 } from 'lucide-react';
+import { groupDevicePresets } from '../../config/device-presets.config';
 import { validateHttpUrl } from '../../config/env.config';
 import {
   DeviceFormFactor,
@@ -48,192 +50,157 @@ export interface FloatingToolbarProps {
   readonly onOpenDevTools: () => void;
   readonly onMinimize: () => void;
   readonly onClose: () => void;
+  readonly onGoHome?: () => void;
+  readonly onScreenshot?: () => void;
+  readonly onToggleInspector?: () => void;
+  readonly inspectorOpen?: boolean;
+  readonly inspectorBadge?: number;
 }
 
-const SHELL_MODE_CYCLE: readonly { readonly mode: BrowserShellMode; readonly label: string }[] = [
-  { mode: BrowserShellMode.PWA_STANDALONE, label: 'PWA' },
-  { mode: BrowserShellMode.IOS_SAFARI, label: 'Safari' },
-  { mode: BrowserShellMode.IOS_CHROME, label: 'Chrome' }
+const SHELL_SEGMENTS: readonly {
+  readonly mode: BrowserShellMode;
+  readonly label: string;
+  readonly hint: string;
+}[] = [
+  { mode: BrowserShellMode.IOS_SAFARI, label: 'Safari', hint: 'Safari on iOS (compact tab bar)' },
+  { mode: BrowserShellMode.IOS_CHROME, label: 'Chrome', hint: 'Chrome for iOS (WebKit, top omnibox)' },
+  {
+    mode: BrowserShellMode.PWA_STANDALONE,
+    label: 'Web App',
+    hint: 'Home Screen web app (display: standalone, navigator.standalone = true)'
+  }
 ];
 
-function nextShellMode(current: BrowserShellMode): BrowserShellMode {
-  const idx = SHELL_MODE_CYCLE.findIndex((item) => item.mode === current);
-  const nextIdx = (idx + 1) % SHELL_MODE_CYCLE.length;
-  return SHELL_MODE_CYCLE[nextIdx]?.mode ?? BrowserShellMode.PWA_STANDALONE;
-}
-
-function shellModeShortLabel(current: BrowserShellMode): string {
-  return SHELL_MODE_CYCLE.find((item) => item.mode === current)?.label ?? 'PWA';
-}
-
 function formatDeviceOptionLabel(preset: DevicePreset): string {
-  return `${preset.name} · iOS 27.3`;
+  const size = `${preset.width}×${preset.height}`;
+  return preset.alsoCovers
+    ? `${preset.name} · ${size}  (= ${preset.alsoCovers})`
+    : `${preset.name} · ${size}`;
 }
 
-function TopControlRow(props: FloatingToolbarProps): React.ReactElement {
-  const { state, presets, activePreset, onUpdateState } = props;
-  const isDuoDevice =
-    activePreset.formFactor === DeviceFormFactor.FOLDABLE_COVER ||
-    activePreset.formFactor === DeviceFormFactor.FOLDABLE_DUAL;
-  const isDuoFolded = state.selectedDeviceId === DeviceModelId.IPHONE_DUO_FOLDED;
+function isDuo(preset: DevicePreset): boolean {
+  return (
+    preset.formFactor === DeviceFormFactor.FOLDABLE_COVER ||
+    preset.formFactor === DeviceFormFactor.FOLDABLE_DUAL
+  );
+}
 
+/** Row 1 — the window: close/minimise, device, zoom, collapse. */
+function WindowRow(props: FloatingToolbarProps): React.ReactElement {
+  const { state, presets, onUpdateState } = props;
   const stepScale = (delta: number): void => {
     onUpdateState({ scale: clampSimulatorScale(state.scale + delta) });
   };
-
   return (
-    <div className="shadcn-row shadcn-row-top">
-      <div className="shadcn-group">
-        <div className="traffic-lights">
-          <button
-            type="button"
-            className="traffic-dot traffic-close"
-            title="Hide to Menu Bar (⌘⇧S)"
-            onClick={props.onClose}
-          >
-            <X size={8} strokeWidth={3} />
-          </button>
-          <button
-            type="button"
-            className="traffic-dot traffic-min"
-            title="Minimize to Dock (⌘M)"
-            onClick={props.onMinimize}
-          >
-            <Minus size={8} strokeWidth={3} />
-          </button>
-        </div>
-
-        <div className="shadcn-select-wrap shadcn-select-device-wrap">
-          <Smartphone size={10.5} className="shadcn-select-icon" />
-          <select
-            className="shadcn-select shadcn-select-device"
-            aria-label="Device Model"
-            value={state.selectedDeviceId}
-            onChange={(e): void =>
-              onUpdateState({ selectedDeviceId: e.target.value as DeviceModelId })
-            }
-          >
-            {presets.map((p) => (
-              <option key={p.id} value={p.id}>
-                {formatDeviceOptionLabel(p)}
-              </option>
-            ))}
-          </select>
-          <ChevronDown size={10} className="shadcn-select-chevron" />
-        </div>
-
-        <div
-          className="swipe-mode-segmented"
-          role="group"
-          aria-label="Swipe Mode"
-          title="Swipe mode: Drag (click & drag) vs Hover (cursor / trackpad)"
-        >
-          <button
-            type="button"
-            className={`swipe-seg-btn ${!state.touchCursorEnabled ? 'swipe-seg-active' : ''}`}
-            title="Drag mode: click and drag to scroll or swipe"
-            onClick={(): void => onUpdateState({ touchCursorEnabled: false })}
-          >
-            <MousePointerClick size={9} />
-            <span>Drag</span>
-          </button>
-          <button
-            type="button"
-            className={`swipe-seg-btn ${state.touchCursorEnabled ? 'swipe-seg-active swipe-seg-direct' : ''}`}
-            title="Hover mode: direct swipe with cursor or trackpad without clicking"
-            onClick={(): void => onUpdateState({ touchCursorEnabled: true })}
-          >
-            {state.touchCursorEnabled ? <Sparkles size={9} /> : <Hand size={9} />}
-            <span>Hover</span>
-          </button>
-        </div>
-
-        {isDuoDevice && (
-          <button
-            type="button"
-            className="shadcn-btn shadcn-btn-primary"
-            onClick={(): void =>
-              onUpdateState({
-                selectedDeviceId: isDuoFolded
-                  ? DeviceModelId.IPHONE_DUO_UNFOLDED
-                  : DeviceModelId.IPHONE_DUO_FOLDED,
-                orientation: Orientation.PORTRAIT
-              })
-            }
-          >
-            {isDuoFolded ? <BookOpen size={10} /> : <FolderClosed size={10} />}
-            <span>{isDuoFolded ? 'Unfold' : 'Fold'}</span>
-          </button>
-        )}
-      </div>
-
-      <div className="shadcn-group">
+    <div className="tb-row">
+      <div className="traffic-lights">
         <button
           type="button"
-          className={`pin-toggle-pill ${state.alwaysOnTop ? 'pin-toggle-on' : 'pin-toggle-off'}`}
-          title={
-            state.alwaysOnTop
-              ? 'Floating across all spaces & full-screen apps (click for This Space only, ⌘T)'
-              : 'Stays on this space only (click to float on All Spaces, ⌘T)'
+          className="traffic-dot traffic-close"
+          title="Hide to Menu Bar (⇧⌘S)"
+          aria-label="Hide simulator"
+          onClick={props.onClose}
+        >
+          <X size={8} strokeWidth={3} />
+        </button>
+        <button
+          type="button"
+          className="traffic-dot traffic-min"
+          title="Minimize (⌘M)"
+          aria-label="Minimize simulator"
+          onClick={props.onMinimize}
+        >
+          <Minus size={8} strokeWidth={3} />
+        </button>
+      </div>
+
+      <div className="shadcn-select-wrap tb-device">
+        <Smartphone size={10.5} className="shadcn-select-icon" />
+        <select
+          className="shadcn-select shadcn-select-device"
+          aria-label="Device Model"
+          title={`${props.activePreset.name} — ${props.activePreset.generation}`}
+          value={state.selectedDeviceId}
+          onChange={(e): void =>
+            onUpdateState({ selectedDeviceId: e.target.value as DeviceModelId })
           }
-          onClick={(): void => onUpdateState({ alwaysOnTop: !state.alwaysOnTop })}
         >
-          {state.alwaysOnTop ? <Pin size={9} /> : <PinOff size={9} />}
-          <span>{state.alwaysOnTop ? 'All Spaces' : 'This Space'}</span>
-        </button>
+          {groupDevicePresets(presets).map((g) => (
+            <optgroup key={g.group} label={g.group}>
+              {g.presets.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {formatDeviceOptionLabel(p)}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <ChevronDown size={10} className="shadcn-select-chevron" />
+      </div>
 
-        <div className="scale-stepper" role="group" aria-label="Scale">
-          <button
-            type="button"
-            className="scale-step-btn"
-            title="Zoom Out (⌘-)"
-            onClick={(): void => stepScale(-0.05)}
-          >
-            <Minus size={9} />
-          </button>
-          <button
-            type="button"
-            className="scale-readout-btn"
-            title="Click to toggle 85% / 100% (or drag corners to resize)"
-            onClick={(): void =>
-              onUpdateState({ scale: Math.abs(state.scale - 0.85) < 0.02 ? 1.0 : 0.85 })
-            }
-          >
-            {`${Math.round(state.scale * 100)}%`}
-          </button>
-          <button
-            type="button"
-            className="scale-step-btn"
-            title="Zoom In (⌘+)"
-            onClick={(): void => stepScale(0.05)}
-          >
-            <Plus size={9} />
-          </button>
-        </div>
-
+      <div className="scale-stepper" role="group" aria-label="Zoom">
         <button
           type="button"
-          className="shadcn-icon-btn"
-          title="Collapse Toolbar (⌘B)"
-          onClick={(): void => onUpdateState({ hudCollapsed: true })}
+          className="scale-step-btn"
+          title="Zoom Out (⌘−)"
+          aria-label="Zoom out"
+          onClick={(): void => stepScale(-0.05)}
         >
-          <EyeOff size={10.5} />
+          <Minus size={9} />
+        </button>
+        <button
+          type="button"
+          className="scale-readout-btn"
+          title="Toggle 85% / 100% (⌘0). Drag a corner to resize."
+          onClick={(): void =>
+            onUpdateState({ scale: Math.abs(state.scale - 0.85) < 0.02 ? 1.0 : 0.85 })
+          }
+        >
+          {`${Math.round(state.scale * 100)}%`}
+        </button>
+        <button
+          type="button"
+          className="scale-step-btn"
+          title="Zoom In (⌘+)"
+          aria-label="Zoom in"
+          onClick={(): void => stepScale(0.05)}
+        >
+          <Plus size={9} />
         </button>
       </div>
+
+      <button
+        type="button"
+        className={`shadcn-icon-btn ${state.alwaysOnTop ? 'tb-on' : ''}`}
+        title={
+          state.alwaysOnTop
+            ? 'Floating on all Spaces & full-screen apps (⌘T to keep on this Space)'
+            : 'On this Space only (⌘T to float on all Spaces)'
+        }
+        aria-pressed={state.alwaysOnTop}
+        aria-label="Float on all Spaces"
+        onClick={(): void => onUpdateState({ alwaysOnTop: !state.alwaysOnTop })}
+      >
+        {state.alwaysOnTop ? <Pin size={11} /> : <PinOff size={11} />}
+      </button>
+      <button
+        type="button"
+        className="shadcn-icon-btn"
+        title="Hide toolbar (⌘B)"
+        aria-label="Hide toolbar"
+        onClick={(): void => onUpdateState({ hudCollapsed: true })}
+      >
+        <EyeOff size={10.5} />
+      </button>
     </div>
   );
 }
 
-function UrlBarRow(props: FloatingToolbarProps): React.ReactElement {
-  const { state, bookmarks, activePreset, onUpdateState } = props;
+/** Row 2 — the browser: which iOS container, and what URL. */
+function BrowserRow(props: FloatingToolbarProps): React.ReactElement {
+  const { state, bookmarks, onUpdateState } = props;
   const [urlDraft, setUrlDraft] = useState<string>(state.currentUrl);
-  const isDuo = activePreset.formFactor === DeviceFormFactor.FOLDABLE_DUAL;
-  const nextOrientation =
-    state.orientation === Orientation.PORTRAIT ? Orientation.LANDSCAPE : Orientation.PORTRAIT;
-  const nextDuoMode =
-    state.duoDisplayMode === DuoDisplayMode.SINGLE_SPAN
-      ? DuoDisplayMode.SPLIT_COMPARISON
-      : DuoDisplayMode.SINGLE_SPAN;
+  const [urlError, setUrlError] = useState<string | null>(null);
 
   useEffect((): void => {
     setUrlDraft(state.currentUrl);
@@ -243,97 +210,200 @@ function UrlBarRow(props: FloatingToolbarProps): React.ReactElement {
     e.preventDefault();
     const res = validateHttpUrl(urlDraft, 'currentUrl');
     if (res.ok) {
+      setUrlError(null);
       setUrlDraft(res.value);
       onUpdateState({ currentUrl: res.value });
+    } else {
+      setUrlError(res.error.message);
     }
   };
 
   return (
-    <form className="shadcn-row" onSubmit={handleSubmit}>
-      <button
-        type="button"
-        className="shadcn-btn shadcn-btn-outline"
-        title="Switch shell: PWA Standalone / iOS Safari / iOS Chrome"
-        onClick={(): void => onUpdateState({ shellMode: nextShellMode(state.shellMode) })}
-      >
-        <Layers size={10} />
-        <span>{shellModeShortLabel(state.shellMode)}</span>
-      </button>
+    <form className="tb-row" onSubmit={handleSubmit}>
+      <div className="tb-seg" role="radiogroup" aria-label="Browser">
+        {SHELL_SEGMENTS.map((seg) => (
+          <button
+            key={seg.mode}
+            type="button"
+            role="radio"
+            aria-checked={state.shellMode === seg.mode}
+            className={`tb-seg-btn ${state.shellMode === seg.mode ? 'seg-active' : ''}`}
+            title={seg.hint}
+            onClick={(): void => onUpdateState({ shellMode: seg.mode })}
+          >
+            {seg.label}
+          </button>
+        ))}
+      </div>
 
-      <div className="shadcn-input-group">
+      <div className={`shadcn-input-group ${urlError ? 'tb-input-error' : ''}`} title={urlError ?? undefined}>
         <Globe size={10} className="shadcn-input-icon" />
         <input
           type="text"
           className="shadcn-input"
           value={urlDraft}
+          spellCheck={false}
+          aria-label="Page URL"
           onChange={(e): void => setUrlDraft(e.target.value)}
-          placeholder="Enter URL or :5173..."
+          placeholder="URL, localhost:5173 or :3000"
         />
-        <button type="submit" className="shadcn-input-submit" title="Go (Enter)">
+        <button type="submit" className="shadcn-input-submit" title="Go (Return)" aria-label="Go">
           <CornerDownLeft size={9} />
         </button>
       </div>
 
-      <div className="shadcn-group">
-        <div className="shadcn-select-wrap">
-          <select
-            className="shadcn-select shadcn-select-compact"
-            aria-label="Quick Target URL"
-            value={bookmarks.some((b) => b.url === state.currentUrl) ? state.currentUrl : ''}
-            onChange={(e): void => {
-              const val = e.target.value;
-              if (val) {
-                setUrlDraft(val);
-                onUpdateState({ currentUrl: val });
-              }
-            }}
-          >
-            <option value="" disabled>Presets</option>
-            {bookmarks.map((bm) => (
-              <option key={bm.id} value={bm.url}>
-                {bm.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown size={9.5} className="shadcn-select-chevron" />
-        </div>
-
-        {isDuo && (
-          <button
-            type="button"
-            className={`shadcn-btn ${state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON ? 'shadcn-btn-primary' : 'shadcn-btn-outline'}`}
-            onClick={(): void => onUpdateState({ duoDisplayMode: nextDuoMode })}
-          >
-            <Columns2 size={10} />
-            <span>{state.duoDisplayMode === DuoDisplayMode.SINGLE_SPAN ? 'Span' : 'Split'}</span>
-          </button>
-        )}
-        <button
-          type="button"
-          className="shadcn-icon-btn"
-          title="Rotate Device (Portrait / Landscape)"
-          onClick={(): void => onUpdateState({ orientation: nextOrientation })}
+      <div className="shadcn-select-wrap tb-presets">
+        <select
+          className="shadcn-select shadcn-select-compact"
+          aria-label="Saved URLs"
+          title="Saved URLs"
+          value={bookmarks.some((b) => b.url === state.currentUrl) ? state.currentUrl : ''}
+          onChange={(e): void => {
+            const val = e.target.value;
+            if (val) {
+              setUrlDraft(val);
+              onUpdateState({ currentUrl: val });
+            }
+          }}
         >
-          <RotateCw size={11} />
-        </button>
-        <button
-          type="button"
-          className="shadcn-icon-btn"
-          title="Toggle Dark / Light Status Bar"
-          onClick={(): void => onUpdateState({ darkMode: !state.darkMode })}
-        >
-          {state.darkMode ? <Moon size={11} /> : <Sun size={11} />}
-        </button>
-        <button
-          type="button"
-          className="shadcn-icon-btn"
-          title="Open DevTools"
-          onClick={props.onOpenDevTools}
-        >
-          <Terminal size={11} />
-        </button>
+          <option value="" disabled>
+            ★
+          </option>
+          {bookmarks.map((bm) => (
+            <option key={bm.id} value={bm.url}>
+              {bm.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown size={9.5} className="shadcn-select-chevron" />
       </div>
     </form>
+  );
+}
+
+function ActionButton(props: {
+  readonly icon: React.ReactNode;
+  readonly label: string;
+  readonly title: string;
+  readonly onClick?: () => void;
+  readonly active?: boolean;
+  readonly badge?: number;
+}): React.ReactElement {
+  return (
+    <button
+      type="button"
+      className={`tb-action ${props.active ? 'tb-on' : ''}`}
+      title={props.title}
+      aria-label={props.label}
+      aria-pressed={props.active}
+      onClick={props.onClick}
+    >
+      {props.icon}
+      <span>{props.label}</span>
+      {props.badge ? <em className="tb-badge">{props.badge}</em> : null}
+    </button>
+  );
+}
+
+/** Row 3 — hardware & tools, named like Xcode's Simulator menus. */
+function HardwareRow(props: FloatingToolbarProps): React.ReactElement {
+  const { state, activePreset, onUpdateState } = props;
+  const duo = isDuo(activePreset);
+  const isDuoFolded = state.selectedDeviceId === DeviceModelId.IPHONE_DUO_FOLDED;
+  const isDuoInner = activePreset.formFactor === DeviceFormFactor.FOLDABLE_DUAL;
+  const nextOrientation =
+    state.orientation === Orientation.PORTRAIT ? Orientation.LANDSCAPE : Orientation.PORTRAIT;
+
+  return (
+    <div className="tb-row tb-actions">
+      <ActionButton icon={<House size={12} />} label="Home" title="Home (⇧⌘H)" onClick={props.onGoHome} />
+      <ActionButton
+        icon={<RotateCw size={12} />}
+        label="Rotate"
+        title="Rotate (⌘← / ⌘→)"
+        onClick={(): void => onUpdateState({ orientation: nextOrientation })}
+      />
+      <ActionButton
+        icon={state.darkMode ? <Moon size={12} /> : <Sun size={12} />}
+        label={state.darkMode ? 'Dark' : 'Light'}
+        title="Appearance: prefers-color-scheme (⇧⌘A)"
+        onClick={(): void => onUpdateState({ darkMode: !state.darkMode })}
+      />
+      <ActionButton
+        icon={<Camera size={12} />}
+        label="Shot"
+        title="Save screenshot to Desktop (⌘S)"
+        onClick={props.onScreenshot}
+      />
+      <ActionButton
+        icon={<ClipboardCheck size={12} />}
+        label="Check"
+        title="iOS web app checks: manifest, icons, viewport, status bar, service worker"
+        onClick={props.onToggleInspector}
+        active={props.inspectorOpen}
+        badge={props.inspectorBadge}
+      />
+      <ActionButton
+        icon={<Terminal size={12} />}
+        label="Inspect"
+        title="Open Web Inspector (DevTools) for the page"
+        onClick={props.onOpenDevTools}
+      />
+      <span className="tb-spacer" />
+      <div className="tb-seg tb-seg-small" role="radiogroup" aria-label="Pointer as touch">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={!state.touchCursorEnabled}
+          className={`tb-seg-btn ${!state.touchCursorEnabled ? 'seg-active' : ''}`}
+          title="Touch = click and drag (like a finger)"
+          onClick={(): void => onUpdateState({ touchCursorEnabled: false })}
+        >
+          <MousePointerClick size={10} />
+        </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={state.touchCursorEnabled}
+          className={`tb-seg-btn ${state.touchCursorEnabled ? 'seg-active' : ''}`}
+          title="Touch = hover / trackpad swipe without clicking"
+          onClick={(): void => onUpdateState({ touchCursorEnabled: true })}
+        >
+          <Sparkles size={10} />
+        </button>
+      </div>
+      {duo && (
+        <ActionButton
+          icon={isDuoFolded ? <BookOpen size={12} /> : <FolderClosed size={12} />}
+          label={isDuoFolded ? 'Unfold' : 'Fold'}
+          title={isDuoFolded ? 'Open the Duo to the inner display' : 'Close to the cover display'}
+          onClick={(): void =>
+            onUpdateState({
+              selectedDeviceId: isDuoFolded
+                ? DeviceModelId.IPHONE_DUO_UNFOLDED
+                : DeviceModelId.IPHONE_DUO_FOLDED,
+              orientation: Orientation.PORTRAIT
+            })
+          }
+        />
+      )}
+      {isDuoInner && (
+        <ActionButton
+          icon={<Columns2 size={12} />}
+          label={state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON ? 'Split' : 'Span'}
+          title="Span one page across the inner display, or run two instances side by side"
+          active={state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON}
+          onClick={(): void =>
+            onUpdateState({
+              duoDisplayMode:
+                state.duoDisplayMode === DuoDisplayMode.SINGLE_SPAN
+                  ? DuoDisplayMode.SPLIT_COMPARISON
+                  : DuoDisplayMode.SINGLE_SPAN
+            })
+          }
+        />
+      )}
+    </div>
   );
 }
 
@@ -346,8 +416,9 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
       className="shadcn-toolbar"
       style={props.targetWidthPx ? { width: `${props.targetWidthPx}px` } : undefined}
     >
-      <TopControlRow {...props} />
-      <UrlBarRow {...props} />
+      <WindowRow {...props} />
+      <BrowserRow {...props} />
+      <HardwareRow {...props} />
     </header>
   );
 }

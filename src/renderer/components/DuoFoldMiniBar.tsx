@@ -64,7 +64,7 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
   const phi = sampleFoldCurve(foldAngle / 180);
   const status = resolveDeviceHingeStatus(foldAngle);
   const statusBadgeText =
-    status === 'closed' ? 'Closed' : status === 'fullyOpen' ? 'Open' : 'Free-Stop 3D';
+    status === 'closed' ? 'Cover' : status === 'fullyOpen' ? 'Inner' : 'Folding';
 
   const renderPostureIcon = (id: DuoPostureId): React.ReactNode => {
     switch (id) {
@@ -155,8 +155,11 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
         <span className={`duo-status-pill duo-status-${status}`}>
           {statusBadgeText}
         </span>
-        <span className="duo-angle-readout" title={`DeviceHinge.Status: ${status} · FoldCurve φ=${phi.toFixed(2)}`}>
-          {`${roundedAngle}° · φ${phi.toFixed(2)} · ${logicalWidth}×${logicalHeight}`}
+        <span
+          className="duo-angle-readout"
+          title={`Hinge ${roundedAngle}° · DeviceHinge.Status ${status} · FoldCurve φ=${phi.toFixed(2)} · lit display ${logicalWidth}×${logicalHeight} pt`}
+        >
+          {`${roundedAngle}° · ${logicalWidth}×${logicalHeight}`}
         </span>
         <button
           type="button"

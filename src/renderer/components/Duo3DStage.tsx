@@ -11,12 +11,8 @@ import {
   Duo3DHardwareEngine
 } from '../../utils/duo-3d-engine.util';
 import { DuoPostureId } from '../../utils/duo-fold-math.util';
-import {
-  BrowserShellBarOverlay,
-  HardwareCutout,
-  HomeIndicatorOverlay,
-  IosStatusBar
-} from './BrowserShellOverlay';
+import { ScreenSystemOverlay } from './BrowserShellOverlay';
+import { AppSurface, HomeScreen, LaunchSplash, ScreenModalLayer } from './ScreenLayers';
 import { WebviewContainer } from './WebviewContainer';
 
 export interface Duo3DStageProps {
@@ -33,6 +29,9 @@ export interface Duo3DStageProps {
   readonly onRegisterWebContentsId: (id: number) => void;
   readonly onReload: () => void;
   readonly onToggleDuoFold: () => void;
+  readonly onGoHome?: () => void;
+  readonly tintColor?: string | null;
+  readonly onPageReady?: (webContentsId: number) => void;
 }
 
 const STAGE_WIDTH = 991;
@@ -41,48 +40,42 @@ const STAGE_HEIGHT = 718;
 interface SystemOverlayLayerProps {
   readonly preset: DevicePreset;
   readonly state: SimulatorState;
-  readonly metrics: ComputedViewportMetrics;
   readonly isOuterActive: boolean;
+  readonly isTallInner: boolean;
   readonly logicalW: number;
   readonly logicalH: number;
+  readonly tintColor?: string | null;
   readonly onReload: () => void;
   readonly onToggleDuoFold: () => void;
+  readonly onGoHome?: () => void;
 }
 
 function SystemOverlayLayer(props: SystemOverlayLayerProps): React.ReactElement {
-  const { preset, state, metrics, isOuterActive, logicalW, logicalH } = props;
-  const activeCutout = isOuterActive
-    ? HardwareCutoutType.DUO_OUTER_CORNER
-    : HardwareCutoutType.UNDER_DISPLAY_HIDDEN;
-
   return (
-    <div
-      className="ios-overlay-scaler"
-      style={{ width: `${logicalW}px`, height: `${logicalH}px` }}
-    >
-      <HardwareCutout cutoutType={activeCutout} orientation={state.orientation} />
-      <IosStatusBar
-        preset={{ ...preset, cutoutType: activeCutout }}
-        orientation={Orientation.PORTRAIT}
-        safeArea={metrics.safeArea}
-        darkMode={state.darkMode}
-        onToggleDuoFold={props.onToggleDuoFold}
-      />
-      <BrowserShellBarOverlay
-        shellMode={state.shellMode}
-        currentUrl={state.currentUrl}
-        darkMode={state.darkMode}
-        onReload={props.onReload}
-      />
-      <HomeIndicatorOverlay darkMode={state.darkMode} />
-    </div>
+    <ScreenSystemOverlay
+      preset={props.preset}
+      cutoutType={
+        props.isOuterActive
+          ? HardwareCutoutType.DUO_OUTER_CORNER
+          : HardwareCutoutType.UNDER_DISPLAY_HIDDEN
+      }
+      orientation={
+        !props.isOuterActive && props.isTallInner ? Orientation.LANDSCAPE : Orientation.PORTRAIT
+      }
+      state={props.state}
+      logicalW={props.logicalW}
+      logicalH={props.logicalH}
+      tintColor={props.tintColor}
+      onReload={props.onReload}
+      onToggleDuoFold={props.onToggleDuoFold}
+      onGoHome={props.onGoHome}
+    />
   );
 }
 
 export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const {
     preset,
-    metrics,
     state,
     foldAngle,
     posture,
@@ -192,6 +185,19 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     ? '44px 44px 0 0'
     : '44px 0 0 44px';
 
+  // Display power choreography while the hinge moves:
+  //  - the cover display dims out as soon as the device starts opening,
+  //  - the inner panel wakes from black (u≈0.12) to full brightness (u≈0.42),
+  //    so the content "blooms" across the crease instead of popping in.
+  const u = projection?.u ?? (foldAngle / 180);
+  const innerWake = Math.min(1, Math.max(0, (u - 0.12) / 0.3));
+  const innerWakeEased = innerWake * innerWake * (3 - 2 * innerWake);
+  const coverSleep = Math.min(1, Math.max(0, u / 0.16));
+  const innerFilter =
+    innerWakeEased >= 0.999 ? undefined : `brightness(${(0.08 + 0.92 * innerWakeEased).toFixed(3)})`;
+  const coverFilter =
+    posture === 'standing' || coverSleep <= 0.001 ? undefined : `brightness(${(1 - 0.85 * coverSleep).toFixed(3)})`;
+
   const foldDepthIntensity = projection
     ? Math.sin(projection.phi * Math.PI)
     : 0;
@@ -229,6 +235,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
             height: `${projection.left.height}px`,
             transform: projection.left.matrix3d,
             opacity: projection.left.opacity,
+            filter: innerFilter,
             borderRadius: secondaryBorderRadius,
             zIndex: projection.left.zIndex
           }}
@@ -242,17 +249,21 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
               top: '0px'
             }}
           >
-            <WebviewContainer
-              state={state}
-              isDualUnfolded={true}
-              reloadTick={props.reloadTick}
-              onRegisterWebContentsId={(): void => {}}
-            />
+            <AppSurface>
+              <WebviewContainer
+                state={state}
+                isDualUnfolded={true}
+                reloadTick={props.reloadTick}
+                onRegisterWebContentsId={(): void => {}}
+              />
+            </AppSurface>
             <SystemOverlayLayer
               preset={preset}
               state={state}
-              metrics={metrics}
               isOuterActive={false}
+              isTallInner={isHorizontalSplit}
+              tintColor={props.tintColor}
+              onGoHome={props.onGoHome}
               logicalW={fullLogicalW}
               logicalH={fullLogicalH}
               onReload={props.onReload}
@@ -280,6 +291,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
             height: `${primarySlice.height}px`,
             transform: primarySlice.matrix3d,
             opacity: primarySlice.opacity,
+            filter: isOuterPrimary ? coverFilter : innerFilter,
             borderRadius: primaryBorderRadius,
             zIndex: primarySlice.zIndex
           }}
@@ -293,22 +305,30 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
               top: `${primaryShiftY}px`
             }}
           >
-            <WebviewContainer
-              state={state}
-              isDualUnfolded={!isOuterPrimary}
-              reloadTick={props.reloadTick}
-              onRegisterWebContentsId={props.onRegisterWebContentsId}
-            />
+            <AppSurface>
+              <WebviewContainer
+                state={state}
+                isDualUnfolded={!isOuterPrimary}
+                reloadTick={props.reloadTick}
+                onRegisterWebContentsId={props.onRegisterWebContentsId}
+                onPageReady={props.onPageReady}
+              />
+            </AppSurface>
+            <HomeScreen />
+            <LaunchSplash />
             <SystemOverlayLayer
               preset={preset}
               state={state}
-              metrics={metrics}
               isOuterActive={isOuterPrimary}
+              isTallInner={isHorizontalSplit}
+              tintColor={props.tintColor}
+              onGoHome={props.onGoHome}
               logicalW={fullLogicalW}
               logicalH={fullLogicalH}
               onReload={props.onReload}
               onToggleDuoFold={props.onToggleDuoFold}
             />
+            <ScreenModalLayer />
           </div>
           {isBentInner && (
             <div

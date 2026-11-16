@@ -6,14 +6,31 @@ import {
 } from '../types/emulation.types';
 import { BrowserShellMode, EmulationFailureError, Result } from '../types/simulator.types';
 import { logStructured } from '../utils/logger.util';
-import { computeShellChromeHeights, resolveSafeAreaInsets } from '../utils/viewport-math.util';
+import {
+  computeShellChromeHeights,
+  hasDuoSystemRail,
+  resolvePageSafeArea,
+  resolveSafeAreaInsets
+} from '../utils/viewport-math.util';
+
+/**
+ * Since iOS 26, Safari freezes the OS token in the User-Agent at 18_6 and only
+ * the `Version/` token tracks the real Safari release. Third-party iOS browsers
+ * (Chrome = WKWebView) report the same frozen token.
+ */
+const FROZEN_IOS_UA_TOKEN = '18_6';
+
+function resolveUaOsToken(safariIosVersion: string): string {
+  const major = Number.parseInt(safariIosVersion.replace(/_/g, '.').split('.')[0] ?? '0', 10);
+  return major >= 26 ? FROZEN_IOS_UA_TOKEN : safariIosVersion.replace(/\./g, '_');
+}
 
 export function buildMobileUserAgent(
   shellMode: BrowserShellMode,
   safariIosVersion: string,
   chromeIosVersion: string
 ): string {
-  const iosToken = safariIosVersion.replace(/\./g, '_');
+  const iosToken = resolveUaOsToken(safariIosVersion);
   const safariVersion = safariIosVersion.replace(/_/g, '.');
 
   if (shellMode === BrowserShellMode.IOS_CHROME) {
@@ -31,33 +48,31 @@ export function buildMobileUserAgent(
   );
 }
 
-export function buildSafeAreaCss(safeArea: SafeAreaInsets, darkMode: boolean): string {
-  const colorScheme = darkMode ? 'dark' : 'light';
+/**
+ * The only stylesheet injected into the page under test. It deliberately does
+ * NOT touch layout, overflow or color-scheme: a simulator that silently
+ * "fixes" a page hides the very bugs you want to catch before shipping.
+ *  - iOS uses overlay scrollbars → hide Chromium's classic scrollbars.
+ *  - Private custom properties back the env() fallback (namespaced so they
+ *    can never collide with the page's own variables).
+ */
+export function buildSafeAreaCss(safeArea: SafeAreaInsets, _darkMode?: boolean): string {
   return [
     ':root {',
-    `  --sat: ${safeArea.top}px;`,
-    `  --sar: ${safeArea.right}px;`,
-    `  --sab: ${safeArea.bottom}px;`,
-    `  --sal: ${safeArea.left}px;`,
-    `  --safe-area-inset-top: ${safeArea.top}px;`,
-    `  --safe-area-inset-right: ${safeArea.right}px;`,
-    `  --safe-area-inset-bottom: ${safeArea.bottom}px;`,
-    `  --safe-area-inset-left: ${safeArea.left}px;`,
-    `  color-scheme: ${colorScheme};`,
+    `  --__sim-sat: ${safeArea.top}px;`,
+    `  --__sim-sar: ${safeArea.right}px;`,
+    `  --__sim-sab: ${safeArea.bottom}px;`,
+    `  --__sim-sal: ${safeArea.left}px;`,
     '}',
-    'html, body {',
-    '  -webkit-tap-highlight-color: transparent;',
-    '  -webkit-touch-callout: none;',
-    '  overscroll-behavior-y: contain;',
-    '  overflow-x: clip;',
-    '}',
-    '::-webkit-scrollbar {',
-    '  width: 0px;',
-    '  height: 0px;',
-    '}'
+    '::-webkit-scrollbar { width: 0 !important; height: 0 !important; background: transparent; }'
   ].join('\n');
 }
 
+/**
+ * Runs before any page script on every navigation (Page.addScriptToEvaluateOnNewDocument)
+ * and once immediately for the current document. Makes the Chromium guest
+ * answer feature detection the way iOS WebKit does.
+ */
 export function buildStandaloneInitScript(
   shellMode: BrowserShellMode,
   safeArea: SafeAreaInsets,
@@ -65,59 +80,140 @@ export function buildStandaloneInitScript(
 ): string {
   const isStandalone = shellMode === BrowserShellMode.PWA_STANDALONE;
   const swipeMode = touchCursorEnabled ? 'direct' : 'press';
-  return [
-    '(() => {',
-    `  Object.defineProperty(window.navigator, 'standalone', { value: ${String(isStandalone)}, configurable: true });`,
-    `  Object.defineProperty(window.navigator, 'maxTouchPoints', { value: 5, configurable: true });`,
-    `  window.__SIMULATOR_SWIPE_MODE = '${swipeMode}';`,
-    '  if (document.documentElement) {',
-    `    document.documentElement.dataset.simulatorShell = '${shellMode}';`,
-    `    document.documentElement.dataset.swipeMode = '${swipeMode}';`,
-    `    document.documentElement.style.setProperty('--sat', '${safeArea.top}px');`,
-    `    document.documentElement.style.setProperty('--sar', '${safeArea.right}px');`,
-    `    document.documentElement.style.setProperty('--sab', '${safeArea.bottom}px');`,
-    `    document.documentElement.style.setProperty('--sal', '${safeArea.left}px');`,
-    '  }',
-    '  const oldOrb = document.getElementById("__sim-touch-orb");',
-    '  if (oldOrb) oldOrb.remove();',
-    '  try {',
-    '    for (const sheet of Array.from(document.styleSheets)) {',
-    '      let rules;',
-    '      try { rules = sheet.cssRules; } catch { continue; }',
-    '      if (!rules) continue;',
-    '      for (let i = 0; i < rules.length; i++) {',
-    '        const cssText = rules[i].cssText;',
-    '        if (cssText && cssText.includes("env(safe-area-inset-")) {',
-    '          const patched = cssText',
-    '            .replace(/env\\(\\s*safe-area-inset-top\\s*(?:,[^)]*)?\\)/g, "var(--sat)")',
-    '            .replace(/env\\(\\s*safe-area-inset-right\\s*(?:,[^)]*)?\\)/g, "var(--sar)")',
-    '            .replace(/env\\(\\s*safe-area-inset-bottom\\s*(?:,[^)]*)?\\)/g, "var(--sab)")',
-    '            .replace(/env\\(\\s*safe-area-inset-left\\s*(?:,[^)]*)?\\)/g, "var(--sal)");',
-    '          if (patched !== cssText) {',
-    '            try { sheet.deleteRule(i); sheet.insertRule(patched, i); } catch {}',
-    '          }',
-    '        }',
-    '      }',
-    '    }',
-    '  } catch {}',
-    '})();'
-  ].join('\n');
+  const config = JSON.stringify({
+    standalone: isStandalone,
+    shell: shellMode,
+    swipeMode,
+    safe: safeArea
+  });
+  return `(() => {
+  const cfg = ${config};
+  const define = (obj, key, value) => {
+    try { Object.defineProperty(obj, key, { get: () => value, configurable: true }); } catch {}
+  };
+  // --- navigator: iOS WebKit identity -------------------------------------
+  define(Navigator.prototype, 'standalone', cfg.standalone);
+  define(Navigator.prototype, 'vendor', 'Apple Computer, Inc.');
+  define(Navigator.prototype, 'maxTouchPoints', 5);
+  try { delete Navigator.prototype.userAgentData; } catch {}
+  define(Navigator.prototype, 'userAgentData', undefined);
+  window.__SIMULATOR_SWIPE_MODE = cfg.swipeMode;
+
+  // --- (display-mode) media queries: Chromium cannot emulate them ---------
+  window.__simDisplayMode = cfg.standalone ? 'standalone' : 'browser';
+  const rewriteQuery = (q) => String(q).replace(
+    /\\(\\s*display-mode\\s*:\\s*([a-z-]+)\\s*\\)/gi,
+    (_m, mode) =>
+      mode.toLowerCase() === window.__simDisplayMode ? '(min-width: 0px)' : '(max-width: -1px)'
+  );
+  if (!window.__simMatchMediaPatched) {
+    const nativeMatchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (q) => nativeMatchMedia(rewriteQuery(q));
+    window.__simMatchMediaPatched = true;
+  }
+
+  const applyDom = () => {
+    const root = document.documentElement;
+    if (!root) return;
+    root.dataset.simulatorShell = cfg.shell;
+    root.dataset.swipeMode = cfg.swipeMode;
+    root.style.setProperty('--__sim-sat', cfg.safe.top + 'px');
+    root.style.setProperty('--__sim-sar', cfg.safe.right + 'px');
+    root.style.setProperty('--__sim-sab', cfg.safe.bottom + 'px');
+    root.style.setProperty('--__sim-sal', cfg.safe.left + 'px');
+    const orb = document.getElementById('__sim-touch-orb');
+    if (orb) orb.remove();
+  };
+
+  // --- stylesheet fallback for env(safe-area-inset-*) and display-mode ----
+  const patchSheets = () => {
+    for (const sheet of Array.from(document.styleSheets)) {
+      let rules;
+      try { rules = sheet.cssRules; } catch { continue; }
+      if (!rules) continue;
+      for (let i = 0; i < rules.length; i++) {
+        const rule = rules[i];
+        if (rule.media && /display-mode/i.test(rule.media.mediaText)) {
+          try { rule.media.mediaText = rewriteQuery(rule.media.mediaText); } catch {}
+        }
+        if (window.__simEnvOverrideWorks) continue;
+        const cssText = rule.cssText;
+        if (cssText && cssText.includes('env(safe-area-inset-')) {
+          const patched = cssText
+            .replace(/env\\(\\s*safe-area-inset-top\\s*(?:,[^)]*)?\\)/g, 'var(--__sim-sat)')
+            .replace(/env\\(\\s*safe-area-inset-right\\s*(?:,[^)]*)?\\)/g, 'var(--__sim-sar)')
+            .replace(/env\\(\\s*safe-area-inset-bottom\\s*(?:,[^)]*)?\\)/g, 'var(--__sim-sab)')
+            .replace(/env\\(\\s*safe-area-inset-left\\s*(?:,[^)]*)?\\)/g, 'var(--__sim-sal)');
+          if (patched !== cssText) {
+            try { sheet.deleteRule(i); sheet.insertRule(patched, i); } catch {}
+          }
+        }
+      }
+    }
+  };
+
+  const probeEnvOverride = () => {
+    if (!document.body) return;
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top,-1px);padding-right:env(safe-area-inset-right,-1px)';
+    document.body.appendChild(probe);
+    const cs = getComputedStyle(probe);
+    window.__simEnvOverrideWorks =
+      parseFloat(cs.paddingTop) === cfg.safe.top && parseFloat(cs.paddingRight) === cfg.safe.right;
+    probe.remove();
+  };
+
+  // Safari's compact bar collapses when the page scrolls down and expands on
+  // scroll up / at the top. Report direction changes to the simulator shell.
+  if (cfg.shell === 'ios-safari' && !window.__simScrollWatch) {
+    window.__simScrollWatch = true;
+    let lastY = window.scrollY;
+    let collapsed = false;
+    window.addEventListener('scroll', () => {
+      const y = window.scrollY;
+      const dy = y - lastY;
+      if (Math.abs(dy) < 6) return;
+      lastY = y;
+      const next = dy > 0 && y > 40;
+      if (next !== collapsed) {
+        collapsed = next;
+        console.debug(collapsed ? '__sim:safari-bar:collapse' : '__sim:safari-bar:expand');
+      }
+    }, { passive: true });
+  }
+
+  const run = () => { applyDom(); probeEnvOverride(); patchSheets(); };
+  if (document.readyState === 'loading') {
+    applyDom();
+    document.addEventListener('DOMContentLoaded', run, { once: true });
+  } else {
+    run();
+  }
+  window.addEventListener('load', patchSheets, { once: true });
+})();`;
 }
 
 export function buildEmulationProfile(input: EmulationProfileInput): EmulationProfile {
   const isPortrait = input.orientation === Orientation.PORTRAIT;
-  const width = isPortrait ? input.preset.width : input.preset.height;
-  const rawHeight = isPortrait ? input.preset.height : input.preset.width;
+  const screenWidth = isPortrait ? input.preset.width : input.preset.height;
+  const screenHeight = isPortrait ? input.preset.height : input.preset.width;
   const rawSafeArea = resolveSafeAreaInsets(input.preset, input.orientation);
-  const chromeHeights = computeShellChromeHeights(input.shellMode, rawSafeArea);
+  const chromeHeights = computeShellChromeHeights(
+    input.shellMode,
+    rawSafeArea,
+    input.pwaStatusBarStyle ?? 'default'
+  );
+  const railWidth = hasDuoSystemRail(input.preset, input.orientation) ? rawSafeArea.right : 0;
   const viewportHeight = Math.max(
     240,
-    rawHeight - chromeHeights.topBarHeight - chromeHeights.bottomBarHeight
+    screenHeight - chromeHeights.topBarHeight - chromeHeights.bottomBarHeight
   );
-  const innerSafeArea: SafeAreaInsets =
-    input.shellMode === BrowserShellMode.PWA_STANDALONE
-      ? rawSafeArea
-      : { top: 0, right: rawSafeArea.right, bottom: 0, left: rawSafeArea.left };
+  const pageSafeArea = resolvePageSafeArea(
+    input.preset,
+    input.orientation,
+    input.shellMode,
+    input.pwaStatusBarStyle ?? 'default'
+  );
 
   return {
     userAgent: buildMobileUserAgent(
@@ -127,8 +223,10 @@ export function buildEmulationProfile(input: EmulationProfileInput): EmulationPr
     ),
     platform: 'iPhone',
     metrics: {
-      width,
+      width: screenWidth - railWidth,
       height: viewportHeight,
+      screenWidth,
+      screenHeight,
       deviceScaleFactor: input.preset.deviceScaleFactor,
       mobile: true,
       screenOrientation: {
@@ -140,13 +238,61 @@ export function buildEmulationProfile(input: EmulationProfileInput): EmulationPr
       enabled: true,
       maxTouchPoints: 5
     },
-    safeAreaCss: buildSafeAreaCss(innerSafeArea, input.darkMode),
+    pageSafeArea,
+    safeAreaCss: buildSafeAreaCss(pageSafeArea),
     standaloneInitScript: buildStandaloneInitScript(
       input.shellMode,
-      innerSafeArea,
+      pageSafeArea,
       Boolean(input.touchCursorEnabled)
     )
   };
+}
+
+/** Per-guest bookkeeping so re-applying emulation replaces instead of stacking. */
+interface AppliedGuestState {
+  cssKey: string | null;
+  initScriptId: string | null;
+}
+const appliedByGuest = new Map<number, AppliedGuestState>();
+
+export function forgetEmulationTarget(webContentsId: number): void {
+  appliedByGuest.delete(webContentsId);
+}
+
+async function replaceInitScript(
+  target: EmulationTargetWebContents,
+  bookkeeping: AppliedGuestState,
+  source: string
+): Promise<void> {
+  if (bookkeeping.initScriptId) {
+    await target.debugger
+      .sendCommand('Page.removeScriptToEvaluateOnNewDocument', {
+        identifier: bookkeeping.initScriptId
+      })
+      .catch(() => undefined);
+    bookkeeping.initScriptId = null;
+  }
+  const added = (await target.debugger
+    .sendCommand('Page.addScriptToEvaluateOnNewDocument', { source })
+    .catch(() => null)) as { identifier?: string } | null;
+  bookkeeping.initScriptId = added?.identifier ?? null;
+  // Also apply to the document that is already loaded. Runtime.evaluate does
+  // not wait for `load` (executeJavaScript does, and can hang on pages that
+  // keep long-lived requests open).
+  await target.debugger
+    .sendCommand('Runtime.evaluate', { expression: source, awaitPromise: false })
+    .catch(() => undefined);
+}
+
+async function replaceInjectedCss(
+  target: EmulationTargetWebContents,
+  bookkeeping: AppliedGuestState,
+  css: string
+): Promise<void> {
+  if (bookkeeping.cssKey && target.removeInsertedCSS) {
+    await target.removeInsertedCSS(bookkeeping.cssKey).catch(() => undefined);
+  }
+  bookkeeping.cssKey = await target.insertCSS(css);
 }
 
 export async function applyEmulationToTarget(
@@ -154,23 +300,33 @@ export async function applyEmulationToTarget(
   input: EmulationProfileInput
 ): Promise<Result<EmulationProfile, EmulationFailureError>> {
   const profile = buildEmulationProfile(input);
-  const effectiveZoom = 1.0;
-  const innerSafeArea =
-    input.shellMode === BrowserShellMode.PWA_STANDALONE
-      ? resolveSafeAreaInsets(input.preset, input.orientation)
-      : { top: 0, right: 0, bottom: 0, left: 0 };
+  const insets = profile.pageSafeArea;
+  const bookkeeping = appliedByGuest.get(target.id) ?? { cssKey: null, initScriptId: null };
+  appliedByGuest.set(target.id, bookkeeping);
 
   try {
     if (!target.debugger.isAttached()) {
       target.debugger.attach('1.3');
     }
     target.setUserAgent(profile.userAgent);
-    target.setZoomFactor?.(effectiveZoom);
+    target.setZoomFactor?.(1.0);
 
     await Promise.all([
       target.debugger.sendCommand('Emulation.setUserAgentOverride', {
         userAgent: profile.userAgent,
         platform: profile.platform
+      }),
+      // width/height 0 = keep the real <webview> box (which already matches the
+      // simulated viewport); only density, screen size and mobile viewport
+      // semantics (meta viewport, overlay scrollbars, text autosizing) change.
+      target.debugger.sendCommand('Emulation.setDeviceMetricsOverride', {
+        width: 0,
+        height: 0,
+        deviceScaleFactor: profile.metrics.deviceScaleFactor,
+        mobile: true,
+        screenWidth: profile.metrics.screenWidth,
+        screenHeight: profile.metrics.screenHeight,
+        screenOrientation: profile.metrics.screenOrientation
       }),
       target.debugger.sendCommand('Emulation.setTouchEmulationEnabled', {
         ...profile.touch
@@ -178,36 +334,34 @@ export async function applyEmulationToTarget(
       target.debugger.sendCommand('Emulation.setEmulatedMedia', {
         features: [
           { name: 'prefers-color-scheme', value: input.darkMode ? 'dark' : 'light' },
-          {
-            name: 'display-mode',
-            value: input.shellMode === BrowserShellMode.PWA_STANDALONE ? 'standalone' : 'browser'
-          }
+          { name: 'prefers-reduced-motion', value: 'no-preference' }
         ]
       }),
       target.debugger
         .sendCommand('Emulation.setSafeAreaInsetsOverride', {
           insets: {
-            top: innerSafeArea.top,
-            bottom: innerSafeArea.bottom,
-            left: innerSafeArea.left,
-            right: innerSafeArea.right,
-            topMax: innerSafeArea.top,
-            bottomMax: innerSafeArea.bottom,
-            leftMax: innerSafeArea.left,
-            rightMax: innerSafeArea.right
+            top: insets.top,
+            bottom: insets.bottom,
+            left: insets.left,
+            right: insets.right,
+            topMax: insets.top,
+            bottomMax: insets.bottom,
+            leftMax: insets.left,
+            rightMax: insets.right
           }
         })
-        .catch(() => undefined),
-      target.insertCSS(profile.safeAreaCss),
-      target.executeJavaScript(profile.standaloneInitScript)
+        .catch(() => undefined)
     ]);
+
+    await replaceInjectedCss(target, bookkeeping, profile.safeAreaCss);
+    await replaceInitScript(target, bookkeeping, profile.standaloneInitScript);
 
     logStructured('info', 'emulation.service', 'emulation_applied', {
       webContentsId: target.id,
       deviceId: input.preset.id,
       orientation: input.orientation,
       shellMode: input.shellMode,
-      zoomFactor: effectiveZoom
+      dpr: profile.metrics.deviceScaleFactor
     });
 
     return { ok: true, value: profile };

@@ -17,6 +17,8 @@ export interface QuickUrlBookmark {
   readonly url: string;
 }
 
+export type PwaStatusBarStyle = 'default' | 'black' | 'black-translucent';
+
 export interface SimulatorState {
   readonly currentUrl: string;
   readonly secondaryUrl: string;
@@ -31,6 +33,8 @@ export interface SimulatorState {
   readonly touchCursorEnabled: boolean;
   readonly darkMode: boolean;
   readonly isFramed: boolean;
+  /** From the page's apple-mobile-web-app-status-bar-style (Home Screen web app geometry). */
+  readonly pwaStatusBarStyle: PwaStatusBarStyle;
 }
 
 export interface ConfigValidationError {

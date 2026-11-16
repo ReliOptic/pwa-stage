@@ -1,4 +1,11 @@
 export enum DeviceModelId {
+  IPHONE_SE_3 = 'iphone-se-3',
+  IPHONE_13_MINI = 'iphone-13-mini',
+  IPHONE_11 = 'iphone-11',
+  IPHONE_14 = 'iphone-14',
+  IPHONE_14_PLUS = 'iphone-14-plus',
+  IPHONE_16_PLUS = 'iphone-16-plus',
+  IPHONE_18 = 'iphone-18',
   IPHONE_17 = 'iphone-17',
   IPHONE_17_AIR = 'iphone-17-air',
   IPHONE_17_PRO = 'iphone-17-pro',
@@ -12,6 +19,7 @@ export enum DeviceModelId {
 }
 
 export enum DeviceFormFactor {
+  HOME_BUTTON_SLAB = 'home-button-slab',
   STANDARD_SLAB = 'standard-slab',
   ULTRA_THIN_SLAB = 'ultra-thin-slab',
   FOLDABLE_COVER = 'foldable-cover',
@@ -23,6 +31,7 @@ export enum HardwareCutoutType {
   COMPACT_ISLAND = 'compact-island',
   NOTCH = 'notch',
   PUNCH_HOLE = 'punch-hole',
+  NONE = 'none',
   DUO_OUTER_CORNER = 'duo-outer-corner',
   UNDER_DISPLAY_HIDDEN = 'under-display-hidden'
 }
@@ -67,6 +76,12 @@ export interface DevicePreset {
   readonly safeAreaPortrait: SafeAreaInsets;
   readonly safeAreaLandscape: SafeAreaInsets;
   readonly hinge: DualScreenHingeSpec;
+  /** Picker group, e.g. "iPhone 17 · 2025". */
+  readonly group?: string;
+  /** Other models sharing this exact viewport, shown in the picker. */
+  readonly alsoCovers?: string;
+  /** Outer chassis radius when it is not screen radius + bezel (home-button phones). */
+  readonly chassisCornerRadius?: number;
 }
 
 export enum Orientation {

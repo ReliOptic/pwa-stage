@@ -2,6 +2,7 @@ import { SimulatorEnvConfig } from '../config/env.config';
 import { DevicePreset } from './device.types';
 import { EmulationProfile, EmulationTargetWebContents } from './emulation.types';
 import { Result, SimulatorError, SimulatorState } from './simulator.types';
+import { HomeScreenIdentity, PageInspection, PwaCheck } from './pwa.types';
 import { StorageServiceOptions } from './storage.types';
 import { NativeFloatingWindow } from './window-manager.types';
 
@@ -40,6 +41,26 @@ export interface SimulatorBridgeApi {
   readonly showTwoFingerActionMenu?: () => Promise<Result<boolean, SimulatorError>>;
   readonly moveWindow: (payload: MoveWindowPayload) => Promise<Result<boolean, SimulatorError>>;
   readonly onExternalStateUpdate?: (listener: (state: SimulatorState) => void) => () => void;
+  readonly onPermissionPrompt?: (listener: (prompt: GuestPermissionPrompt) => void) => () => void;
+  readonly respondPermission?: (id: string, granted: boolean) => Promise<unknown>;
+  readonly onShortcut?: (listener: (shortcut: { key: string; shift: boolean }) => void) => () => void;
+  readonly inspectPage?: (webContentsId: number) => Promise<Result<PageInspectionReport, SimulatorError>>;
+  readonly captureScreenshot?: (
+    rect: { x: number; y: number; width: number; height: number },
+    deviceName: string
+  ) => Promise<{ ok: boolean; value: string | null }>;
+}
+
+export interface PageInspectionReport {
+  readonly inspection: PageInspection;
+  readonly checks: readonly PwaCheck[];
+  readonly identity: HomeScreenIdentity;
+}
+
+export interface GuestPermissionPrompt {
+  readonly id: string;
+  readonly origin: string;
+  readonly message: string;
 }
 
 export interface CoordinatorDependencies {

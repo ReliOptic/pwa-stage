@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process';
+import { logStructured } from '../utils/logger.util';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { app, BrowserWindow, Menu, nativeImage, Tray } from 'electron';
@@ -35,6 +37,28 @@ export function applyStatePatchFromMenu(
   }
 }
 
+/**
+ * Chromium is not WebKit. For a final rendering check, hand the same URL to a
+ * booted Xcode iOS Simulator (real Safari). Arguments are passed as an argv
+ * array (no shell) and the URL is validated to http(s) first.
+ */
+export function openInXcodeSimulator(rawUrl: string): void {
+  let url: string;
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+    url = parsed.href;
+  } catch {
+    return;
+  }
+  execFile('xcrun', ['simctl', 'openurl', 'booted', url], (err) => {
+    logStructured(err ? 'warn' : 'info', 'menubar.service', 'xcode_simulator_openurl', {
+      ok: !err,
+      hint: err ? 'Boot a simulator first: open -a Simulator' : undefined
+    });
+  });
+}
+
 export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
   const state = readCurrentState(ctx.deps);
   const win = ctx.getWindow();
@@ -45,6 +69,12 @@ export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
     state.orientation === Orientation.PORTRAIT ? Orientation.LANDSCAPE : Orientation.PORTRAIT;
 
   return Menu.buildFromTemplate([
+    {
+      label: 'Open URL in Xcode iOS Simulator (WebKit reference)',
+      enabled: process.platform === 'darwin',
+      click: (): void => openInXcodeSimulator(state.currentUrl)
+    },
+    { type: 'separator' },
     {
       label: `Float on All Spaces (${state.alwaysOnTop ? 'ON' : 'OFF — This Space'})`,
       type: 'checkbox',

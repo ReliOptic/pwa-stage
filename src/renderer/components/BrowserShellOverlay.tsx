@@ -1,14 +1,11 @@
 import React from 'react';
 import {
-  BookOpen,
   ChevronLeft,
   ChevronRight,
-  Copy,
   Lock,
   MoreHorizontal,
   Plus,
-  RotateCw,
-  Share
+  RotateCw
 } from 'lucide-react';
 import { IOS27_NOTCH_03_SVG_PATH, IOS27_STATUS_ICONS } from '../../config/ios27-assets.config';
 import {
@@ -18,8 +15,17 @@ import {
   Orientation,
   SafeAreaInsets
 } from '../../types/device.types';
-import { BrowserShellMode } from '../../types/simulator.types';
+import { BrowserShellMode, SimulatorState } from '../../types/simulator.types';
+import { getDevicePresetById } from '../../config/device-presets.config';
+import {
+  computeShellChromeHeights,
+  hasDuoSystemRail,
+  resolveSafeAreaInsets
+} from '../../utils/viewport-math.util';
 import { DuoStatusRing } from './DuoStatusRing';
+import { prefersLightContent } from '../../utils/color.util';
+import { useScreen } from './ScreenLayers';
+import { setSafariBarCollapsed, useSafariBarCollapsed } from '../sim-events';
 
 export interface BrowserShellOverlayProps {
   readonly preset: DevicePreset;
@@ -69,7 +75,10 @@ export function HardwareCutout(props: {
   readonly orientation: Orientation;
 }): React.ReactElement | null {
   const { cutoutType, orientation } = props;
-  if (cutoutType === HardwareCutoutType.UNDER_DISPLAY_HIDDEN) {
+  if (
+    cutoutType === HardwareCutoutType.UNDER_DISPLAY_HIDDEN ||
+    cutoutType === HardwareCutoutType.NONE
+  ) {
     return null;
   }
   if (cutoutType === HardwareCutoutType.DUO_OUTER_CORNER) {
@@ -182,6 +191,35 @@ export function IosStatusBar(props: BrowserShellOverlayProps): React.ReactElemen
     return null;
   }
 
+  if (preset.cutoutType === HardwareCutoutType.NONE) {
+    // Touch ID iPhones: 20pt bar, time centered, signal leading, battery trailing.
+    return (
+      <div className="ios-status-classic" style={{ color: fgColor }}>
+        <span className="ios-status-classic-side">
+          <img
+            src={darkMode ? IOS27_STATUS_ICONS.cellularLight : IOS27_STATUS_ICONS.cellularDark}
+            alt="Cellular"
+            style={{ width: '15px', height: '10px' }}
+          />
+          <img
+            src={darkMode ? IOS27_STATUS_ICONS.wifiLight : IOS27_STATUS_ICONS.wifiDark}
+            alt="Wi-Fi"
+            style={{ width: '13px', height: '10px' }}
+          />
+        </span>
+        <span className="ios-status-classic-time">9:41 AM</span>
+        <span className="ios-status-classic-side ios-status-classic-right">
+          <span className="ios-status-classic-pct">100%</span>
+          <img
+            src={darkMode ? IOS27_STATUS_ICONS.batteryLight : IOS27_STATUS_ICONS.batteryDark}
+            alt="Battery"
+            style={{ width: '22px', height: '10.5px' }}
+          />
+        </span>
+      </div>
+    );
+  }
+
   const hasIsland =
     preset.cutoutType === HardwareCutoutType.DYNAMIC_ISLAND ||
     preset.cutoutType === HardwareCutoutType.COMPACT_ISLAND;
@@ -208,49 +246,88 @@ function dispatchWebviewNav(direction: 'back' | 'forward'): void {
   window.dispatchEvent(new CustomEvent('sim:webview-nav', { detail: direction }));
 }
 
-export function BrowserShellBarOverlay(props: {
+export interface BrowserShellBarOverlayProps {
   readonly shellMode: BrowserShellMode;
   readonly currentUrl: string;
   readonly darkMode: boolean;
   readonly onReload?: () => void;
-}): React.ReactElement | null {
+  /** Exact heights the webview is inset by (computeShellChromeHeights). */
+  readonly topBarHeight: number;
+  readonly bottomBarHeight: number;
+  /** Width reserved on the trailing edge (iPhone Duo system rail). */
+  readonly trailingInset?: number;
+  /** Page theme-color / background, used to tint the status-bar area like Safari. */
+  readonly tintColor?: string | null;
+  /** Safari compact bar minimised while scrolling down. */
+  readonly collapsed?: boolean;
+}
+
+/**
+ * iOS 26+/27 Safari "Compact" tab bar and Chrome for iOS chrome.
+ * Bar geometry comes from props so the overlay and the <webview> inset are
+ * computed from one source and can never drift apart by a pixel.
+ */
+export function BrowserShellBarOverlay(props: BrowserShellBarOverlayProps): React.ReactElement | null {
   const isHtmlFs = useHtmlFullscreenState();
+  const screen = useScreen();
   if (isHtmlFs || props.shellMode === BrowserShellMode.PWA_STANDALONE) {
     return null;
   }
   const host = getHostnameForDisplay(props.currentUrl);
+  const isSecure = props.currentUrl.startsWith('https://');
   const isSafari = props.shellMode === BrowserShellMode.IOS_SAFARI;
   const glassClass = props.darkMode ? 'ios-liquid-glass-dark' : 'ios-liquid-glass-light';
   const chromeSurfaceClass = props.darkMode ? 'ios-browser-surface-dark' : 'ios-browser-surface-light';
+  const trailing = props.trailingInset ?? 0;
+  const topStyle: React.CSSProperties = {
+    height: `${props.topBarHeight}px`,
+    right: `${trailing}px`,
+    ...(props.tintColor ? { background: props.tintColor } : {})
+  };
+  const bottomStyle: React.CSSProperties = {
+    height: `${props.bottomBarHeight}px`,
+    right: `${trailing}px`
+  };
+
+  if (isSafari && props.collapsed) {
+    return (
+      <>
+        <div className={`ios-browser-top-backdrop ${chromeSurfaceClass}`} style={topStyle} aria-hidden="true" />
+        <button
+          type="button"
+          className={`ios-safari-collapsed ${chromeSurfaceClass}`}
+          style={bottomStyle}
+          title="Tap to show the toolbar"
+          onClick={(): void => setSafariBarCollapsed(false)}
+        >
+          {isSecure && <Lock size={8} />}
+          <span className="ios-shell-domain-text">{host}</span>
+        </button>
+      </>
+    );
+  }
 
   if (isSafari) {
     return (
       <>
-        <div className={`ios-browser-top-backdrop ${chromeSurfaceClass}`} aria-hidden="true" />
-        <div className={`ios-safari-bottom-dock ${chromeSurfaceClass}`}>
+        <div className={`ios-browser-top-backdrop ${chromeSurfaceClass}`} style={topStyle} aria-hidden="true" />
+        <div className={`ios-safari-bottom-dock ${chromeSurfaceClass}`} style={bottomStyle}>
+          <button
+            type="button"
+            className={`ios-safari-round-btn ${glassClass}`}
+            onClick={(): void => dispatchWebviewNav('back')}
+            title="Back"
+            aria-label="Back"
+          >
+            <ChevronLeft size={17} />
+          </button>
           <div className={`ios-browser-shell-pill ios-safari-address-pill ${glassClass}`}>
-            <button
-              type="button"
-              className="ios-shell-icon-btn"
-              onClick={(): void => dispatchWebviewNav('back')}
-              title="Back"
-              aria-label="Back"
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <button
-              type="button"
-              className="ios-shell-icon-btn"
-              onClick={(): void => dispatchWebviewNav('forward')}
-              title="Forward"
-              aria-label="Forward"
-            >
-              <ChevronRight size={14} />
-            </button>
-            <span className="ios-shell-aa">AA</span>
-            <span className="ios-shell-domain">
-              <Lock size={10} />
-              <span>{host}</span>
+            <span className="ios-shell-aa" aria-hidden="true">
+              AA
+            </span>
+            <span className="ios-shell-domain" title={props.currentUrl}>
+              {isSecure && <Lock size={10} />}
+              <span className="ios-shell-domain-text">{host}</span>
             </span>
             <button
               type="button"
@@ -261,16 +338,16 @@ export function BrowserShellBarOverlay(props: {
             >
               <RotateCw size={12} />
             </button>
-            <span className="ios-shell-icon-passive" aria-hidden="true">
-              <Share size={12} />
-            </span>
-            <span className="ios-shell-icon-passive" aria-hidden="true">
-              <BookOpen size={12} />
-            </span>
-            <span className="ios-shell-icon-passive" aria-hidden="true">
-              <Copy size={12} />
-            </span>
           </div>
+          <button
+            type="button"
+            className={`ios-safari-round-btn ${glassClass}`}
+            onClick={(): void => screen.openSheet('safari-more')}
+            title="More (Forward, Add to Home Screen…)"
+            aria-label="More"
+          >
+            <MoreHorizontal size={17} />
+          </button>
         </div>
       </>
     );
@@ -278,12 +355,11 @@ export function BrowserShellBarOverlay(props: {
 
   return (
     <>
-      <div className={`ios-chrome-top-dock ${chromeSurfaceClass}`}>
+      <div className={`ios-chrome-top-dock ${chromeSurfaceClass}`} style={topStyle}>
         <div className={`ios-browser-shell-pill ios-chrome-omnibox ${glassClass}`}>
-          <span className="ios-shell-aa">G</span>
-          <span className="ios-shell-domain">
-            <Lock size={10} />
-            <span>{host}</span>
+          <span className="ios-shell-domain ios-chrome-domain" title={props.currentUrl}>
+            {isSecure && <Lock size={10} />}
+            <span className="ios-shell-domain-text">{host}</span>
           </span>
           <button
             type="button"
@@ -296,7 +372,7 @@ export function BrowserShellBarOverlay(props: {
           </button>
         </div>
       </div>
-      <div className={`ios-chrome-bottom-dock ${chromeSurfaceClass}`}>
+      <div className={`ios-chrome-bottom-dock ${chromeSurfaceClass}`} style={bottomStyle}>
         <button
           type="button"
           className="ios-shell-icon-btn"
@@ -304,7 +380,7 @@ export function BrowserShellBarOverlay(props: {
           title="Back"
           aria-label="Back"
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={18} />
         </button>
         <button
           type="button"
@@ -313,14 +389,14 @@ export function BrowserShellBarOverlay(props: {
           title="Forward"
           aria-label="Forward"
         >
-          <ChevronRight size={16} />
+          <ChevronRight size={18} />
         </button>
         <span className="ios-chrome-plus-btn" aria-hidden="true">
-          <Plus size={15} />
+          <Plus size={16} />
         </span>
         <span className="ios-chrome-tab-badge" aria-hidden="true">1</span>
         <span className="ios-shell-icon-passive" aria-hidden="true">
-          <MoreHorizontal size={15} />
+          <MoreHorizontal size={17} />
         </span>
       </div>
     </>
@@ -329,19 +405,130 @@ export function BrowserShellBarOverlay(props: {
 
 export function HomeIndicatorOverlay(props: {
   readonly darkMode: boolean;
+  readonly trailingInset?: number;
+  readonly onGoHome?: () => void;
 }): React.ReactElement | null {
   const isHtmlFs = useHtmlFullscreenState();
   if (isHtmlFs) {
     return null;
   }
   return (
-    <div
+    <button
+      type="button"
       className="ios-home-indicator"
+      title="Swipe up / click to go Home (⇧⌘H)"
+      aria-label="Home"
+      onClick={props.onGoHome}
       style={{
+        left: `calc((100% - ${props.trailingInset ?? 0}px) / 2)`,
         background: props.darkMode
           ? 'rgba(255, 255, 255, 0.82)'
           : 'rgba(0, 0, 0, 0.68)'
       }}
     />
+  );
+}
+
+export interface ScreenSystemOverlayProps {
+  readonly preset: DevicePreset;
+  readonly cutoutType: HardwareCutoutType;
+  readonly orientation: Orientation;
+  readonly state: SimulatorState;
+  readonly logicalW: number;
+  readonly logicalH: number;
+  readonly tintColor?: string | null;
+  readonly onReload: () => void;
+  readonly onToggleDuoFold?: () => void;
+  readonly onGoHome?: () => void;
+}
+
+/** Resolves which physical display is lit (Duo cover vs inner) from the cutout. */
+function resolveLitPreset(preset: DevicePreset, cutoutType: HardwareCutoutType): DevicePreset {
+  if (cutoutType === HardwareCutoutType.DUO_OUTER_CORNER) {
+    return getDevicePresetById(DeviceModelId.IPHONE_DUO_FOLDED);
+  }
+  if (cutoutType === HardwareCutoutType.UNDER_DISPLAY_HIDDEN) {
+    return getDevicePresetById(DeviceModelId.IPHONE_DUO_UNFOLDED);
+  }
+  return preset;
+}
+
+/**
+ * Everything iOS draws above an app: sensor housing, status bar / Duo rail,
+ * Safari or Chrome chrome, home indicator. Shared by the flat frame and the
+ * 3D Duo stage so both render pixel-identical system UI.
+ */
+export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.ReactElement {
+  const lit = resolveLitPreset(props.preset, props.cutoutType);
+  const safeArea = resolveSafeAreaInsets(lit, props.orientation);
+  const safariCollapsed = useSafariBarCollapsed();
+  const chrome = computeShellChromeHeights(
+    props.state.shellMode,
+    safeArea,
+    props.state.pwaStatusBarStyle,
+    safariCollapsed
+  );
+  const trailing = hasDuoSystemRail(lit, props.orientation) ? safeArea.right : 0;
+  const screen = useScreen();
+  const onHome = screen.phase === 'home' || screen.phase === 'closing';
+  const isPwa = onHome || props.state.shellMode === BrowserShellMode.PWA_STANDALONE;
+  const sbStyle = props.state.pwaStatusBarStyle;
+  // Status bar content colour, the way iOS resolves it:
+  //  - Home Screen web app: black-translucent / black => light content,
+  //    default => opaque band (theme-color, else system background).
+  //  - Safari / Chrome: follows the tinted / material bar behind it.
+  const pwaBand =
+    !onHome && isPwa && chrome.topBarHeight > 0
+      ? sbStyle === 'black'
+        ? '#000000'
+        : props.tintColor ?? (props.state.darkMode ? '#000000' : '#ffffff')
+      : null;
+  const statusBackdrop = onHome
+    ? '#101527'
+    : isPwa
+    ? sbStyle === 'default'
+      ? pwaBand
+      : '#000000'
+    : props.tintColor ?? (props.state.darkMode ? '#0e0e12' : '#f6f6fa');
+  const lightContent = prefersLightContent(statusBackdrop, props.state.darkMode);
+  return (
+    <div
+      className="ios-overlay-scaler"
+      style={{ width: `${props.logicalW}px`, height: `${props.logicalH}px` }}
+    >
+      {pwaBand && (
+        <div
+          className="ios-pwa-status-band"
+          aria-hidden="true"
+          style={{ height: `${chrome.topBarHeight}px`, right: `${trailing}px`, background: pwaBand }}
+        />
+      )}
+      <HardwareCutout cutoutType={props.cutoutType} orientation={props.orientation} />
+      <IosStatusBar
+        preset={{ ...lit, cutoutType: props.cutoutType }}
+        orientation={props.orientation}
+        safeArea={safeArea}
+        darkMode={lightContent}
+        onToggleDuoFold={props.onToggleDuoFold}
+      />
+      <BrowserShellBarOverlay
+        shellMode={onHome ? BrowserShellMode.PWA_STANDALONE : props.state.shellMode}
+        currentUrl={props.state.currentUrl}
+        darkMode={props.state.darkMode}
+        onReload={props.onReload}
+        topBarHeight={chrome.topBarHeight}
+        bottomBarHeight={chrome.bottomBarHeight}
+        trailingInset={trailing}
+        tintColor={props.tintColor}
+        collapsed={safariCollapsed}
+      />
+      {props.cutoutType !== HardwareCutoutType.NONE && (
+        <HomeIndicatorOverlay
+          darkMode={onHome ? true : lightContent}
+          trailingInset={trailing}
+          onGoHome={props.onGoHome}
+        />
+      )}
+    </div>
   );
 }

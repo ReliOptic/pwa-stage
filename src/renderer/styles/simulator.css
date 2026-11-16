@@ -238,7 +238,15 @@ html, body, #root {
 
 .iphone-screen {
   -webkit-app-region: no-drag; overflow: hidden; background: #000000;
-  box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.07);
+  /* Clip the composited <webview> to the rounded display, incl. its own layer. */
+  isolation: isolate;
+}
+/* Display edge: real panels meet a black inactive border with no light seam.
+   A 1px black inner ring hides the anti-aliased fringe of the web content at
+   the rounded corners, at every zoom level. */
+.iphone-screen::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 50;
+  box-shadow: inset 0 0 0 1px #000, inset 0 0 1.5px 1px rgba(0, 0, 0, 0.65);
 }
 
 .corner-resize-grip {
@@ -639,14 +647,21 @@ html, body, #root {
   right: 0;
   bottom: 0;
   height: 72px;
-  padding: 6px 12px 18px;
+  /* iOS 26+ compact tab bar: floating glass controls, home-indicator clearance */
+  padding: 4px 14px 26px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
   z-index: 34;
-  border-top: 0.5px solid rgba(128, 128, 140, 0.18);
 }
+.ios-safari-round-btn {
+  width: 42px; height: 42px; flex: 0 0 42px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0; cursor: pointer; pointer-events: auto; color: inherit;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+}
+.ios-safari-round-btn:active { transform: scale(0.94); }
 
 .ios-chrome-top-dock {
   position: absolute;
@@ -714,15 +729,20 @@ html, body, #root {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  font-size: 12.5px;
+  gap: 4px;
+  font-size: 13px;
   font-weight: 500;
-  flex: 1;
+  letter-spacing: -0.1px;
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
+.ios-shell-domain svg { flex: 0 0 auto; opacity: 0.7; }
+/* Ellipsis on the text itself, so a long host keeps its *start* visible
+   (previously the centered flex box clipped "campsite" to "mpsite"). */
+.ios-shell-domain-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ios-chrome-domain { justify-content: flex-start; padding-left: 4px; }
 
 .ios-shell-icon-btn,
 .ios-shell-reload {
@@ -823,5 +843,220 @@ html, body, #root {
 
 .ios-home-indicator {
   position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-  width: 138px; height: 5px; border-radius: 100px; pointer-events: none; z-index: 35;
+  width: 138px; height: 5px; border-radius: 100px; z-index: 36;
+  border: none; padding: 0; cursor: pointer; pointer-events: auto;
+  /* 44pt-tall invisible hit target, like the real gesture area */
+  outline: none; box-shadow: 0 0 0 0 transparent;
+}
+.ios-home-indicator::before {
+  content: ''; position: absolute; left: -12px; right: -12px; top: -16px; bottom: -8px;
+}
+
+/* ---- Touch ID iPhones (SE): classic status bar, earpiece, home button ---- */
+.ios-status-classic {
+  position: absolute; top: 0; left: 0; right: 0; height: 20px; z-index: 35; pointer-events: none;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 6px;
+  font-size: 12px; font-weight: 600; box-sizing: border-box;
+}
+.ios-status-classic-side { display: inline-flex; align-items: center; gap: 4px; min-width: 70px; }
+.ios-status-classic-right { justify-content: flex-end; }
+.ios-status-classic-time { position: absolute; left: 50%; transform: translateX(-50%); }
+.ios-status-classic-pct { font-size: 11.5px; }
+.hw-earpiece {
+  position: absolute; width: 46px; height: 6px; border-radius: 3px;
+  background: linear-gradient(180deg, #0c0c0e, #26272b); box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
+  pointer-events: none; z-index: 2;
+}
+.hw-home-button {
+  position: absolute; width: 62px; height: 62px; border-radius: 50%; padding: 0; cursor: pointer;
+  background: radial-gradient(circle at 50% 45%, #1d1e22 0%, #121316 70%);
+  border: 1.5px solid rgba(180, 182, 190, 0.35);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(0,0,0,0.6);
+  -webkit-app-region: no-drag; z-index: 3;
+}
+.hw-home-button:active { transform: translate(-50%, -50%) scale(0.96) !important; filter: brightness(1.2); }
+
+.ios-pwa-status-band { position: absolute; top: 0; left: 0; z-index: 33; pointer-events: none; }
+
+/* ===================== Toolbar v2: window / browser / hardware ===================== */
+.tb-row { display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0; height: 23px; }
+.tb-device { flex: 1 1 auto; min-width: 60px; }
+.tb-presets { flex: 0 0 auto; }
+.tb-presets .shadcn-select-compact { max-width: 34px; padding: 0 12px 0 7px; }
+.tb-spacer { flex: 1 1 auto; }
+.tb-seg {
+  -webkit-app-region: no-drag; display: inline-flex; align-items: center; height: 23px; padding: 1.5px; gap: 1px;
+  border-radius: 7px; background: rgba(20, 20, 24, 0.92); border: 1px solid rgba(255, 255, 255, 0.11); flex-shrink: 0;
+}
+.tb-seg-btn {
+  height: 100%; padding: 0 6px; border: none; border-radius: 5px; background: transparent; color: #a1a1aa;
+  font-size: 9.5px; font-weight: 600; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center;
+}
+.tb-seg-btn:hover { color: #f4f4f5; }
+.tb-seg-btn.seg-active { background: rgba(255, 255, 255, 0.16); color: #ffffff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); }
+.tb-seg-small .tb-seg-btn { padding: 0 5px; }
+.tb-actions { gap: 2px; }
+.tb-action {
+  -webkit-app-region: no-drag; position: relative; height: 23px; padding: 0 5px; border-radius: 7px; flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 3px; border: 1px solid transparent; background: transparent;
+  color: #c4c4cc; font-size: 9.5px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.tb-action:hover { background: rgba(255, 255, 255, 0.08); color: #ffffff; border-color: rgba(255, 255, 255, 0.1); }
+.tb-action:active { transform: translateY(0.5px); }
+.tb-on { background: rgba(10, 132, 255, 0.2) !important; border-color: rgba(10, 132, 255, 0.55) !important; color: #7cc0ff !important; }
+.tb-badge {
+  position: absolute; top: -4px; right: -3px; min-width: 13px; height: 13px; padding: 0 3px; border-radius: 7px;
+  background: #ff453a; color: #fff; font-size: 8.5px; font-style: normal; font-weight: 700; line-height: 13px; text-align: center;
+}
+.tb-input-error { border-color: rgba(255, 69, 58, 0.7) !important; }
+@media (max-width: 400px) { .tb-action span { display: none; } .tb-action { padding: 0 6px; } }
+
+/* ===================== App surface launch / close transitions ===================== */
+.app-surface { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
+.app-surface-closing { animation: sim-app-close 320ms cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+.app-surface-launching { animation: sim-app-open 420ms cubic-bezier(0.2, 0.9, 0.25, 1) both; }
+@keyframes sim-app-close { to { transform: scale(0.18); opacity: 0; border-radius: 60px; } }
+@keyframes sim-app-open { from { transform: scale(0.16); opacity: 0; border-radius: 60px; } to { transform: scale(1); opacity: 1; } }
+.launch-splash {
+  position: absolute; inset: 0; z-index: 26; display: flex; align-items: center; justify-content: center;
+  animation: sim-app-open 420ms cubic-bezier(0.2, 0.9, 0.25, 1) both; border-radius: inherit;
+}
+.launch-splash img { width: 96px; height: 96px; border-radius: 22px; }
+.screenshot-flash { position: absolute; inset: 0; z-index: 60; background: #fff; pointer-events: none; animation: sim-flash 420ms ease-out forwards; border-radius: inherit; }
+@keyframes sim-flash { from { opacity: 0.85; } to { opacity: 0; } }
+
+/* ===================== Home Screen (original artwork, not Apple's) ===================== */
+.home-screen { position: absolute; inset: 0; z-index: 24; overflow: hidden; border-radius: inherit; color: #fff; }
+.home-screen-closing { animation: sim-home-in 320ms ease-out both; }
+.home-screen-launching { animation: sim-home-out 420ms ease-in both; }
+@keyframes sim-home-in { from { transform: scale(1.08); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
+@keyframes sim-home-out { to { transform: scale(1.12); opacity: 0; } }
+.home-wallpaper {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(120% 70% at 15% 10%, #3b5bdb 0%, transparent 60%),
+    radial-gradient(90% 60% at 90% 35%, #9c36b5 0%, transparent 60%),
+    radial-gradient(120% 80% at 50% 110%, #0b7285 0%, transparent 65%),
+    #101527;
+}
+.home-content { position: relative; padding: 72px 22px 0; display: flex; flex-direction: column; gap: 22px; }
+.home-widget {
+  display: flex; flex-direction: column; padding: 14px 16px; border-radius: 22px; width: 100%; max-width: 360px;
+  background: rgba(255, 255, 255, 0.14); backdrop-filter: blur(24px) saturate(160%);
+  border: 0.5px solid rgba(255, 255, 255, 0.25);
+}
+.home-widget-day { font-size: 12px; font-weight: 700; color: #ff6b6b; letter-spacing: 0.4px; }
+.home-widget-date { font-size: 40px; font-weight: 300; line-height: 1.05; }
+.home-widget-sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+.home-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 18px; column-gap: 12px; }
+.home-app { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
+.home-app-icon {
+  width: 62px; height: 62px; border-radius: 14.5px; /* ≈ continuous corner of iOS icons */
+  display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 0; cursor: pointer;
+  border: 0.5px solid rgba(255, 255, 255, 0.18); background: linear-gradient(160deg, #4c6ef5, #364fc7);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28); pointer-events: auto;
+}
+.home-app-icon img { width: 100%; height: 100%; object-fit: cover; }
+.home-app-icon:active { transform: scale(0.92); filter: brightness(0.85); }
+.home-app-initial { font-size: 28px; font-weight: 600; color: #fff; }
+.home-app-icon-ghost { background: rgba(255, 255, 255, 0.12); border: 1.5px dashed rgba(255, 255, 255, 0.55); color: #fff; box-shadow: none; }
+.home-app-label { font-size: 11.5px; font-weight: 500; max-width: 74px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
+.home-search-pill {
+  position: absolute; left: 50%; bottom: 122px; transform: translateX(-50%); height: 28px; padding: 0 12px;
+  display: inline-flex; align-items: center; gap: 5px; border-radius: 14px; font-size: 12px; font-weight: 600;
+  background: rgba(255, 255, 255, 0.18); backdrop-filter: blur(20px);
+}
+.home-dock {
+  position: absolute; left: 12px; right: 12px; bottom: 14px; height: 92px; border-radius: 34px;
+  display: flex; align-items: center; justify-content: space-around; padding: 0 12px;
+  background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(28px) saturate(170%); border: 0.5px solid rgba(255, 255, 255, 0.25);
+}
+
+/* ===================== iOS sheets, alerts ===================== */
+.ios-sheet-scrim {
+  position: absolute; inset: 0; z-index: 45; display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(0, 0, 0, 0.32); pointer-events: auto; border-radius: inherit; animation: sim-fade 180ms ease-out both;
+}
+.ios-alert-scrim { align-items: center; }
+@keyframes sim-fade { from { opacity: 0; } }
+.ios-sheet-dark { background: rgba(37, 37, 41, 0.96); color: #f5f5f7; }
+.ios-sheet-light { background: rgba(250, 250, 252, 0.97); color: #111114; }
+.ios-action-sheet { width: calc(100% - 16px); max-width: 400px; margin-bottom: 30px; background: transparent !important; display: flex; flex-direction: column; gap: 8px; animation: sim-sheet-up 260ms cubic-bezier(0.2, 0.9, 0.25, 1) both; }
+@keyframes sim-sheet-up { from { transform: translateY(40px); opacity: 0; } }
+.ios-action-group { display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; backdrop-filter: blur(30px); }
+.ios-sheet-dark .ios-action-group { background: rgba(44, 44, 48, 0.94); }
+.ios-sheet-light .ios-action-group { background: rgba(248, 248, 250, 0.95); }
+.ios-action-group button {
+  height: 52px; border: none; background: transparent; color: #0a84ff; font-size: 17px; cursor: pointer;
+  border-bottom: 0.5px solid rgba(128, 128, 140, 0.3);
+}
+.ios-action-group button:last-child { border-bottom: none; }
+.ios-action-cancel { font-weight: 600; }
+.ios-card-sheet {
+  width: 100%; border-radius: 14px 14px 0 0; padding-bottom: 34px; animation: sim-sheet-up 280ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+.ios-card-nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; font-size: 16px; }
+.ios-card-nav button { border: none; background: none; color: #0a84ff; font-size: 16px; cursor: pointer; }
+.ios-card-primary { font-weight: 600; }
+.ios-card-primary:disabled { opacity: 0.4; }
+.ios-card-body { padding: 0 16px; display: flex; flex-direction: column; gap: 14px; }
+.ios-card-row { display: flex; gap: 12px; align-items: center; }
+.ios-card-icon { width: 60px; height: 60px; cursor: default; }
+.ios-card-fields { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ios-card-fields input { user-select: text; font-size: 16px; border: none; border-bottom: 0.5px solid rgba(128, 128, 140, 0.4); background: transparent; color: inherit; padding: 6px 0; outline: none; }
+.ios-card-host { font-size: 13px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ios-card-toggle { display: flex; align-items: center; justify-content: space-between; font-size: 16px; position: relative; cursor: pointer; }
+.ios-card-toggle input { position: absolute; opacity: 0; }
+.ios-switch { width: 51px; height: 31px; border-radius: 16px; background: rgba(120, 120, 128, 0.32); position: relative; transition: background 0.2s; }
+.ios-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.25); transition: transform 0.2s; }
+.ios-card-toggle input:checked + .ios-switch { background: #34c759; }
+.ios-card-toggle input:checked + .ios-switch::after { transform: translateX(20px); }
+.ios-card-note, .ios-card-empty { font-size: 13px; opacity: 0.6; line-height: 1.35; }
+.ios-card-empty { padding: 24px 16px; text-align: center; }
+.ios-alert { width: 270px; border-radius: 14px; overflow: hidden; text-align: center; backdrop-filter: blur(30px); animation: sim-alert-in 200ms ease-out both; }
+@keyframes sim-alert-in { from { transform: scale(1.15); opacity: 0; } }
+.ios-alert-title { padding: 19px 16px 17px; font-size: 16px; font-weight: 600; line-height: 1.3; }
+.ios-alert-actions { display: flex; border-top: 0.5px solid rgba(128, 128, 140, 0.35); }
+.ios-alert-actions button { flex: 1; height: 44px; border: none; background: transparent; color: #0a84ff; font-size: 16px; cursor: pointer; }
+.ios-alert-actions button + button { border-left: 0.5px solid rgba(128, 128, 140, 0.35); }
+.ios-alert-strong { font-weight: 600; }
+
+/* ===================== Inspector panel + toast (shell, outside the device) ===================== */
+.pwa-inspector {
+  position: fixed; top: 112px; right: 10px; width: min(330px, calc(100vw - 20px)); max-height: calc(100vh - 130px);
+  display: flex; flex-direction: column; z-index: 100; border-radius: 14px; overflow: hidden;
+  background: rgba(18, 18, 22, 0.97); border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55); -webkit-app-region: no-drag; user-select: text;
+}
+.pwa-inspector * { user-select: text; }
+.pwa-inspector-head { display: flex; align-items: center; gap: 6px; padding: 9px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); font-size: 12px; }
+.pwa-inspector-head strong { flex: 1; }
+.pwa-inspector-head button { border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: #e4e4e7; border-radius: 6px; height: 22px; padding: 0 7px; font-size: 10.5px; cursor: pointer; display: inline-flex; align-items: center; }
+.pwa-inspector-counts { display: inline-flex; gap: 6px; font-size: 11px; font-weight: 700; }
+.pwa-inspector-identity { display: flex; gap: 10px; align-items: center; padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.pwa-inspector-icon { width: 40px; height: 40px; border-radius: 9.5px; cursor: default; }
+.pwa-inspector-icon .home-app-initial { font-size: 18px; }
+.pwa-inspector-name { font-size: 13px; font-weight: 600; }
+.pwa-inspector-sub { font-size: 11px; color: #a1a1aa; }
+.pwa-inspector-list { list-style: none; overflow-y: auto; padding: 4px 0; }
+.pwa-inspector-list li { display: flex; gap: 8px; padding: 7px 10px; align-items: flex-start; }
+.pwa-inspector-list li svg { flex: 0 0 auto; margin-top: 1px; }
+.pwa-check-title { font-size: 11.5px; font-weight: 600; color: #f4f4f5; }
+.pwa-check-detail { font-size: 10.5px; color: #a1a1aa; line-height: 1.35; word-break: break-word; }
+.pwa-inspector-empty { font-size: 11px; color: #a1a1aa; }
+.pwa-check-pass { color: #32d74b; }
+.pwa-check-warn { color: #ffd60a; }
+.pwa-check-fail { color: #ff453a; }
+.pwa-check-info { color: #64d2ff; }
+.sim-toast {
+  position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100vw - 24px); z-index: 120;
+  padding: 7px 12px; border-radius: 10px; font-size: 11px; background: rgba(28, 28, 32, 0.95); color: #f4f4f5;
+  border: 1px solid rgba(255, 255, 255, 0.14); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  animation: sim-fade 180ms ease-out both;
+}
+
+.ios-safari-collapsed {
+  position: absolute; left: 0; bottom: 0; z-index: 34; border: none; cursor: pointer; pointer-events: auto;
+  display: flex; align-items: flex-start; justify-content: center; gap: 3px; padding-top: 5px;
+  font-size: 11px; font-weight: 600; color: inherit; transition: height 0.22s ease;
 }

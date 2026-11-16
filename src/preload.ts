@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import {
   ApplyWebviewEmulationPayload,
+  GuestPermissionPrompt,
   MoveWindowPayload,
   SimulatorBridgeApi,
   SimulatorInitPayload
@@ -39,7 +40,33 @@ export const simulatorBridge: SimulatorBridgeApi = {
     return (): void => {
       ipcRenderer.removeListener('simulator:external-state', handler);
     };
-  }
+  },
+  onPermissionPrompt: (listener: (prompt: GuestPermissionPrompt) => void): (() => void) => {
+    const handler = (_event: unknown, prompt: GuestPermissionPrompt): void => {
+      listener(prompt);
+    };
+    ipcRenderer.on('simulator:permission-prompt', handler);
+    return (): void => {
+      ipcRenderer.removeListener('simulator:permission-prompt', handler);
+    };
+  },
+  respondPermission: (id: string, granted: boolean): Promise<unknown> =>
+    ipcRenderer.invoke('simulator:permission-response', id, granted),
+  onShortcut: (listener: (shortcut: { key: string; shift: boolean }) => void): (() => void) => {
+    const handler = (_event: unknown, shortcut: { key: string; shift: boolean }): void => {
+      listener(shortcut);
+    };
+    ipcRenderer.on('simulator:shortcut', handler);
+    return (): void => {
+      ipcRenderer.removeListener('simulator:shortcut', handler);
+    };
+  },
+  inspectPage: (webContentsId: number) =>
+    ipcRenderer.invoke('simulator:inspect-page', webContentsId),
+  captureScreenshot: (
+    rect: { x: number; y: number; width: number; height: number },
+    deviceName: string
+  ) => ipcRenderer.invoke('simulator:capture-screenshot', rect, deviceName)
 };
 
 contextBridge.exposeInMainWorld('simulatorBridge', simulatorBridge);

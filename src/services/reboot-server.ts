@@ -31,24 +31,67 @@ export function resolveRebootStaticRoot(baseDir: string, resourcesPath?: string)
   return candidates[0] ?? path.join(baseDir, '../public/reboot');
 }
 
+const ALLOWED_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
+
+function sendPlain(res: http.ServerResponse, status: number, body: string): void {
+  res.writeHead(status, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'X-Content-Type-Options': 'nosniff'
+  });
+  res.end(body);
+}
+
+/**
+ * Resolves a request path inside rootDir. Returns null for traversal attempts,
+ * malformed percent-encoding, NUL bytes or anything outside the root.
+ */
+export function resolveSafeStaticPath(rootDir: string, rawUrl: string): string | null {
+  let pathname: string;
+  try {
+    pathname = decodeURIComponent((rawUrl.split('?')[0] ?? '/').split('#')[0] ?? '/');
+  } catch {
+    return null;
+  }
+  if (pathname.includes('\0')) {
+    return null;
+  }
+  const relativePath =
+    pathname === '/' || pathname === '/reboot' || pathname === '/reboot/'
+      ? 'reference.html'
+      : pathname.replace(/^\/reboot\//, '').replace(/^\/+/, '');
+  const normalizedRoot = path.resolve(rootDir);
+  const resolvedFile = path.resolve(normalizedRoot, relativePath);
+  if (resolvedFile !== normalizedRoot && !resolvedFile.startsWith(normalizedRoot + path.sep)) {
+    return null;
+  }
+  return resolvedFile;
+}
+
+/** Rejects DNS-rebinding style requests whose Host header is not loopback. */
+export function isLoopbackHostHeader(hostHeader: string | undefined): boolean {
+  if (!hostHeader) {
+    return false;
+  }
+  const hostname = hostHeader.replace(/:\d+$/, '').replace(/^\[|\]$/g, '').toLowerCase();
+  return ALLOWED_HOSTNAMES.has(hostname);
+}
+
 function handleStaticRequest(
   rootDir: string,
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): void {
-  const rawUrl = req.url ?? '/';
-  const pathname = decodeURIComponent(rawUrl.split('?')[0] ?? '/');
-  const relativePath =
-    pathname === '/' || pathname === '/reboot' || pathname === '/reboot/'
-      ? 'reference.html'
-      : pathname.replace(/^\/reboot\//, '').replace(/^\/+/, '');
-
-  const normalizedRoot = path.resolve(rootDir);
-  const resolvedFile = path.resolve(normalizedRoot, relativePath);
-
-  if (!resolvedFile.startsWith(normalizedRoot) || !fs.existsSync(resolvedFile)) {
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('Not Found');
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    sendPlain(res, 405, 'Method Not Allowed');
+    return;
+  }
+  if (!isLoopbackHostHeader(req.headers.host)) {
+    sendPlain(res, 403, 'Forbidden');
+    return;
+  }
+  const resolvedFile = resolveSafeStaticPath(rootDir, req.url ?? '/');
+  if (!resolvedFile || !fs.existsSync(resolvedFile)) {
+    sendPlain(res, 404, 'Not Found');
     return;
   }
 
@@ -60,12 +103,12 @@ function handleStaticRequest(
     const content = fs.readFileSync(targetFile);
     res.writeHead(200, {
       'Content-Type': contentType,
-      'Cache-Control': 'no-store'
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff'
     });
-    res.end(content);
+    res.end(req.method === 'HEAD' ? undefined : content);
   } catch {
-    res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('Internal Server Error');
+    sendPlain(res, 500, 'Internal Server Error');
   }
 }
 

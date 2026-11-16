@@ -4,6 +4,29 @@ This document captures the current architecture, verified state, exact remaining
 
 ---
 
+## 0. Status update (2026-11-16)
+
+Done in this round (see README for user-facing behaviour):
+
+- **Security**: `src/services/security.ts` (guest webPreferences enforcement, navigation/popup guards, iOS-style permission prompts, trusted-sender IPC), validated state in `storage.ts`, hardened `reboot-server.ts`, shell CSP (`vite.config.ts`), Electron 33 (EOL) → 44.
+- **Emulation** (`services/emulation.ts`): DPR + screen via `setDeviceMetricsOverride(width:0,height:0)`, init script via `Page.addScriptToEvaluateOnNewDocument` (runs before page JS), `display-mode` / `navigator.vendor` / `userAgentData`, no page-altering CSS, re-applied on every `<webview>` resize.
+- **Geometry** (`utils/viewport-math.util.ts`): `hasDuoSystemRail`, `resolvePageSafeArea`, status-bar-style aware web-app geometry, Safari bar collapse.
+- **Duo**: posture animation no longer cancelled on Outer↔Inner swap; posture ↔ orientation sync; Stand uses the cover display; inner-display wake animation.
+- **Devices**: viewport-class catalogue incl. SE (Touch ID chassis), 13 mini, 11 (@2x), 16e/14, 14 Plus, 16/16 Plus.
+- **Home Screen / tools** (`renderer/components/ScreenLayers.tsx`, `renderer/useScreenController.ts`, `services/page-inspector.ts`): Home, Add to Home Screen, launch splash, permission alerts, Web App Check, screenshots, Xcode shortcuts.
+
+Verification note: in headless Xvfb, Playwright's `page.screenshot()` of the shell can show stale/blank frames for the out-of-process `<webview>` after scrolling. Use `BrowserWindow.webContents.capturePage()` (what the app's Screenshot uses) for visual checks, and pass `--enable-unsafe-swiftshader` so WebGL works without a GPU.
+
+### Should this become Rust / Tauri?
+
+Assessed, not done. Tauri on macOS would render with WKWebView, which is *more* faithful (iOS Safari and Chrome are both WebKit) and ~10× smaller. But: there is no `<webview>` tag, so the page under test would be either an iframe (blocked by many sites' frame-ancestors) or a native child view that cannot be CSS-transformed, which rules out the live 3D Duo projection; and WebKit on macOS exposes no CDP equivalents for DPR/screen/touch/safe-area overrides. Recommended path: keep Electron as the device-shell, and use the built-in hand-off to the Xcode iOS Simulator for WebKit-exact checks. Revisit if a "WebKit-accurate, no 3D" mode is wanted.
+
+### Next
+
+1. Duo 3D slices still use a 44px radius instead of the glTF aperture squircle (Priority 1 below).
+2. Keyboard: an iOS software keyboard that shrinks the visual viewport on input focus.
+3. Optional Playwright-based visual regression suite using `capturePage()` on each viewport class.
+
 ## 1. Repository & Project Overview
 
 - **GitHub Repo**: `https://github.com/ReliOptic/pwa-stage`

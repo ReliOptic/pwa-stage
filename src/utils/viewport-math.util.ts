@@ -6,14 +6,15 @@ import {
   Orientation,
   SafeAreaInsets
 } from '../types/device.types';
-import { BrowserShellMode } from '../types/simulator.types';
+import { BrowserShellMode, PwaStatusBarStyle } from '../types/simulator.types';
 
 export interface ShellChromeHeights {
   readonly topBarHeight: number;
   readonly bottomBarHeight: number;
 }
 
-const EXPANDED_HUD_RESERVE_HEIGHT = 84;
+// Toolbar (3 rows × 23 + 2 gaps × 5 + padding 12 + border 2 = 93) + 8 margin.
+const EXPANDED_HUD_RESERVE_HEIGHT = 101;
 const COLLAPSED_HUD_RESERVE_HEIGHT = 0;
 const DUO_BOTTOM_MINIBAR_RESERVE_HEIGHT = 64;
 const FLOATING_WINDOW_PADDING = 16;
@@ -55,6 +56,41 @@ export function resolveSafeAreaInsets(
     : preset.safeAreaLandscape;
 }
 
+/**
+ * iPhone Duo (iOS 27.3) reserves a trailing 84pt system rail on the cover
+ * display and on the inner display held wide. The rail is drawn by the
+ * simulator and the web view is laid out *next to* it, so the page itself
+ * must not be told about that inset a second time.
+ */
+export function hasDuoSystemRail(preset: DevicePreset, orientation: Orientation): boolean {
+  if (preset.formFactor === DeviceFormFactor.FOLDABLE_COVER) {
+    return true;
+  }
+  return preset.formFactor === DeviceFormFactor.FOLDABLE_DUAL && orientation === Orientation.PORTRAIT;
+}
+
+/**
+ * Safe-area insets as the *page* sees them through env(safe-area-inset-*).
+ *  - Safari / Chrome: the browser's own bars cover top & bottom, so the page
+ *    gets 0 there; left/right (landscape sensor housing) still apply.
+ *  - PWA standalone: the page owns the full screen and gets every inset.
+ *  - Duo rail: already removed from the layout box, so right = 0.
+ */
+export function resolvePageSafeArea(
+  preset: DevicePreset,
+  orientation: Orientation,
+  shellMode: BrowserShellMode,
+  pwaStatusBarStyle: PwaStatusBarStyle = 'black-translucent'
+): SafeAreaInsets {
+  const raw = resolveSafeAreaInsets(preset, orientation);
+  const right = hasDuoSystemRail(preset, orientation) ? 0 : raw.right;
+  if (shellMode === BrowserShellMode.PWA_STANDALONE) {
+    const top = pwaStatusBarStyle === 'black-translucent' ? raw.top : 0;
+    return { ...raw, top, right };
+  }
+  return { top: 0, right, bottom: 0, left: raw.left };
+}
+
 export function resolveBezelInsets(
   preset: DevicePreset,
   orientation: Orientation,
@@ -91,11 +127,15 @@ export function resolveCornerRadii(
 
 export function computeShellChromeHeights(
   shellMode: BrowserShellMode,
-  safeArea: SafeAreaInsets
+  safeArea: SafeAreaInsets,
+  pwaStatusBarStyle: PwaStatusBarStyle = 'black-translucent',
+  safariBarCollapsed = false
 ): ShellChromeHeights {
   if (shellMode === BrowserShellMode.PWA_STANDALONE) {
+    // Home Screen web apps: only "black-translucent" lets content run under
+    // the status bar; "default" / "black" get an opaque bar above the page.
     return {
-      topBarHeight: 0,
+      topBarHeight: pwaStatusBarStyle === 'black-translucent' ? 0 : safeArea.top,
       bottomBarHeight: 0
     };
   }
@@ -105,7 +145,15 @@ export function computeShellChromeHeights(
       bottomBarHeight: Math.max(44, safeArea.bottom + 14)
     };
   }
-  // IOS_SAFARI: top status bar + bottom Liquid Glass address/nav bar
+  // IOS_SAFARI: top status bar + bottom Liquid Glass address/nav bar.
+  // While scrolling down the bar shrinks to a small domain label, which grows
+  // the layout viewport (innerHeight / dvh) exactly like on device.
+  if (safariBarCollapsed) {
+    return {
+      topBarHeight: Math.max(44, safeArea.top),
+      bottomBarHeight: Math.max(30, safeArea.bottom + 6)
+    };
+  }
   return {
     topBarHeight: Math.max(44, safeArea.top),
     bottomBarHeight: Math.max(68, safeArea.bottom + 38)

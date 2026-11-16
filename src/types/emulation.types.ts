@@ -1,9 +1,11 @@
 import { DevicePreset, Orientation, SafeAreaInsets } from './device.types';
-import { BrowserShellMode, EmulationFailureError, Result } from './simulator.types';
+import { BrowserShellMode, EmulationFailureError, PwaStatusBarStyle, Result } from './simulator.types';
 
 export interface CdpDeviceMetricsPayload {
   readonly width: number;
   readonly height: number;
+  readonly screenWidth: number;
+  readonly screenHeight: number;
   readonly deviceScaleFactor: number;
   readonly mobile: boolean;
   readonly screenOrientation: {
@@ -22,6 +24,7 @@ export interface EmulationProfile {
   readonly platform: string;
   readonly metrics: CdpDeviceMetricsPayload;
   readonly touch: CdpTouchEmulationPayload;
+  readonly pageSafeArea: SafeAreaInsets;
   readonly safeAreaCss: string;
   readonly standaloneInitScript: string;
 }
@@ -35,6 +38,7 @@ export interface EmulationProfileInput {
   readonly darkMode: boolean;
   readonly scale?: number;
   readonly touchCursorEnabled?: boolean;
+  readonly pwaStatusBarStyle?: PwaStatusBarStyle;
 }
 
 export interface DebuggerCommandSender {
@@ -48,6 +52,7 @@ export interface EmulationTargetWebContents {
   readonly setUserAgent: (userAgent: string) => void;
   readonly setZoomFactor?: (factor: number) => void;
   readonly insertCSS: (css: string) => Promise<string>;
+  readonly removeInsertedCSS?: (key: string) => Promise<void>;
   readonly executeJavaScript: (code: string) => Promise<unknown>;
   readonly debugger: DebuggerCommandSender;
 }
@@ -58,7 +63,7 @@ export interface EmulationService {
     safariIosVersion: string,
     chromeIosVersion: string
   ) => string;
-  readonly buildSafeAreaCss: (safeArea: SafeAreaInsets, darkMode: boolean) => string;
+  readonly buildSafeAreaCss: (safeArea: SafeAreaInsets, darkMode?: boolean) => string;
   readonly buildEmulationProfile: (input: EmulationProfileInput) => EmulationProfile;
   readonly applyEmulationToTarget: (
     target: EmulationTargetWebContents,

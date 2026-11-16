@@ -1,8 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getDevicePresetById } from '../../config/device-presets.config';
 import { getSimulatorBridge, isElectronRuntime } from '../../utils/renderer-bridge.util';
-import { computeShellChromeHeights, resolveSafeAreaInsets } from '../../utils/viewport-math.util';
-import { HardwareCutoutType, Orientation } from '../../types/device.types';
+import {
+  computeShellChromeHeights,
+  hasDuoSystemRail,
+  resolveSafeAreaInsets
+} from '../../utils/viewport-math.util';
+import { setSafariBarCollapsed, useSafariBarCollapsed } from '../sim-events';
 import { ElectronWebviewElement } from '../../types/renderer.types';
 import { DuoDisplayMode, SimulatorState } from '../../types/simulator.types';
 
@@ -11,6 +15,7 @@ export interface WebviewContainerProps {
   readonly isDualUnfolded: boolean;
   readonly reloadTick: number;
   readonly onRegisterWebContentsId: (id: number) => void;
+  readonly onPageReady?: (webContentsId: number) => void;
 }
 
 interface SingleViewportPaneProps {
@@ -18,6 +23,7 @@ interface SingleViewportPaneProps {
   readonly state: SimulatorState;
   readonly reloadTick: number;
   readonly onRegisterWebContentsId?: (id: number) => void;
+  readonly onPageReady?: (webContentsId: number) => void;
 }
 
 function useWebviewEffects(
@@ -27,23 +33,35 @@ function useWebviewEffects(
   props: SingleViewportPaneProps
 ): void {
   const readyRef = useRef<boolean>(false);
+  const shellModeRef = useRef(props.state.shellMode);
 
   useEffect((): (() => void) | void => {
     if (!electronMode || !webviewRef.current) {
       return;
     }
     const el = webviewRef.current;
-    const syncEmulation = (): void => {
+    const applyEmulation = (): Promise<unknown> => {
       readyRef.current = true;
       const id = el.getWebContentsId();
       props.onRegisterWebContentsId?.(id);
-      void getSimulatorBridge().applyWebviewEmulation({
+      return getSimulatorBridge().applyWebviewEmulation({
         webContentsId: id,
         state: props.state
       });
     };
+    const syncEmulation = (): void => {
+      void applyEmulation();
+    };
+    const shellChanged = shellModeRef.current !== props.state.shellMode;
+    shellModeRef.current = props.state.shellMode;
     if (readyRef.current) {
-      syncEmulation();
+      if (shellChanged) {
+        // Moving between Safari, Chrome and a Home Screen web app is a fresh
+        // launch on iOS: reload so the page boots with the new environment.
+        void applyEmulation().then((): void => el.reload());
+      } else {
+        syncEmulation();
+      }
     }
     const handleEnterFs = (): void => {
       window.dispatchEvent(new CustomEvent('sim:html-fullscreen', { detail: true }));
@@ -51,12 +69,44 @@ function useWebviewEffects(
     const handleLeaveFs = (): void => {
       window.dispatchEvent(new CustomEvent('sim:html-fullscreen', { detail: false }));
     };
+    const notifyReady = (): void => {
+      if (props.onPageReady) {
+        props.onPageReady(el.getWebContentsId());
+      }
+    };
+    const onConsole = (evt: Event): void => {
+      const message = (evt as Event & { message?: string }).message ?? '';
+      if (message === '__sim:safari-bar:collapse') setSafariBarCollapsed(true);
+      else if (message === '__sim:safari-bar:expand') setSafariBarCollapsed(false);
+    };
+    const onNavigate = (): void => setSafariBarCollapsed(false);
+    // Chromium's mobile metrics override is computed against the guest size at
+    // the time it is sent; when the <webview> box changes (Safari bar
+    // collapsing, Duo folding, rotation) it must be re-sent or the page paints
+    // offset inside the new box.
+    let resizeTimer: number | null = null;
+    const resizeObserver = new ResizeObserver((): void => {
+      if (!readyRef.current) return;
+      if (resizeTimer !== null) window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(syncEmulation, 60);
+    });
+    resizeObserver.observe(el);
+    el.addEventListener('console-message', onConsole);
+    el.addEventListener('did-navigate', onNavigate);
+    el.addEventListener('did-finish-load', notifyReady);
+    el.addEventListener('did-navigate-in-page', notifyReady);
     el.addEventListener('dom-ready', syncEmulation);
     el.addEventListener('did-navigate', syncEmulation);
     el.addEventListener('did-navigate-in-page', syncEmulation);
     el.addEventListener('enter-html-full-screen', handleEnterFs);
     el.addEventListener('leave-html-full-screen', handleLeaveFs);
     return (): void => {
+      resizeObserver.disconnect();
+      if (resizeTimer !== null) window.clearTimeout(resizeTimer);
+      el.removeEventListener('console-message', onConsole);
+      el.removeEventListener('did-navigate', onNavigate);
+      el.removeEventListener('did-finish-load', notifyReady);
+      el.removeEventListener('did-navigate-in-page', notifyReady);
       el.removeEventListener('dom-ready', syncEmulation);
       el.removeEventListener('did-navigate', syncEmulation);
       el.removeEventListener('did-navigate-in-page', syncEmulation);
@@ -70,8 +120,8 @@ function useWebviewEffects(
     props.state.orientation,
     props.state.shellMode,
     props.state.darkMode,
-    props.state.scale,
-    props.state.touchCursorEnabled
+    props.state.touchCursorEnabled,
+    props.state.pwaStatusBarStyle
   ]);
 
   useEffect((): void => {
@@ -149,7 +199,7 @@ function SingleViewportPane(props: SingleViewportPaneProps): React.ReactElement 
 }
 
 export function WebviewContainer(props: WebviewContainerProps): React.ReactElement {
-  const { state, isDualUnfolded, reloadTick, onRegisterWebContentsId } = props;
+  const { state, isDualUnfolded, reloadTick, onRegisterWebContentsId, onPageReady } = props;
   const [isHtmlFullscreen, setIsHtmlFullscreen] = useState<boolean>(false);
 
   useEffect((): (() => void) => {
@@ -164,12 +214,14 @@ export function WebviewContainer(props: WebviewContainerProps): React.ReactEleme
     isDualUnfolded && state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON;
   const preset = getDevicePresetById(state.selectedDeviceId);
   const safeArea = resolveSafeAreaInsets(preset, state.orientation);
-  const chrome = computeShellChromeHeights(state.shellMode, safeArea);
-  const hasDuoRightRail =
-    !isHtmlFullscreen &&
-    (preset.cutoutType === HardwareCutoutType.DUO_OUTER_CORNER ||
-      (preset.cutoutType === HardwareCutoutType.UNDER_DISPLAY_HIDDEN &&
-        state.orientation === Orientation.PORTRAIT));
+  const safariCollapsed = useSafariBarCollapsed();
+  const chrome = computeShellChromeHeights(
+    state.shellMode,
+    safeArea,
+    state.pwaStatusBarStyle,
+    safariCollapsed
+  );
+  const hasDuoRightRail = !isHtmlFullscreen && hasDuoSystemRail(preset, state.orientation);
   const chromeInsetStyle: React.CSSProperties = {
     paddingTop: isHtmlFullscreen ? '0px' : `${chrome.topBarHeight}px`,
     paddingBottom: isHtmlFullscreen ? '0px' : `${chrome.bottomBarHeight}px`,
@@ -195,6 +247,7 @@ export function WebviewContainer(props: WebviewContainerProps): React.ReactEleme
           state={state}
           reloadTick={reloadTick}
           onRegisterWebContentsId={onRegisterWebContentsId}
+          onPageReady={onPageReady}
         />
         <SingleViewportPane targetUrl={state.currentUrl} state={state} reloadTick={reloadTick} />
       </div>
@@ -208,6 +261,7 @@ export function WebviewContainer(props: WebviewContainerProps): React.ReactEleme
         state={state}
         reloadTick={reloadTick}
         onRegisterWebContentsId={onRegisterWebContentsId}
+        onPageReady={onPageReady}
       />
     </div>
   );

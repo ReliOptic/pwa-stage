@@ -84,8 +84,13 @@ describe('integration: simulator full device & shell switching flow', () => {
     });
     expect(emu.ok).toBe(true);
     if (emu.ok) {
-      expect(emu.value.metrics.width).toBe(951);
-      expect(emu.value.metrics.height).toBe(669);
+      // Inner display held wide: the trailing 84pt iOS 27.3 system rail is
+      // drawn by the simulator, so the page's layout width is 951 - 84.
+      expect(emu.value.metrics.width).toBe(867);
+      expect(emu.value.metrics.screenWidth).toBe(951);
+      expect(emu.value.pageSafeArea.right).toBe(0);
+      // Web app without apple-mobile-web-app-status-bar-style: opaque status bar.
+      expect(emu.value.metrics.height).toBe(669 - 20);
     }
   });
 });

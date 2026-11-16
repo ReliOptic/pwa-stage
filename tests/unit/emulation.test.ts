@@ -21,11 +21,55 @@ describe('emulation service', () => {
     expect(chromeUa).toContain('CriOS/135.0.7049.50');
   });
 
-  it('builds safe area CSS variables and color-scheme', () => {
-    const css = buildSafeAreaCss({ top: 59, right: 0, bottom: 34, left: 0 }, true);
-    expect(css).toContain('--sat: 59px;');
-    expect(css).toContain('--sab: 34px;');
-    expect(css).toContain('color-scheme: dark;');
+  it('injects only namespaced safe-area fallbacks and never restyles the page', () => {
+    const css = buildSafeAreaCss({ top: 59, right: 0, bottom: 34, left: 0 });
+    expect(css).toContain('--__sim-sat: 59px;');
+    expect(css).toContain('--__sim-sab: 34px;');
+    // A simulator must not "fix" pages: no color-scheme, overflow or tap overrides.
+    expect(css).not.toMatch(/color-scheme|overflow|tap-highlight|--sat:/);
+  });
+
+  it('freezes the iOS UA token at 18_6 from iOS 26 on, like Safari does', () => {
+    const ua = buildMobileUserAgent(BrowserShellMode.IOS_SAFARI, '27_3', '142.0.0.0');
+    expect(ua).toContain('iPhone OS 18_6 like Mac OS X');
+    expect(ua).toContain('Version/27.3');
+    const chrome = buildMobileUserAgent(BrowserShellMode.IOS_CHROME, '27_3', '142.0.0.0');
+    expect(chrome).toContain('iPhone OS 18_6');
+    expect(chrome).toContain('CriOS/142.0.0.0');
+  });
+
+  it('gives a web app the full screen only with black-translucent status bar', () => {
+    const preset = getDevicePresetById(DeviceModelId.IPHONE_17_PRO);
+    const base = {
+      preset,
+      orientation: Orientation.PORTRAIT,
+      shellMode: BrowserShellMode.PWA_STANDALONE,
+      safariIosVersion: '27_3',
+      chromeIosVersion: '142.0.0.0',
+      darkMode: true
+    } as const;
+    const opaque = buildEmulationProfile({ ...base, pwaStatusBarStyle: 'default' });
+    expect(opaque.metrics.height).toBe(874 - 62);
+    expect(opaque.pageSafeArea.top).toBe(0);
+    const translucent = buildEmulationProfile({ ...base, pwaStatusBarStyle: 'black-translucent' });
+    expect(translucent.metrics.height).toBe(874);
+    expect(translucent.pageSafeArea.top).toBe(62);
+    expect(translucent.metrics.deviceScaleFactor).toBe(3);
+    expect(translucent.metrics.screenWidth).toBe(402);
+    expect(translucent.standaloneInitScript).toContain('"standalone":true');
+  });
+
+  it('exposes no top/bottom inset to pages inside Safari, whose bars cover them', () => {
+    const preset = getDevicePresetById(DeviceModelId.IPHONE_17_PRO);
+    const profile = buildEmulationProfile({
+      preset,
+      orientation: Orientation.LANDSCAPE,
+      shellMode: BrowserShellMode.IOS_SAFARI,
+      safariIosVersion: '27_3',
+      chromeIosVersion: '142.0.0.0',
+      darkMode: true
+    });
+    expect(profile.pageSafeArea).toEqual({ top: 0, right: 62, bottom: 0, left: 62 });
   });
 
   it('builds full emulation profile for iPhone Duo Unfolded in landscape', () => {
@@ -36,14 +80,15 @@ describe('emulation service', () => {
       shellMode: BrowserShellMode.PWA_STANDALONE,
       safariIosVersion: '18_4',
       chromeIosVersion: '135.0.0.0',
-      darkMode: false
+      darkMode: false,
+      pwaStatusBarStyle: 'black-translucent'
     });
 
     expect(profile.metrics.width).toBe(669);
     expect(profile.metrics.height).toBe(951);
     expect(profile.metrics.mobile).toBe(true);
     expect(profile.metrics.screenOrientation.type).toBe('landscapePrimary');
-    expect(profile.standaloneInitScript).toContain("value: true");
+    expect(profile.standaloneInitScript).toContain('"standalone":true');
   });
 
   it('applies CDP commands to WebContents target and handles errors cleanly', async () => {

@@ -25,11 +25,17 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["arm64", "x64"]
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         },
         {
           "target": "dir",
-          "arch": ["arm64", "x64"]
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         }
       ],
       "icon": "public/assets/ios27/icon-512.png",
@@ -44,10 +50,24 @@
       "icon": "public/assets/ios27/icon-512.png",
       "iconSize": 128,
       "contents": [
-        { "x": 180, "y": 170, "type": "link", "path": "/Applications" },
-        { "x": 480, "y": 170, "type": "file" }
+        {
+          "x": 180,
+          "y": 170,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 480,
+          "y": 170,
+          "type": "file"
+        }
       ],
-      "window": { "x": 400, "y": 200, "width": 660, "height": 400 }
+      "window": {
+        "x": 400,
+        "y": 200,
+        "width": 660,
+        "height": 400
+      }
     },
     "directories": {
       "output": "dist_dmg",
@@ -63,12 +83,16 @@
       {
         "from": "public/assets/ios27/",
         "to": "assets/ios27",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "public/reboot/",
         "to": "reboot",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ]
   },
@@ -84,7 +108,7 @@
     "@vitejs/plugin-react": "^4.3.2",
     "concurrently": "^9.0.1",
     "cross-env": "^7.0.3",
-    "electron": "^33.0.0",
+    "electron": "^44.11.3",
     "electron-builder": "^26.15.3",
     "typescript": "^5.6.3",
     "vite": "^5.4.8",

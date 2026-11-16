@@ -123,7 +123,8 @@ export async function handleApplyWebviewEmulation(
     chromeIosVersion: deps.envConfig.chromeIosVersion,
     darkMode: payload.state.darkMode,
     scale: payload.state.scale,
-    touchCursorEnabled: payload.state.touchCursorEnabled
+    touchCursorEnabled: payload.state.touchCursorEnabled,
+    pwaStatusBarStyle: payload.state.pwaStatusBarStyle
   });
 }
 

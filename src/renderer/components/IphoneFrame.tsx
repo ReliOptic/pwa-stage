@@ -19,12 +19,8 @@ import {
   Orientation
 } from '../../types/device.types';
 import { SimulatorState } from '../../types/simulator.types';
-import {
-  BrowserShellBarOverlay,
-  HardwareCutout,
-  HomeIndicatorOverlay,
-  IosStatusBar
-} from './BrowserShellOverlay';
+import { ScreenSystemOverlay } from './BrowserShellOverlay';
+import { AppSurface, HomeScreen, LaunchSplash, ScreenModalLayer } from './ScreenLayers';
 import { Duo3DStage } from './Duo3DStage';
 import { DuoFoldMiniBar } from './DuoFoldMiniBar';
 import { WebviewContainer } from './WebviewContainer';
@@ -40,6 +36,9 @@ export interface IphoneFrameProps {
   readonly onReload: () => void;
   readonly onToggleDuoFold: () => void;
   readonly onSyncDuoDeviceByAngle: (targetId: DeviceModelId) => void;
+  readonly onGoHome?: () => void;
+  readonly tintColor?: string | null;
+  readonly onPageReady?: (webContentsId: number) => void;
 }
 
 const POSTURE_TARGET_DEG: Record<DuoPostureId, number> = {
@@ -148,22 +147,27 @@ function useDuoHingeController(selectedDeviceId: DeviceModelId): DuoHingeControl
     [stopAnim]
   );
 
-  useEffect((): (() => void) => {
-    if (prevDeviceIdRef.current !== selectedDeviceId) {
-      prevDeviceIdRef.current = selectedDeviceId;
-      if (internalSyncTargetRef.current === selectedDeviceId) {
-        internalSyncTargetRef.current = null;
-        return stopAnim;
-      }
-      internalSyncTargetRef.current = null;
-      if (selectedDeviceId === DeviceModelId.IPHONE_DUO_FOLDED) {
-        animateToAngle(0, 'closed');
-      } else if (selectedDeviceId === DeviceModelId.IPHONE_DUO_UNFOLDED) {
-        animateToAngle(180, 'open');
-      }
+  // Stop the hinge animation only on unmount. (Returning stopAnim from the
+  // device-sync effect below cancelled every posture animation the moment the
+  // hinge crossed 20° and swapped Outer <-> Inner, freezing Closed / Stand.)
+  useEffect((): (() => void) => stopAnim, [stopAnim]);
+
+  useEffect((): void => {
+    if (prevDeviceIdRef.current === selectedDeviceId) {
+      return;
     }
-    return stopAnim;
-  }, [selectedDeviceId, animateToAngle, stopAnim]);
+    prevDeviceIdRef.current = selectedDeviceId;
+    if (internalSyncTargetRef.current === selectedDeviceId) {
+      internalSyncTargetRef.current = null;
+      return;
+    }
+    internalSyncTargetRef.current = null;
+    if (selectedDeviceId === DeviceModelId.IPHONE_DUO_FOLDED) {
+      animateToAngle(0, 'closed');
+    } else if (selectedDeviceId === DeviceModelId.IPHONE_DUO_UNFOLDED) {
+      animateToAngle(180, postureRef.current === 'portrait' ? 'portrait' : 'open');
+    }
+  }, [selectedDeviceId, animateToAngle]);
 
   const scrubToAngle = useCallback(
     (deg: number): void => {
@@ -279,9 +283,14 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
   const b = eff.bezelInsets;
 
   const innerRadiusCss = `${r.topLeft}px ${r.topRight}px ${r.bottomRight}px ${r.bottomLeft}px`;
-  const outerRadiusCss = state.isFramed
-    ? `${r.topLeft + b.left}px ${r.topRight + b.right}px ${r.bottomRight + b.right}px ${r.bottomLeft + b.left}px`
-    : innerRadiusCss;
+  const chassisR = preset.chassisCornerRadius;
+  const outerRadiusCss = !state.isFramed
+    ? innerRadiusCss
+    : chassisR !== undefined
+      ? `${chassisR}px`
+      : `${r.topLeft + b.left}px ${r.topRight + b.right}px ${r.bottomRight + b.right}px ${r.bottomLeft + b.left}px`;
+  const hasHomeButton = preset.formFactor === DeviceFormFactor.HOME_BUTTON_SLAB;
+  const isPortraitOrientation = state.orientation === Orientation.PORTRAIT;
 
   const chromeAsset = resolveActiveChromeAsset(
     preset,
@@ -299,16 +308,52 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
     !isDuoFamily && state.isFramed && state.orientation === Orientation.PORTRAIT;
 
   const syncDeviceForAngle = useCallback(
-    (deg: number): void => {
-      const targetId =
-        deg < 20 ? DeviceModelId.IPHONE_DUO_FOLDED : DeviceModelId.IPHONE_DUO_UNFOLDED;
+    (deg: number, targetPosture?: DuoPostureId): void => {
+      const posture = targetPosture ?? hinge.posture;
+      // Stand / tent mode shows content on the *cover* display turned sideways.
+      const usesCover = deg < 20 || (posture === 'standing' && deg <= 130);
+      const targetId = usesCover
+        ? DeviceModelId.IPHONE_DUO_FOLDED
+        : DeviceModelId.IPHONE_DUO_UNFOLDED;
+      // Inner display held tall (Portrait / Tabletop rig) is the preset's
+      // LANDSCAPE orientation (669×951); cover in Stand is 678×466 (LANDSCAPE).
+      const targetOrientation =
+        (targetId === DeviceModelId.IPHONE_DUO_UNFOLDED &&
+          (posture === 'portrait' || posture === 'tabletop')) ||
+        (usesCover && posture === 'standing')
+          ? Orientation.LANDSCAPE
+          : Orientation.PORTRAIT;
+      const patch: Partial<SimulatorState> = {};
       if (targetId !== state.selectedDeviceId) {
         hinge.markInternalSync(targetId);
-        props.onSyncDuoDeviceByAngle(targetId);
+        (patch as { selectedDeviceId?: DeviceModelId }).selectedDeviceId = targetId;
+      }
+      if (targetOrientation !== state.orientation) {
+        (patch as { orientation?: Orientation }).orientation = targetOrientation;
+      }
+      if (Object.keys(patch).length > 0) {
+        props.onUpdateState(patch);
       }
     },
-    [hinge, props, state.selectedDeviceId]
+    [hinge, props, state.selectedDeviceId, state.orientation]
   );
+
+  // Toolbar "Rotate" on the unfolded Duo picks the matching posture.
+  const lastOrientationRef = useRef(state.orientation);
+  useEffect((): void => {
+    if (lastOrientationRef.current === state.orientation) {
+      return;
+    }
+    lastOrientationRef.current = state.orientation;
+    if (!isDuoFamily || state.selectedDeviceId !== DeviceModelId.IPHONE_DUO_UNFOLDED) {
+      return;
+    }
+    const wantsTall = state.orientation === Orientation.LANDSCAPE;
+    const isTall = hinge.posture === 'portrait' || hinge.posture === 'tabletop';
+    if (wantsTall !== isTall) {
+      hinge.selectPosture(wantsTall ? 'portrait' : 'open');
+    }
+  }, [state.orientation, state.selectedDeviceId, isDuoFamily, hinge]);
 
   const startCornerResize = (
     e: React.PointerEvent<HTMLDivElement>,
@@ -419,6 +464,9 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
               hinge.animateToAngle(nextDeg, nextDeg === 0 ? 'closed' : 'open');
               syncDeviceForAngle(nextDeg);
             }}
+            onGoHome={props.onGoHome}
+            tintColor={props.tintColor}
+            onPageReady={props.onPageReady}
           />
         ) : (
           <div
@@ -442,6 +490,43 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
                 <span className="hw-btn hw-btn-right hw-btn-power" aria-hidden="true" />
               </>
             )}
+            {hasHomeButton && state.isFramed && (
+              <>
+                <span
+                  className="hw-earpiece"
+                  aria-hidden="true"
+                  style={
+                    isPortraitOrientation
+                      ? { left: '50%', top: `${b.top / 2}px`, transform: 'translate(-50%, -50%)' }
+                      : {
+                          left: `${b.left / 2}px`,
+                          top: '50%',
+                          transform: 'translate(-50%, -50%) rotate(90deg)'
+                        }
+                  }
+                />
+                <button
+                  type="button"
+                  className="hw-home-button"
+                  title="Home (⇧⌘H)"
+                  aria-label="Home button"
+                  onClick={props.onGoHome}
+                  style={
+                    isPortraitOrientation
+                      ? {
+                          left: '50%',
+                          top: `${eff.outerFrameHeight - b.bottom / 2}px`,
+                          transform: 'translate(-50%, -50%)'
+                        }
+                      : {
+                          left: `${eff.outerFrameWidth - b.right / 2}px`,
+                          top: '50%',
+                          transform: 'translate(-50%, -50%)'
+                        }
+                  }
+                />
+              </>
+            )}
             <div
               className="iphone-screen"
               style={{
@@ -453,39 +538,37 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
                 borderRadius: innerRadiusCss
               }}
             >
-              <WebviewContainer
-                state={state}
-                isDualUnfolded={eff.isDualUnfolded}
-                reloadTick={props.reloadTick}
-                onRegisterWebContentsId={props.onRegisterWebContentsId}
-              />
+              <AppSurface>
+                <WebviewContainer
+                  state={state}
+                  isDualUnfolded={eff.isDualUnfolded}
+                  reloadTick={props.reloadTick}
+                  onRegisterWebContentsId={props.onRegisterWebContentsId}
+                  onPageReady={props.onPageReady}
+                />
+              </AppSurface>
+              <HomeScreen />
+              <LaunchSplash />
               {isDuoFamily && interp.foldShadowOpacity > 0 && (
                 <div className="duo-book-fold-lighting" style={{ opacity: interp.foldShadowOpacity }} />
               )}
-              <div
-                className="ios-overlay-scaler"
-                style={{ width: `${eff.logicalWidth}px`, height: `${eff.logicalHeight}px` }}
-              >
-                <HardwareCutout cutoutType={activeCutout} orientation={state.orientation} />
-                <IosStatusBar
-                  preset={{ ...preset, cutoutType: activeCutout }}
-                  orientation={state.orientation}
-                  safeArea={eff.safeArea}
-                  darkMode={state.darkMode}
-                  onToggleDuoFold={(): void => {
-                    const nextDeg = hinge.foldAngle < 90 ? 180 : 0;
-                    hinge.animateToAngle(nextDeg, nextDeg === 0 ? 'closed' : 'open');
-                    syncDeviceForAngle(nextDeg);
-                  }}
-                />
-                <BrowserShellBarOverlay
-                  shellMode={state.shellMode}
-                  currentUrl={state.currentUrl}
-                  darkMode={state.darkMode}
-                  onReload={props.onReload}
-                />
-                <HomeIndicatorOverlay darkMode={state.darkMode} />
-              </div>
+              <ScreenSystemOverlay
+                preset={preset}
+                cutoutType={activeCutout}
+                orientation={state.orientation}
+                state={state}
+                logicalW={eff.logicalWidth}
+                logicalH={eff.logicalHeight}
+                tintColor={props.tintColor}
+                onReload={props.onReload}
+                onGoHome={props.onGoHome}
+                onToggleDuoFold={(): void => {
+                  const nextDeg = hinge.foldAngle < 90 ? 180 : 0;
+                  hinge.animateToAngle(nextDeg, nextDeg === 0 ? 'closed' : 'open');
+                  syncDeviceForAngle(nextDeg);
+                }}
+              />
+              <ScreenModalLayer />
             </div>
           </div>
         )}
@@ -532,7 +615,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
           }}
           onSelectPosture={(targetPosture: DuoPostureId): void => {
             hinge.selectPosture(targetPosture);
-            syncDeviceForAngle(POSTURE_TARGET_DEG[targetPosture]);
+            syncDeviceForAngle(POSTURE_TARGET_DEG[targetPosture], targetPosture);
           }}
           onToggleFinish={(): void => {
             hinge.setFinish((prev) => (prev === 'night' ? 'white' : 'night'));

@@ -25,27 +25,52 @@ export function createDefaultSimulatorState(envConfig: SimulatorEnvConfig): Simu
     alwaysOnTop: envConfig.defaultAlwaysOnTop,
     touchCursorEnabled: false,
     darkMode: true,
-    isFramed: true
+    isFramed: true,
+    pwaStatusBarStyle: 'default'
   };
 }
 
+function isEnumValue<T extends string>(enumObj: Record<string, T>, value: unknown): value is T {
+  return typeof value === 'string' && (Object.values(enumObj) as string[]).includes(value);
+}
+
+function isHttpUrlString(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length > 4096) {
+    return false;
+  }
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validates untrusted state (disk file or IPC payload) field-by-field.
+ * Unknown keys are dropped; invalid values fall back to defaults.
+ */
 export function mergeStoredStateWithDefaults(
   parsed: Partial<SimulatorState>,
   defaults: SimulatorState
 ): SimulatorState {
   return {
-    currentUrl:
-      typeof parsed.currentUrl === 'string' && parsed.currentUrl.trim()
-        ? parsed.currentUrl
-        : defaults.currentUrl,
-    secondaryUrl:
-      typeof parsed.secondaryUrl === 'string' && parsed.secondaryUrl.trim()
-        ? parsed.secondaryUrl
-        : defaults.secondaryUrl,
-    selectedDeviceId: parsed.selectedDeviceId ?? defaults.selectedDeviceId,
-    orientation: parsed.orientation ?? defaults.orientation,
-    shellMode: parsed.shellMode ?? defaults.shellMode,
-    duoDisplayMode: parsed.duoDisplayMode ?? defaults.duoDisplayMode,
+    currentUrl: isHttpUrlString(parsed.currentUrl) ? parsed.currentUrl.trim() : defaults.currentUrl,
+    secondaryUrl: isHttpUrlString(parsed.secondaryUrl)
+      ? parsed.secondaryUrl.trim()
+      : defaults.secondaryUrl,
+    selectedDeviceId: isEnumValue(DeviceModelId, parsed.selectedDeviceId)
+      ? parsed.selectedDeviceId
+      : defaults.selectedDeviceId,
+    orientation: isEnumValue(Orientation, parsed.orientation)
+      ? parsed.orientation
+      : defaults.orientation,
+    shellMode: isEnumValue(BrowserShellMode, parsed.shellMode)
+      ? parsed.shellMode
+      : defaults.shellMode,
+    duoDisplayMode: isEnumValue(DuoDisplayMode, parsed.duoDisplayMode)
+      ? parsed.duoDisplayMode
+      : defaults.duoDisplayMode,
     showHingeOverlay: false,
     hudCollapsed:
       typeof parsed.hudCollapsed === 'boolean' ? parsed.hudCollapsed : defaults.hudCollapsed,
@@ -60,7 +85,11 @@ export function mergeStoredStateWithDefaults(
         ? parsed.touchCursorEnabled
         : defaults.touchCursorEnabled,
     darkMode: typeof parsed.darkMode === 'boolean' ? parsed.darkMode : defaults.darkMode,
-    isFramed: typeof parsed.isFramed === 'boolean' ? parsed.isFramed : defaults.isFramed
+    isFramed: typeof parsed.isFramed === 'boolean' ? parsed.isFramed : defaults.isFramed,
+    pwaStatusBarStyle:
+      parsed.pwaStatusBarStyle === 'black' || parsed.pwaStatusBarStyle === 'black-translucent'
+        ? parsed.pwaStatusBarStyle
+        : 'default'
   };
 }
 

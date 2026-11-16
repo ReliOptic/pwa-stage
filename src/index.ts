@@ -17,9 +17,25 @@ import {
   handleApplyWebviewEmulation,
   handleGetInitialPayload,
   handleOpenWebviewDevTools,
-  handleUpdateSimulatorState,
-  stripFrameBlockingHeaders
+  handleUpdateSimulatorState
 } from './services/ipc-coordinator';
+import {
+  GuestPermissionStore,
+  installGuestPermissionPrompts,
+  installNavigationGuards,
+  isFiniteWindowPoint,
+  isGuestOfShell,
+  isSameShellUrl,
+  isTrustedShellSender
+} from './services/security';
+import { createDefaultSimulatorState, mergeStoredStateWithDefaults } from './services/storage';
+import { forgetEmulationTarget } from './services/emulation';
+import {
+  evaluatePwaChecks,
+  PAGE_INSPECTION_EXPRESSION,
+  resolveHomeScreenIdentity,
+  sanitizePageInspection
+} from './services/page-inspector';
 import {
   createMacMenuBarTray,
   MenuControllerContext,
@@ -37,8 +53,7 @@ import {
 import { DeviceModelId } from './types/device.types';
 import {
   ApplyWebviewEmulationPayload,
-  CoordinatorDependencies,
-  MoveWindowPayload
+  CoordinatorDependencies
 } from './types/ipc-coordinator.types';
 import { SimulatorState } from './types/simulator.types';
 import { logStructured } from './utils/logger.util';
@@ -110,39 +125,203 @@ function keepWindowInWorkArea(win: BrowserWindow | null): void {
   }
 }
 
+type TrustedHandler = (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => unknown;
+
+const UNTRUSTED_SENDER_RESULT = {
+  ok: false,
+  error: {
+    kind: 'WINDOW_OPERATION_ERROR',
+    operation: 'ipc',
+    message: 'IPC sender is not the simulator shell',
+    recoveryHint: 'Only the simulator UI may call this channel'
+  }
+} as const;
+
+/** Registers an IPC handler that only answers the simulator shell's top frame. */
+function handleTrusted(channel: string, handler: TrustedHandler): void {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (!isTrustedShellSender(event, mainFloatingWindow)) {
+      logStructured('warn', 'main.entry', 'ipc_untrusted_sender_rejected', { channel });
+      return UNTRUSTED_SENDER_RESULT;
+    }
+    return handler(event, ...args);
+  });
+}
+
+function sanitizeIncomingState(ctx: MenuControllerContext, raw: unknown): SimulatorState {
+  const defaults = createDefaultSimulatorState(ctx.deps.envConfig);
+  const parsed = typeof raw === 'object' && raw !== null ? (raw as Partial<SimulatorState>) : {};
+  return mergeStoredStateWithDefaults(parsed, defaults);
+}
+
+function resolveGuestId(raw: unknown): number | null {
+  if (typeof raw !== 'number' || !Number.isInteger(raw)) {
+    return null;
+  }
+  const target = webContents.fromId(raw);
+  return isGuestOfShell(target, mainFloatingWindow) ? raw : null;
+}
+
+const GUEST_ID_REJECTED = {
+  ok: false,
+  error: {
+    kind: 'EMULATION_FAILURE_ERROR',
+    operation: 'ipc',
+    message: 'webContentsId is not a webview guest of the simulator shell',
+    recoveryHint: 'Wait for the webview dom-ready event'
+  }
+} as const;
+
 function registerIpcHandlers(ctx: MenuControllerContext): void {
   const { deps } = ctx;
-  ipcMain.handle('simulator:get-initial-payload', () => handleGetInitialPayload(deps));
-  ipcMain.handle('simulator:update-state', (_event, nextState: SimulatorState) => {
-    const res = handleUpdateSimulatorState(deps, nextState);
+  handleTrusted('simulator:get-initial-payload', () => handleGetInitialPayload(deps));
+  handleTrusted('simulator:update-state', (_event, rawState) => {
+    const res = handleUpdateSimulatorState(deps, sanitizeIncomingState(ctx, rawState));
     keepWindowInWorkArea(mainFloatingWindow);
     return res;
   });
-  ipcMain.handle(
-    'simulator:apply-webview-emulation',
-    (_event, payload: ApplyWebviewEmulationPayload) => handleApplyWebviewEmulation(deps, payload)
-  );
-  ipcMain.handle('simulator:open-webview-devtools', (_event, webContentsId: number) =>
-    handleOpenWebviewDevTools(deps, webContentsId)
-  );
-  ipcMain.handle('simulator:minimize-window', () => {
+  handleTrusted('simulator:apply-webview-emulation', (_event, rawPayload) => {
+    const payload = (rawPayload ?? {}) as Partial<ApplyWebviewEmulationPayload>;
+    const id = resolveGuestId(payload.webContentsId);
+    if (id === null) {
+      return GUEST_ID_REJECTED;
+    }
+    return handleApplyWebviewEmulation(deps, {
+      webContentsId: id,
+      state: sanitizeIncomingState(ctx, payload.state)
+    });
+  });
+  handleTrusted('simulator:open-webview-devtools', (_event, rawId) => {
+    const id = resolveGuestId(rawId);
+    return id === null ? GUEST_ID_REJECTED : handleOpenWebviewDevTools(deps, id);
+  });
+  handleTrusted('simulator:minimize-window', () => {
     mainFloatingWindow?.minimize();
     return { ok: true, value: true };
   });
-  ipcMain.handle('simulator:close-window', () => {
+  handleTrusted('simulator:close-window', () => {
     mainFloatingWindow?.hide();
     return { ok: true, value: true };
   });
-  ipcMain.handle('simulator:show-two-finger-menu', () => {
+  handleTrusted('simulator:show-two-finger-menu', () => {
     popUpTwoFingerMenu(ctx);
     return { ok: true, value: true };
   });
-  ipcMain.handle('simulator:move-window', (_event, payload: MoveWindowPayload) => {
+  handleTrusted('simulator:move-window', (_event, payload) => {
+    if (!isFiniteWindowPoint(payload)) {
+      return { ok: false, value: false };
+    }
     if (mainFloatingWindow && !mainFloatingWindow.isDestroyed()) {
-      mainFloatingWindow.setPosition(payload.x, payload.y);
+      mainFloatingWindow.setPosition(Math.round(payload.x), Math.round(payload.y));
       return { ok: true, value: true };
     }
     return { ok: false, value: false };
+  });
+  handleTrusted('simulator:inspect-page', async (_event, rawId) => {
+    const id = resolveGuestId(rawId);
+    if (id === null) {
+      return GUEST_ID_REJECTED;
+    }
+    return inspectGuestPage(id);
+  });
+  handleTrusted('simulator:capture-screenshot', async (_event, rawRect, rawName) => {
+    return captureScreenScreenshot(rawRect, rawName);
+  });
+  handleTrusted('simulator:permission-response', (_event, rawId, rawGranted) => {
+    if (typeof rawId === 'string') {
+      resolvePermissionPrompt(rawId, rawGranted === true);
+    }
+    return { ok: true, value: true };
+  });
+}
+
+// --- PWA inspection & screenshots -----------------------------------------
+async function inspectGuestPage(id: number): Promise<unknown> {
+  const guest = webContents.fromId(id);
+  if (!guest || guest.isDestroyed()) {
+    return GUEST_ID_REJECTED;
+  }
+  try {
+    if (!guest.debugger.isAttached()) {
+      guest.debugger.attach('1.3');
+    }
+    const res = (await guest.debugger.sendCommand('Runtime.evaluate', {
+      expression: PAGE_INSPECTION_EXPRESSION,
+      awaitPromise: true,
+      returnByValue: true,
+      timeout: 8000
+    })) as { result?: { value?: unknown } };
+    const inspection = sanitizePageInspection(res.result?.value);
+    if (!inspection) {
+      return { ok: false, error: { kind: 'EMULATION_FAILURE_ERROR', operation: 'inspect', message: 'Page returned no inspectable data', recoveryHint: 'Wait for the page to finish loading' } };
+    }
+    return {
+      ok: true,
+      value: {
+        inspection,
+        checks: evaluatePwaChecks(inspection),
+        identity: resolveHomeScreenIdentity(inspection)
+      }
+    };
+  } catch (err) {
+    return { ok: false, error: { kind: 'EMULATION_FAILURE_ERROR', operation: 'inspect', message: err instanceof Error ? err.message : 'inspect failed', recoveryHint: 'Reload the page' } };
+  }
+}
+
+function sanitizeFileToken(raw: unknown): string {
+  return (typeof raw === 'string' ? raw : 'iPhone').replace(/[^A-Za-z0-9 ._()-]/g, '').slice(0, 60) || 'iPhone';
+}
+
+/** Xcode-style "Simulator Screenshot - <device> - <date> at <time>.png" on the Desktop. */
+async function captureScreenScreenshot(rawRect: unknown, rawName: unknown): Promise<unknown> {
+  const win = mainFloatingWindow;
+  if (!win || win.isDestroyed()) {
+    return { ok: false, value: null };
+  }
+  const r = (rawRect ?? {}) as Record<string, unknown>;
+  const nums = ['x', 'y', 'width', 'height'].map((k) => r[k]);
+  if (!nums.every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n < 20000)) {
+    return { ok: false, value: null };
+  }
+  const [x, y, width, height] = (nums as number[]).map((n) => Math.round(n));
+  if (width < 10 || height < 10) {
+    return { ok: false, value: null };
+  }
+  const image = await win.webContents.capturePage({ x, y, width, height });
+  const now = new Date();
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} at ${pad(now.getHours())}.${pad(now.getMinutes())}.${pad(now.getSeconds())}`;
+  const fileName = `Simulator Screenshot - ${sanitizeFileToken(rawName)} - ${stamp}.png`;
+  const target = path.join(app.getPath('desktop'), fileName);
+  fs.writeFileSync(target, image.toPNG());
+  logStructured('info', 'main.entry', 'screenshot_saved', { target });
+  return { ok: true, value: fileName };
+}
+
+// --- iOS-style permission alerts rendered inside the simulated screen -------
+const pendingPermissionPrompts = new Map<string, (granted: boolean) => void>();
+let permissionPromptSeq = 0;
+
+function resolvePermissionPrompt(id: string, granted: boolean): void {
+  const resolve = pendingPermissionPrompts.get(id);
+  if (resolve) {
+    pendingPermissionPrompts.delete(id);
+    resolve(granted);
+  }
+}
+
+function askPermissionInShell(origin: string, message: string): Promise<boolean> {
+  const win = mainFloatingWindow;
+  if (!win || win.isDestroyed()) {
+    return Promise.resolve(false);
+  }
+  permissionPromptSeq += 1;
+  const id = `perm-${permissionPromptSeq}`;
+  return new Promise<boolean>((resolve) => {
+    pendingPermissionPrompts.set(id, resolve);
+    win.webContents.send('simulator:permission-prompt', { id, origin, message });
+    // Unanswered prompts are denied, never silently granted.
+    setTimeout(() => resolvePermissionPrompt(id, false), 60_000);
   });
 }
 
@@ -241,9 +420,13 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      spellcheck: false,
       webviewTag: true
     }
   });
+  installNavigationGuards(win, (url) => isSameShellUrl(url, win.webContents.getURL() || url));
 
   setFloatingPin(win, state.alwaysOnTop);
   win.once('ready-to-show', () => {
@@ -342,18 +525,22 @@ export function bootstrapElectronApp(): void {
     };
 
     app.on('web-contents-created', (_event, contents) => {
+      const contentsId = contents.id;
+      contents.once('destroyed', () => forgetEmulationTarget(contentsId));
       contents.on('context-menu', (e) => {
         e.preventDefault();
         popUpTwoFingerMenu(ctx);
       });
     });
 
-    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      const responseHeaders = stripFrameBlockingHeaders(
-        details.responseHeaders as Readonly<Record<string, readonly string[] | string>> | undefined
-      );
-      callback({ cancel: false, responseHeaders });
-    });
+    // Guests are untrusted: every camera / mic / location / notification
+    // request becomes an iOS-style alert inside the simulated screen.
+    installGuestPermissionPrompts(
+      session.defaultSession,
+      { ask: askPermissionInShell },
+      new GuestPermissionStore(),
+      (wc) => wc !== null && mainFloatingWindow !== null && wc === mainFloatingWindow.webContents
+    );
 
     registerIpcHandlers(ctx);
     mainFloatingWindow = createFloatingSimulatorWindow(ctx);
