@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { getDevicePresetById } from '../../config/device-presets.config';
 import { getSimulatorBridge, isElectronRuntime } from '../../utils/renderer-bridge.util';
 import { computeShellChromeHeights, resolveSafeAreaInsets } from '../../utils/viewport-math.util';
+import { HardwareCutoutType, Orientation } from '../../types/device.types';
 import { ElectronWebviewElement } from '../../types/renderer.types';
 import { DuoDisplayMode, SimulatorState } from '../../types/simulator.types';
 
@@ -44,13 +45,23 @@ function useWebviewEffects(
     if (readyRef.current) {
       syncEmulation();
     }
+    const handleEnterFs = (): void => {
+      window.dispatchEvent(new CustomEvent('sim:html-fullscreen', { detail: true }));
+    };
+    const handleLeaveFs = (): void => {
+      window.dispatchEvent(new CustomEvent('sim:html-fullscreen', { detail: false }));
+    };
     el.addEventListener('dom-ready', syncEmulation);
     el.addEventListener('did-navigate', syncEmulation);
     el.addEventListener('did-navigate-in-page', syncEmulation);
+    el.addEventListener('enter-html-full-screen', handleEnterFs);
+    el.addEventListener('leave-html-full-screen', handleLeaveFs);
     return (): void => {
       el.removeEventListener('dom-ready', syncEmulation);
       el.removeEventListener('did-navigate', syncEmulation);
       el.removeEventListener('did-navigate-in-page', syncEmulation);
+      el.removeEventListener('enter-html-full-screen', handleEnterFs);
+      el.removeEventListener('leave-html-full-screen', handleLeaveFs);
     };
   }, [
     electronMode,
@@ -139,14 +150,30 @@ function SingleViewportPane(props: SingleViewportPaneProps): React.ReactElement 
 
 export function WebviewContainer(props: WebviewContainerProps): React.ReactElement {
   const { state, isDualUnfolded, reloadTick, onRegisterWebContentsId } = props;
+  const [isHtmlFullscreen, setIsHtmlFullscreen] = useState<boolean>(false);
+
+  useEffect((): (() => void) => {
+    const onFs = (evt: Event): void => {
+      setIsHtmlFullscreen(Boolean((evt as CustomEvent<boolean>).detail));
+    };
+    window.addEventListener('sim:html-fullscreen', onFs);
+    return (): void => window.removeEventListener('sim:html-fullscreen', onFs);
+  }, []);
+
   const isSplitDuo =
     isDualUnfolded && state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON;
   const preset = getDevicePresetById(state.selectedDeviceId);
   const safeArea = resolveSafeAreaInsets(preset, state.orientation);
   const chrome = computeShellChromeHeights(state.shellMode, safeArea);
+  const hasDuoRightRail =
+    !isHtmlFullscreen &&
+    (preset.cutoutType === HardwareCutoutType.DUO_OUTER_CORNER ||
+      (preset.cutoutType === HardwareCutoutType.UNDER_DISPLAY_HIDDEN &&
+        state.orientation === Orientation.PORTRAIT));
   const chromeInsetStyle: React.CSSProperties = {
-    paddingTop: `${chrome.topBarHeight}px`,
-    paddingBottom: `${chrome.bottomBarHeight}px`,
+    paddingTop: isHtmlFullscreen ? '0px' : `${chrome.topBarHeight}px`,
+    paddingBottom: isHtmlFullscreen ? '0px' : `${chrome.bottomBarHeight}px`,
+    paddingRight: hasDuoRightRail ? `${safeArea.right}px` : '0px',
     boxSizing: 'border-box',
     background: state.darkMode ? '#09090c' : '#f4f4f6'
   };

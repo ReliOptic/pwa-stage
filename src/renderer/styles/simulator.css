@@ -38,8 +38,8 @@ html, body, #root {
 .traffic-pin-active { background: #28c840; box-shadow: 0 0 6px rgba(40, 200, 64, 0.6); }
 
 .pin-toggle-pill {
-  -webkit-app-region: no-drag; height: 23px; padding: 0 5.5px; border-radius: 7px;
-  display: inline-flex; align-items: center; gap: 2.5px; font-size: 9.5px; font-weight: 600;
+  -webkit-app-region: no-drag; height: 23px; padding: 0 4.5px; border-radius: 7px;
+  display: inline-flex; align-items: center; gap: 2.5px; font-size: 9px; font-weight: 600;
   cursor: pointer; white-space: nowrap; transition: all 0.14s ease; flex-shrink: 0;
 }
 
@@ -98,7 +98,7 @@ html, body, #root {
 .shadcn-select-wrap {
   -webkit-app-region: no-drag; position: relative; display: inline-flex; align-items: center; min-width: 0;
 }
-.shadcn-select-device-wrap { flex: 1 1 68px; min-width: 68px; max-width: 146px; }
+.shadcn-select-device-wrap { flex: 1 1 56px; min-width: 56px; max-width: 146px; }
 .shadcn-select-icon { position: absolute; left: 5px; color: #a1a1aa; pointer-events: none; }
 .shadcn-select-chevron { position: absolute; right: 4px; color: #71717a; pointer-events: none; }
 
@@ -174,6 +174,7 @@ html, body, #root {
 
 .ios-overlay-scaler {
   position: absolute; top: 0; left: 0; transform-origin: top left; pointer-events: none; z-index: 30;
+  border-radius: inherit; overflow: hidden;
 }
 
 .bezel-mini-hud {
@@ -255,7 +256,7 @@ html, body, #root {
 }
 .stage-wrapper:hover .corner-se::after { opacity: 1; }
 
-.webview-full-bleed { position: absolute; inset: 0; width: 100%; height: 100%; display: flex; flex-direction: column; }
+.webview-full-bleed { position: absolute; inset: 0; width: 100%; height: 100%; display: flex; flex-direction: column; border-radius: inherit; overflow: hidden; }
 
 .duo-book-fold-lighting {
   position: absolute; inset: 0; pointer-events: none; z-index: 28;
@@ -780,20 +781,38 @@ html, body, #root {
 }
 
 .ios-duo-vertical-rail {
-  position: absolute; bottom: 20px; right: 5px; width: 47px;
-  display: flex; flex-direction: column; align-items: center; justify-content: space-between; z-index: 38; pointer-events: none;
+  position: absolute; top: 0; bottom: 0; right: 0; width: 84px;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  z-index: 38; pointer-events: none; box-sizing: border-box;
+  border-top-right-radius: inherit; border-bottom-right-radius: inherit; overflow: hidden;
+}
+.ios-duo-rail-surface-dark {
+  background: rgba(12, 12, 16, 0.92);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ios-duo-rail-surface-light {
+  background: rgba(244, 244, 248, 0.94);
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-.ios-duo-v68-status { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 47px; }
+.ios-duo-v68-status { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 56px; }
 .ios-v68-time { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; line-height: 1; }
-.ios-v68-aux-line { width: 22px; height: 1.7px; border-radius: 2px; margin-top: 2px; }
-.ios-duo-v68-toolbar { display: flex; flex-direction: column; align-items: center; gap: 18px; margin-top: 8px; }
+.ios-v68-aux-line { width: 22px; height: 2px; border-radius: 2px; margin-top: 2px; }
+.ios-duo-v68-toolbar { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 8px; }
 .ios-v68-tool-btn { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; opacity: 0.92; }
 
-.ios-duo-glass-pill { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 38px; padding: 8px 0; border-radius: 20px; }
+.ios-duo-glass-pill {
+  -webkit-app-region: no-drag; pointer-events: auto;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  width: 44px; padding: 10px 0; border-radius: 22px;
+}
 .ios-liquid-glass-dark { background: rgba(38, 38, 42, 0.72); backdrop-filter: blur(20px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.16); color: #ffffff; }
 .ios-liquid-glass-light { background: rgba(245, 245, 250, 0.82); backdrop-filter: blur(20px) saturate(180%); border: 1px solid rgba(0, 0, 0, 0.12); color: #111114; }
-.ios-glass-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; opacity: 0.85; }
+.ios-glass-icon {
+  width: 30px; height: 30px; border-radius: 50%; border: none; background: transparent; color: inherit;
+  display: flex; align-items: center; justify-content: center; opacity: 0.88; cursor: pointer;
+}
+.ios-glass-icon:hover { background: rgba(255, 255, 255, 0.12); opacity: 1; }
 .ios-glass-icon-active { background: rgba(10, 132, 255, 0.25); color: #0a84ff; opacity: 1; }
 
 .ios-duo-fold-trigger {

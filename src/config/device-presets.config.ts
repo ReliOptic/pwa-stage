@@ -108,8 +108,8 @@ export const DEVICE_PRESETS: readonly DevicePreset[] = [
     chromeAssetPath: IOS27_CHROME_ASSETS.phone15DuoOuter,
     titaniumFinish: '#242528',
     cutoutType: HardwareCutoutType.DUO_OUTER_CORNER,
-    safeAreaPortrait: { top: 24, right: 64, bottom: 21, left: 16 },
-    safeAreaLandscape: { top: 24, right: 64, bottom: 21, left: 16 },
+    safeAreaPortrait: { top: 24, right: 84, bottom: 21, left: 16 },
+    safeAreaLandscape: { top: 24, right: 84, bottom: 21, left: 16 },
     hinge: { ...NO_HINGE, leftPaneWidthPx: 466 }
   },
   {
@@ -127,7 +127,7 @@ export const DEVICE_PRESETS: readonly DevicePreset[] = [
     chromeAssetPath: IOS27_CHROME_ASSETS.phone14DuoInnerWide,
     titaniumFinish: '#242528',
     cutoutType: HardwareCutoutType.UNDER_DISPLAY_HIDDEN,
-    safeAreaPortrait: { top: 20, right: 64, bottom: 21, left: 20 },
+    safeAreaPortrait: { top: 20, right: 84, bottom: 21, left: 20 },
     safeAreaLandscape: { top: 54, right: 0, bottom: 24, left: 0 },
     hinge: { enabled: false, hingeWidthPx: 0, leftPaneWidthPx: 475, rightPaneWidthPx: 476, showCreaseOverlay: false }
   },
@@ -202,9 +202,9 @@ export const DEVICE_PRESETS: readonly DevicePreset[] = [
     bezelInsets: SLAB_BEZEL_INSETS,
     chromeAssetPath: IOS27_CHROME_ASSETS.phone11,
     titaniumFinish: '#1f2124',
-    cutoutType: HardwareCutoutType.NOTCH,
-    safeAreaPortrait: { top: 47, right: 0, bottom: 34, left: 0 },
-    safeAreaLandscape: { top: 0, right: 47, bottom: 21, left: 47 },
+    cutoutType: HardwareCutoutType.DYNAMIC_ISLAND,
+    safeAreaPortrait: { top: 59, right: 0, bottom: 34, left: 0 },
+    safeAreaLandscape: { top: 0, right: 59, bottom: 21, left: 59 },
     hinge: { ...NO_HINGE, leftPaneWidthPx: 390 }
   }
 ];

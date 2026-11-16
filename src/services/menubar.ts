@@ -46,7 +46,7 @@ export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
 
   return Menu.buildFromTemplate([
     {
-      label: `Pin Always on Top (${state.alwaysOnTop ? 'ON' : 'OFF'})`,
+      label: `Float on All Spaces (${state.alwaysOnTop ? 'ON' : 'OFF — This Space'})`,
       type: 'checkbox',
       checked: state.alwaysOnTop,
       accelerator: 'CommandOrControl+T',

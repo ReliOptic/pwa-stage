@@ -171,11 +171,15 @@ function TopControlRow(props: FloatingToolbarProps): React.ReactElement {
         <button
           type="button"
           className={`pin-toggle-pill ${state.alwaysOnTop ? 'pin-toggle-on' : 'pin-toggle-off'}`}
-          title={`Always on Top across all spaces (${state.alwaysOnTop ? 'Pinned' : 'Unpinned'}, ⌘T)`}
+          title={
+            state.alwaysOnTop
+              ? 'Floating across all spaces & full-screen apps (click for This Space only, ⌘T)'
+              : 'Stays on this space only (click to float on All Spaces, ⌘T)'
+          }
           onClick={(): void => onUpdateState({ alwaysOnTop: !state.alwaysOnTop })}
         >
           {state.alwaysOnTop ? <Pin size={9} /> : <PinOff size={9} />}
-          <span>{state.alwaysOnTop ? 'Pinned' : 'Pin'}</span>
+          <span>{state.alwaysOnTop ? 'All Spaces' : 'This Space'}</span>
         </button>
 
         <div className="scale-stepper" role="group" aria-label="Scale">

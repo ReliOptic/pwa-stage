@@ -109,47 +109,65 @@ export function HardwareCutout(props: {
   );
 }
 
+function useHtmlFullscreenState(): boolean {
+  const [isHtmlFs, setIsHtmlFs] = React.useState<boolean>(false);
+  React.useEffect((): (() => void) => {
+    const onFs = (evt: Event): void => {
+      setIsHtmlFs(Boolean((evt as CustomEvent<boolean>).detail));
+    };
+    window.addEventListener('sim:html-fullscreen', onFs);
+    return (): void => window.removeEventListener('sim:html-fullscreen', onFs);
+  }, []);
+  return isHtmlFs;
+}
+
 function DuoVerticalSystemRail(props: {
   readonly preset: DevicePreset;
   readonly darkMode: boolean;
 }): React.ReactElement {
   const isOuter = props.preset.id === DeviceModelId.IPHONE_DUO_FOLDED;
   const fgColor = props.darkMode ? '#ffffff' : '#000000';
-
-  const innerStyle = {
-    position: 'relative' as const,
-    zIndex: 38,
-    pointerEvents: 'none' as const
-  };
+  const railSurfaceClass = props.darkMode ? 'ios-duo-rail-surface-dark' : 'ios-duo-rail-surface-light';
 
   return (
-    <div
-      className="ios-duo-vertical-rail"
+    <aside
+      className={`ios-duo-vertical-rail ${railSurfaceClass}`}
+      aria-label="iOS 27.3 Duo Right System Rail (84pt)"
       style={{
-        position: 'absolute',
-        top: isOuter ? '56px' : '20px',
-        right: isOuter ? '6px' : '8px',
-        color: fgColor,
-        zIndex: 38,
-        pointerEvents: 'none'
+        top: 0,
+        bottom: 0,
+        right: 0,
+        width: '84px',
+        paddingTop: isOuter ? '56px' : '20px',
+        paddingBottom: '18px',
+        color: fgColor
       }}
     >
-      <div className="ios-duo-v68-status" style={innerStyle}>
+      <div className="ios-duo-v68-status">
         <span className="ios-v68-time">9:41</span>
         <DuoStatusRing darkMode={props.darkMode} />
       </div>
-    </div>
+
+      <div
+        className="ios-v68-aux-line"
+        style={{ background: props.darkMode ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)' }}
+      />
+    </aside>
   );
 }
 
 export function IosStatusBar(props: BrowserShellOverlayProps): React.ReactElement | null {
+  const isHtmlFs = useHtmlFullscreenState();
+  if (isHtmlFs) {
+    return null;
+  }
   const { preset, orientation, darkMode } = props;
   const fgColor = darkMode ? '#ffffff' : '#000000';
   const isDuoOuter = preset.cutoutType === HardwareCutoutType.DUO_OUTER_CORNER;
   const isDuoInner = preset.cutoutType === HardwareCutoutType.UNDER_DISPLAY_HIDDEN;
 
   // On iPhone Duo Outer (466×678) and Inner Book/Wide (951×669, Orientation.PORTRAIT),
-  // iOS 27 places the V68 combined status ring vertically in the top-trailing corner.
+  // iOS 27.3 reserves the trailing 84pt vertical system & menu rail.
   // On Inner Portrait (669×951, Orientation.LANDSCAPE), Apple HIG returns to the horizontal top status bar.
   if (isDuoOuter || (isDuoInner && orientation === Orientation.PORTRAIT)) {
     return (
@@ -196,7 +214,8 @@ export function BrowserShellBarOverlay(props: {
   readonly darkMode: boolean;
   readonly onReload?: () => void;
 }): React.ReactElement | null {
-  if (props.shellMode === BrowserShellMode.PWA_STANDALONE) {
+  const isHtmlFs = useHtmlFullscreenState();
+  if (isHtmlFs || props.shellMode === BrowserShellMode.PWA_STANDALONE) {
     return null;
   }
   const host = getHostnameForDisplay(props.currentUrl);
@@ -310,7 +329,11 @@ export function BrowserShellBarOverlay(props: {
 
 export function HomeIndicatorOverlay(props: {
   readonly darkMode: boolean;
-}): React.ReactElement {
+}): React.ReactElement | null {
+  const isHtmlFs = useHtmlFullscreenState();
+  if (isHtmlFs) {
+    return null;
+  }
   return (
     <div
       className="ios-home-indicator"

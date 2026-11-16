@@ -58,7 +58,7 @@ function buildCoordinatorDependencies(rebootServerUrl?: string): CoordinatorDepe
         ...process.env,
         SIMULATOR_DEFAULT_URL: process.env.SIMULATOR_DEFAULT_URL ?? rebootServerUrl,
         SIMULATOR_REBOOT_URL: rebootServerUrl,
-        SIMULATOR_ALWAYS_ON_TOP: process.env.SIMULATOR_ALWAYS_ON_TOP ?? 'false',
+        SIMULATOR_ALWAYS_ON_TOP: process.env.SIMULATOR_ALWAYS_ON_TOP ?? 'true',
         SIMULATOR_DEFAULT_SCALE: process.env.SIMULATOR_DEFAULT_SCALE ?? '0.85'
       }
     : undefined;
