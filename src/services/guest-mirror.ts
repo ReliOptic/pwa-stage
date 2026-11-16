@@ -16,11 +16,19 @@ export interface GuestFrame {
   readonly jpeg: Buffer;
 }
 
-const MIN_FRAME_INTERVAL_MS = 1000 / 30;
+const MAX_FPS = 30;
+const MIN_FPS = 1;
+
+export function clampMirrorFps(raw: unknown): number {
+  return typeof raw === 'number' && Number.isFinite(raw)
+    ? Math.min(MAX_FPS, Math.max(MIN_FPS, raw))
+    : MAX_FPS;
+}
 const JPEG_QUALITY = 90;
 
 interface MirrorSession {
   stopped: boolean;
+  fps: number;
 }
 
 const sessions = new Map<number, MirrorSession>();
@@ -33,10 +41,23 @@ export function stopGuestMirror(guestId: number): void {
   }
 }
 
-export function startGuestMirror(guest: WebContents, deliver: (frame: GuestFrame) => void): void {
+/**
+ * Starts mirroring a guest, or just changes the frame rate of a running
+ * mirror (a low idle rate keeps one recent frame around so the opening
+ * transition never starts from black).
+ */
+export function startGuestMirror(
+  guest: WebContents,
+  deliver: (frame: GuestFrame) => void,
+  fps: number = MAX_FPS
+): void {
   const guestId = guest.id;
-  stopGuestMirror(guestId);
-  const session: MirrorSession = { stopped: false };
+  const running = sessions.get(guestId);
+  if (running) {
+    running.fps = clampMirrorFps(fps);
+    return;
+  }
+  const session: MirrorSession = { stopped: false, fps: clampMirrorFps(fps) };
   sessions.set(guestId, session);
   guest.once('destroyed', () => stopGuestMirror(guestId));
 
@@ -53,8 +74,10 @@ export function startGuestMirror(guest: WebContents, deliver: (frame: GuestFrame
       } catch {
         // guest navigating / hidden: retry on the next tick
       }
-      const wait = Math.max(0, MIN_FRAME_INTERVAL_MS - (Date.now() - started));
-      await new Promise<void>((resolve) => setTimeout(resolve, wait));
+      // Sleep in short slices so a rate change takes effect immediately.
+      while (!session.stopped && Date.now() - started < 1000 / session.fps) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 8));
+      }
     }
   };
   void loop();

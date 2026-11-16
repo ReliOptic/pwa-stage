@@ -22,6 +22,8 @@ export interface WebviewContainerProps {
    * shows a live mirror of that guest instead of loading its own page.
    */
   readonly mirrorGuestId?: number | null;
+  readonly mirrorCoverFrameOffsetX?: number;
+  readonly mirrorInteractive?: boolean;
 }
 
 interface SingleViewportPaneProps {
@@ -256,7 +258,11 @@ export function WebviewContainer(props: WebviewContainerProps): React.ReactEleme
   if (props.mirrorGuestId !== undefined && !isSplitDuo) {
     return (
       <div className="webview-full-bleed" style={chromeInsetStyle}>
-        <GuestMirrorPane guestId={props.mirrorGuestId} />
+        <GuestMirrorPane
+          guestId={props.mirrorGuestId}
+          coverFrameOffsetX={props.mirrorCoverFrameOffsetX}
+          interactive={props.mirrorInteractive}
+        />
       </div>
     );
   }

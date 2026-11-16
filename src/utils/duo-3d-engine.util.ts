@@ -30,6 +30,24 @@ export interface Duo3DFrameProjection {
    * null = unobstructed.
    */
   readonly rightVisibleClip: string | null;
+  /**
+   * Opening / closing transition (the device swinging between closed and
+   * open, seen from the front). While it runs, content stays anchored to the
+   * unfolded inner-display plane and the moving leaf acts like a sheet of
+   * tracing paper passing over it: `flat` is that plane, the clips are the
+   * moving leaf's two screens projected onto it from the camera.
+   */
+  readonly transition: {
+    readonly active: boolean;
+    readonly flat: ProjectedSurfaceSlice;
+    readonly coverClip: string | null;
+    readonly leftClip: string | null;
+    /** 0..1 blur/darken strength of the cover face and of the inner-left face. */
+    readonly coverMotion: number;
+    readonly innerMotion: number;
+  };
+  /** 0..1 backlight of the inner display (fades up as the device cracks open). */
+  readonly innerBrightness: number;
   readonly outer: ProjectedSurfaceSlice;
   readonly left: ProjectedSurfaceSlice;
   readonly right: ProjectedSurfaceSlice;
@@ -58,8 +76,23 @@ declare global {
   }
 }
 
-/** Hinge angle at which the lit display hands off between cover and inner. */
-export const COVER_HANDOFF_DEG = 20;
+/**
+ * Hinge angle at which the app moves from the cover layout to the inner
+ * layout. It has to happen as soon as the device cracks open: during the
+ * opening transition the cover shows the very content that lies beneath it.
+ */
+export const COVER_HANDOFF_DEG = 2;
+/**
+ * `rightVisibleClip` value meaning "entirely behind the raised leaf". The
+ * stage hides the live page with opacity instead of a clip in that case: a
+ * guest clipped down to nothing stops producing frames, which would freeze
+ * its mirror and with it the picture on the cover during the transition.
+ */
+export const RIGHT_LEAF_HIDDEN = 'hidden';
+/** The inner display fades up between the hand-off and this angle. */
+export const INNER_FULLY_LIT_DEG = 20;
+/** Peak blur (CSS px, in inner-display points) at the moving leaf's free edge. */
+export const TRANSITION_MAX_BLUR_PX = 40;
 
 function clamp(val: number, min = 0, max = 1): number {
   return Math.max(min, Math.min(max, val));
@@ -454,9 +487,14 @@ export class Duo3DHardwareEngine {
     const isOuterPrimary = isStanding || u < COVER_HANDOFF_DEG / 180;
 
     // Automatic 3D presentation tilt during intermediate fold angles so the 3D V-valley is vivid
+    // The signature transition is an illusion built for a viewer straight in
+    // front of the device, so the camera holds a steady front view while the
+    // device swings between closed and open.
+    const frontView =
+      !isStanding && !isRotatedRig && (params.posture === 'open' || params.posture === 'closed');
     const foldBell = Math.sin(Math.PI * phi);
-    const autoPitch = !isStanding && !isRotatedRig ? foldBell * 15.5 : 0;
-    const autoOrbit = !isStanding && !isRotatedRig ? foldBell * -6.5 : 0;
+    const autoPitch = !isStanding && !isRotatedRig && !frontView ? foldBell * 15.5 : 0;
+    const autoOrbit = !isStanding && !isRotatedRig && !frontView ? foldBell * -6.5 : 0;
     const effectiveOrbit = params.orbitDeg + autoOrbit;
     const effectivePitch = clamp(params.pitchDeg + autoPitch, -55, 55);
 
@@ -478,7 +516,7 @@ export class Duo3DHardwareEngine {
     } else {
       const handoffT = clamp((phi - 0.05) / 0.18, 0, 1);
       const smoothHandoff = handoffT * handoffT * (3 - 2 * handoffT);
-      const bisectorAngle = smoothHandoff * (1 - phi) * (Math.PI / 2);
+      const bisectorAngle = frontView ? 0 : smoothHandoff * (1 - phi) * (Math.PI / 2);
       const dir = new T.Vector3(
         Math.sin(bisectorAngle),
         Math.cos(bisectorAngle),
@@ -500,19 +538,44 @@ export class Duo3DHardwareEngine {
       this.camera.aspect = W / H;
       this.camera.updateProjectionMatrix();
 
-      let dist = 34.5;
-      for (let iter = 0; iter < 5; iter++) {
-        this.camera.position.copy(center).addScaledVector(dir, dist);
-        this.camera.lookAt(center);
-        this.camera.updateMatrixWorld(true);
-        const projected = allBounds.map((pt: any) => pt.clone().project(this.camera));
-        const maxX = Math.max(...projected.map((p: any) => Math.abs(p.x)));
-        const maxY = Math.max(...projected.map((p: any) => Math.abs(p.y)));
-        dist *= Math.max(maxX / 0.9, maxY / 0.9);
+      const fit = (target: any, pts: any[]): number => {
+        let d = 34.5;
+        for (let iter = 0; iter < 5; iter++) {
+          this.camera.position.copy(target).addScaledVector(dir, d);
+          this.camera.lookAt(target);
+          this.camera.updateMatrixWorld(true);
+          const projected = pts.map((pt: any) => pt.clone().project(this.camera));
+          const maxX = Math.max(...projected.map((p: any) => Math.abs(p.x)));
+          const maxY = Math.max(...projected.map((p: any) => Math.abs(p.y)));
+          d *= Math.max(maxX / 0.9, maxY / 0.9);
+        }
+        return d;
+      };
+      let target = center;
+      let dist: number;
+      if (frontView) {
+        // Frame the fixed half when closed and the whole panel when open, and
+        // glide between the two. The framing never reacts to the swinging
+        // leaf, so the fixed half (and the content anchored to it) only ever
+        // makes one slow, smooth move.
+        const pf = (x: number, z: number): any => this.asset.point(x, 0.268, z, 25);
+        const closedPts = [pf(-0.2, -5.6), pf(8.0, -5.6), pf(8.0, 5.6), pf(-0.2, 5.6)];
+        const openPts = [pf(-8.0, -5.6), pf(8.0, -5.6), pf(8.0, 5.6), pf(-8.0, 5.6)];
+        const centroid = (pts: any[]): any =>
+          pts.reduce((acc: any, pt: any) => acc.add(pt.clone()), new T.Vector3()).multiplyScalar(0.25);
+        const closedCenter = centroid(closedPts);
+        const openCenter = centroid(openPts);
+        const dClosed = fit(closedCenter, closedPts);
+        const dOpen = fit(openCenter, openPts);
+        const glide = u * u * (3 - 2 * u);
+        target = closedCenter.clone().lerp(openCenter, glide);
+        dist = dClosed + (dOpen - dClosed) * glide;
+      } else {
+        dist = fit(center, allBounds);
       }
       dist /= clamp(params.zoom, 0.7, 1.25);
-      this.camera.position.copy(center).addScaledVector(dir, dist);
-      this.camera.lookAt(center);
+      this.camera.position.copy(target).addScaledVector(dir, dist);
+      this.camera.lookAt(target);
       this.camera.updateMatrixWorld(true);
     }
 
@@ -555,6 +618,31 @@ export class Duo3DHardwareEngine {
     const rightVisibleClip =
       isStanding || leftFacing ? null : this.computeRightLeafVisibleClip(isRotatedRig);
 
+    // --- opening / closing transition ---------------------------------------
+    const angleDeg = u * 180;
+    const transitionActive = frontView && angleDeg >= COVER_HANDOFF_DEG && angleDeg < 179;
+    const flatCorners = projectQuad([
+      this.asset.point(-7.87, 0.268, -5.49, 25),
+      this.asset.point(7.87, 0.268, -5.49, 25),
+      this.asset.point(7.87, 0.268, 5.49, 25),
+      this.asset.point(-7.87, 0.268, 5.49, 25)
+    ]);
+    const smooth01 = (t: number): number => {
+      const c = clamp(t, 0, 1);
+      return c * c * (3 - 2 * c);
+    };
+    // Cover: sharp when shut, strongest once the leaf stands upright.
+    // Inner-left: strongest while upright, back in focus as it lies flat.
+    const coverMotion = smooth01(angleDeg / 90);
+    const innerMotion = smooth01((180 - angleDeg) / 90);
+    const innerBrightness = isOuterPrimary
+      ? 0
+      : clamp(
+          (angleDeg - COVER_HANDOFF_DEG) / (INNER_FULLY_LIT_DEG - COVER_HANDOFF_DEG),
+          0,
+          1
+        );
+
     const isFlatSinglePlane =
       !isStanding &&
       Math.abs(params.orbitDeg) < 0.5 &&
@@ -570,6 +658,25 @@ export class Duo3DHardwareEngine {
       outerFacing,
       leftFacing,
       rightVisibleClip,
+      transition: {
+        active: transitionActive,
+        flat: {
+          active: transitionActive,
+          opacity: 1,
+          width: 951,
+          height: 669,
+          corners: flatCorners,
+          matrix3d: computeHomographyMatrix3d(flatCorners, 951, 669),
+          zIndex: 17
+        },
+        coverClip:
+          transitionActive && outerFacing ? this.projectQuadOntoFlatPlane(quads3D.outer) : null,
+        leftClip:
+          transitionActive && leftFacing ? this.projectQuadOntoFlatPlane(quads3D.left) : null,
+        coverMotion,
+        innerMotion
+      },
+      innerBrightness,
       outer: {
         active: outerOpacity > 0.02 && signedQuadArea(outerCorners) > 10,
         opacity: outerOpacity,
@@ -624,7 +731,7 @@ export class Duo3DHardwareEngine {
     const ez = this.asset.point(0, 0.268, LEAF_Z, 25).clone().sub(origin);
     const normal = new T.Vector3().crossVectors(ex, ez);
     const cam = this.camera.position;
-    const hidden = 'polygon(0 0, 0 0, 0 0)';
+    const hidden = RIGHT_LEAF_HIDDEN;
 
     const project = (z: number): { x: number; z: number } | null => {
       // free edge of the left leaf body (slightly outside the glass)
@@ -665,6 +772,34 @@ export class Duo3DHardwareEngine {
       toLocal({ x: pb.x + FAR, z: pb.z }),
       toLocal(pb)
     ].join(', ')})`;
+  }
+
+  /**
+   * Projects a screen quad of the moving leaf from the camera onto the
+   * unfolded inner-display plane and returns it as a CSS polygon in that
+   * plane's local points (951×669). This is the "stencil": the region of the
+   * anchored picture that is seen through that screen.
+   */
+  private projectQuadOntoFlatPlane(quad: any[]): string | null {
+    const T = this.T;
+    const origin = this.asset.point(-7.87, 0.268, -5.49, 25);
+    const ex = this.asset.point(7.87, 0.268, -5.49, 25).clone().sub(origin);
+    const ez = this.asset.point(-7.87, 0.268, 5.49, 25).clone().sub(origin);
+    const normal = new T.Vector3().crossVectors(ex, ez);
+    const cam = this.camera.position;
+    const pts: string[] = [];
+    for (const corner of quad) {
+      const dir = corner.clone().sub(cam);
+      const denom = normal.dot(dir);
+      if (Math.abs(denom) < 1e-6) return null;
+      const t = normal.dot(origin.clone().sub(cam)) / denom;
+      if (t <= 0) return null;
+      const hit = cam.clone().addScaledVector(dir, t).sub(origin);
+      const lx = (hit.dot(ex) / ex.lengthSq()) * 951;
+      const ly = (hit.dot(ez) / ez.lengthSq()) * 669;
+      pts.push(`${lx.toFixed(1)}px ${ly.toFixed(1)}px`);
+    }
+    return `polygon(${pts.join(', ')})`;
   }
 
   public dispose(): void {

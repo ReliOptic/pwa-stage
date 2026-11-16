@@ -33,3 +33,17 @@ export function useKeyboardVisible(): boolean {
   }, []);
   return visible;
 }
+
+/**
+ * Slow Animations (like Xcode Simulator's Debug ▸ Slow Animations): the next
+ * fold / unfold plays this many times slower so the transition can be studied.
+ */
+let foldSlowFactor = 1;
+
+export function setFoldSlowFactor(factor: number): void {
+  foldSlowFactor = Math.min(20, Math.max(1, factor));
+}
+
+export function getFoldSlowFactor(): number {
+  return foldSlowFactor;
+}

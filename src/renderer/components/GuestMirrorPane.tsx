@@ -10,7 +10,6 @@ import { getSimulatorBridge } from '../../utils/renderer-bridge.util';
 interface MirrorStream {
   refs: number;
   latest: ImageBitmap | null;
-  seq: number;
   readonly viewers: Set<(bitmap: ImageBitmap) => void>;
   off: (() => void) | undefined;
 }
@@ -25,21 +24,41 @@ export function acquireGuestMirror(
   const bridge = getSimulatorBridge();
   let stream = streams.get(guestId);
   if (!stream) {
-    const created: MirrorStream = { refs: 0, latest: null, seq: 0, viewers: new Set(), off: undefined };
-    created.off = bridge.onGuestFrame?.((frame): void => {
-      if (frame.guestId !== guestId) return;
-      const seq = ++created.seq;
-      void createImageBitmap(new Blob([frame.jpeg as BlobPart], { type: 'image/jpeg' })).then(
-        (bitmap): void => {
-          if (seq !== created.seq || streams.get(guestId) !== created) {
+    const created: MirrorStream = { refs: 0, latest: null, viewers: new Set(), off: undefined };
+    // Decode one frame at a time and always finish with the newest one. A
+    // decoded frame is never thrown away just because another arrived while
+    // it was decoding: under load that would starve the mirror completely.
+    let decoding = false;
+    let pending: Uint8Array | null = null;
+    const decode = (jpeg: Uint8Array): void => {
+      decoding = true;
+      void createImageBitmap(new Blob([jpeg as BlobPart], { type: 'image/jpeg' }))
+        .then((bitmap): void => {
+          if (streams.get(guestId) !== created) {
             bitmap.close();
             return;
           }
           created.latest?.close();
           created.latest = bitmap;
           created.viewers.forEach((viewer) => viewer(bitmap));
-        }
-      );
+        })
+        .catch((): void => undefined)
+        .finally((): void => {
+          decoding = false;
+          if (pending && streams.get(guestId) === created) {
+            const next = pending;
+            pending = null;
+            decode(next);
+          }
+        });
+    };
+    created.off = bridge.onGuestFrame?.((frame): void => {
+      if (frame.guestId !== guestId) return;
+      if (decoding) {
+        pending = frame.jpeg;
+      } else {
+        decode(frame.jpeg);
+      }
     });
     void bridge.setGuestMirror?.(guestId, true);
     streams.set(guestId, created);
@@ -64,18 +83,36 @@ export function acquireGuestMirror(
   };
 }
 
+/** Changes the capture rate of a running stream (idle keep-alive vs live). */
+export function setGuestMirrorRate(guestId: number, fps: number): void {
+  if (streams.has(guestId)) {
+    void getSimulatorBridge().setGuestMirror?.(guestId, true, fps);
+  }
+}
+
 /**
  * Shows a live mirror of another pane's <webview> guest and forwards pointer
  * input to it. Used for the left half of the iPhone Duo's inner display so the
  * two transformed halves are one continuous, single page.
  */
-export function GuestMirrorPane(props: { readonly guestId: number | null }): React.ReactElement {
+export function GuestMirrorPane(props: {
+  readonly guestId: number | null;
+  /**
+   * Accept frames still laid out for the cover display and paint them where
+   * the cover sits over the inner panel (its hinge-side edge at this x, in
+   * CSS px of the pane). Keeps the picture continuous across the hand-off.
+   */
+  readonly coverFrameOffsetX?: number;
+  readonly interactive?: boolean;
+}): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const pressedRef = useRef<boolean>(false);
-  const { guestId } = props;
+  const { guestId, coverFrameOffsetX } = props;
 
   useEffect((): (() => void) | void => {
     if (guestId === null) return;
+    let coverShown = false;
+    let firstInnerAt = 0;
     const draw = (bitmap: ImageBitmap): void => {
       const canvas = canvasRef.current;
       if (!canvas || canvas.clientWidth === 0 || canvas.clientHeight === 0) return;
@@ -84,7 +121,33 @@ export function GuestMirrorPane(props: { readonly guestId: number | null }): Rea
       // this panel, so wait for a frame with the right shape.
       const paneAspect = canvas.clientWidth / canvas.clientHeight;
       const frameAspect = bitmap.width / bitmap.height;
-      if (Math.abs(frameAspect / paneAspect - 1) > 0.03) return;
+      if (Math.abs(frameAspect / paneAspect - 1) > 0.03) {
+        if (coverFrameOffsetX === undefined || frameAspect > 1) return;
+        const scale = bitmap.height / canvas.clientHeight;
+        const w = Math.round(canvas.clientWidth * scale);
+        if (canvas.width !== w || canvas.height !== bitmap.height) {
+          canvas.width = w;
+          canvas.height = bitmap.height;
+        }
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const dx = Math.round(coverFrameOffsetX * scale);
+          ctx.fillStyle = '#000';
+          ctx.fillRect(0, 0, w, bitmap.height);
+          ctx.drawImage(bitmap, dx, 0, w - dx, bitmap.height);
+        }
+        coverShown = true;
+        canvas.classList.add('guest-mirror-ready');
+        return;
+      }
+      if (coverShown) {
+        // The page is re-laying out for the inner display. Hold the cover
+        // picture until its first frames have settled instead of flashing
+        // half-drawn ones.
+        if (firstInnerAt === 0) firstInnerAt = performance.now();
+        if (performance.now() - firstInnerAt < 260) return;
+        coverShown = false;
+      }
       canvas.classList.add('guest-mirror-ready');
       if (canvas.width !== bitmap.width || canvas.height !== bitmap.height) {
         canvas.width = bitmap.width;
@@ -93,10 +156,10 @@ export function GuestMirrorPane(props: { readonly guestId: number | null }): Rea
       canvas.getContext('2d')?.drawImage(bitmap, 0, 0);
     };
     return acquireGuestMirror(guestId, draw);
-  }, [guestId]);
+  }, [guestId, coverFrameOffsetX]);
 
   const send = (type: GuestInputMessage['type'], e: React.PointerEvent | React.WheelEvent): void => {
-    if (guestId === null) return;
+    if (guestId === null || props.interactive === false) return;
     const native = e.nativeEvent as PointerEvent & WheelEvent;
     void getSimulatorBridge().sendGuestInput?.(guestId, {
       type,
@@ -112,7 +175,11 @@ export function GuestMirrorPane(props: { readonly guestId: number | null }): Rea
   return (
     <canvas
       ref={canvasRef}
-      className="guest-mirror-canvas"
+      className={
+        coverFrameOffsetX === undefined
+          ? 'guest-mirror-canvas'
+          : 'guest-mirror-canvas guest-mirror-instant'
+      }
       onPointerDown={(e): void => {
         pressedRef.current = true;
         e.currentTarget.setPointerCapture(e.pointerId);

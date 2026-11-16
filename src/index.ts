@@ -31,6 +31,7 @@ import {
 import { createDefaultSimulatorState, mergeStoredStateWithDefaults } from './services/storage';
 import { forgetEmulationTarget } from './services/emulation';
 import {
+  clampMirrorFps,
   forwardGuestPointerEvent,
   sanitizeGuestPointerEvent,
   startGuestMirror,
@@ -233,7 +234,7 @@ function registerIpcHandlers(ctx: MenuControllerContext): void {
   handleTrusted('simulator:capture-screenshot', async (_event, rawRect, rawName) => {
     return captureScreenScreenshot(rawRect, rawName);
   });
-  handleTrusted('simulator:guest-mirror', (_event, rawId, rawOn) => {
+  handleTrusted('simulator:guest-mirror', (_event, rawId, rawOn, rawFps) => {
     const id = resolveGuestId(rawId);
     if (id === null) {
       return GUEST_ID_REJECTED;
@@ -245,7 +246,7 @@ function registerIpcHandlers(ctx: MenuControllerContext): void {
         if (win && !win.isDestroyed()) {
           win.webContents.send('simulator:guest-frame', frame);
         }
-      });
+      }, clampMirrorFps(rawFps));
     } else {
       stopGuestMirror(id);
     }

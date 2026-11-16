@@ -44,7 +44,7 @@ export interface SimulatorBridgeApi {
   readonly onPermissionPrompt?: (listener: (prompt: GuestPermissionPrompt) => void) => () => void;
   readonly respondPermission?: (id: string, granted: boolean) => Promise<unknown>;
   readonly onShortcut?: (listener: (shortcut: { key: string; shift: boolean }) => void) => () => void;
-  readonly setGuestMirror?: (webContentsId: number, on: boolean) => Promise<unknown>;
+  readonly setGuestMirror?: (webContentsId: number, on: boolean, fps?: number) => Promise<unknown>;
   readonly onGuestFrame?: (listener: (frame: GuestFrameMessage) => void) => () => void;
   readonly sendGuestInput?: (webContentsId: number, event: GuestInputMessage) => Promise<unknown>;
   readonly inspectPage?: (webContentsId: number) => Promise<Result<PageInspectionReport, SimulatorError>>;

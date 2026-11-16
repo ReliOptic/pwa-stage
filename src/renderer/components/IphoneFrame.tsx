@@ -19,6 +19,8 @@ import {
   Orientation
 } from '../../types/device.types';
 import { SimulatorState } from '../../types/simulator.types';
+import { COVER_HANDOFF_DEG } from '../../utils/duo-3d-engine.util';
+import { getFoldSlowFactor } from '../sim-events';
 import { ScreenSystemOverlay } from './BrowserShellOverlay';
 import { AppSurface, HomeScreen, LaunchSplash, ScreenModalLayer } from './ScreenLayers';
 import { Duo3DStage } from './Duo3DStage';
@@ -125,7 +127,7 @@ function useDuoHingeController(selectedDeviceId: DeviceModelId): DuoHingeControl
         return;
       }
 
-      const durationMs = computeFoldDriveDurationMs(startDeg, clampedTarget);
+      const durationMs = computeFoldDriveDurationMs(startDeg, clampedTarget) * getFoldSlowFactor();
       const startTime = performance.now();
 
       const step = (now: number): void => {
@@ -311,7 +313,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
     (deg: number, targetPosture?: DuoPostureId): void => {
       const posture = targetPosture ?? hinge.posture;
       // Stand / tent mode shows content on the *cover* display turned sideways.
-      const usesCover = deg < 20 || (posture === 'standing' && deg <= 130);
+      const usesCover = deg < COVER_HANDOFF_DEG || (posture === 'standing' && deg <= 130);
       const targetId = usesCover
         ? DeviceModelId.IPHONE_DUO_FOLDED
         : DeviceModelId.IPHONE_DUO_UNFOLDED;

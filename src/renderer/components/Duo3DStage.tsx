@@ -8,11 +8,13 @@ import {
 import { DuoDisplayMode, SimulatorState } from '../../types/simulator.types';
 import {
   Duo3DFrameProjection,
-  Duo3DHardwareEngine
+  Duo3DHardwareEngine,
+  RIGHT_LEAF_HIDDEN,
+  TRANSITION_MAX_BLUR_PX
 } from '../../utils/duo-3d-engine.util';
 import { DuoPostureId } from '../../utils/duo-fold-math.util';
 import { ScreenSystemOverlay } from './BrowserShellOverlay';
-import { acquireGuestMirror } from './GuestMirrorPane';
+import { acquireGuestMirror, setGuestMirrorRate } from './GuestMirrorPane';
 import { AppSurface, HomeScreen, LaunchSplash, ScreenModalLayer } from './ScreenLayers';
 import { WebviewContainer } from './WebviewContainer';
 
@@ -71,6 +73,131 @@ function SystemOverlayLayer(props: SystemOverlayLayerProps): React.ReactElement 
       onToggleDuoFold={props.onToggleDuoFold}
       onGoHome={props.onGoHome}
     />
+  );
+}
+
+const INNER_W = 951;
+const INNER_H = 669;
+const HINGE_X = INNER_W / 2;
+/** Blur bands from the hinge (sharp) to the free edge (full blur). */
+const BLUR_BANDS: readonly { readonly from: number; readonly to: number; readonly strength: number }[] = [
+  { from: 0, to: 0, strength: 0.08 },
+  { from: 0.15, to: 0.35, strength: 0.4 },
+  { from: 0.4, to: 0.6, strength: 0.7 },
+  { from: 0.65, to: 0.85, strength: 1 }
+];
+
+interface AnchoredFaceProps {
+  readonly side: 'cover' | 'innerLeft';
+  readonly matrix3d: string;
+  readonly clip: string;
+  readonly motion: number;
+  readonly brightness: number;
+  readonly guestId: number | null;
+  readonly preset: DevicePreset;
+  readonly state: SimulatorState;
+  readonly tintColor?: string | null;
+  readonly onReload: () => void;
+  readonly onToggleDuoFold: () => void;
+  readonly onGoHome?: () => void;
+}
+
+/**
+ * One screen of the moving leaf during the opening / closing transition.
+ *
+ * Follows the published descriptions of the iPhone Duo transition (content
+ * anchored in space, the moving half blurring and darkening towards its free
+ * edge, the fixed half untouched). The blur / dim falloff shape is adapted
+ * from the MIT-licensed study at github.com/chuspeeism/iphone-duo, with the
+ * linear blur ramp reported in github.com/arjunkshah12345-hash/duokit#2.
+ *
+ * The inner display's picture is laid out on the unfolded plane and never
+ * moves; this component shows the part of it seen through the leaf's screen
+ * (the clip), progressively blurred and dimmed from the hinge to the free
+ * edge. The cover therefore shows exactly what lies beneath it, and the
+ * picture appears to pass through the swinging half.
+ */
+function AnchoredFace(props: AnchoredFaceProps): React.ReactElement {
+  const { side, motion } = props;
+  // distance from the hinge (0) to the free edge (1), as a local x in points
+  const xAt = (e: number): number => (side === 'cover' ? HINGE_X * (1 + e) : HINGE_X * (1 - e));
+  const maskFor = (from: number, to: number): string | undefined => {
+    if (to <= 0) return undefined;
+    const a = xAt(from).toFixed(1);
+    const b = xAt(to).toFixed(1);
+    return side === 'cover'
+      ? `linear-gradient(to right, transparent ${a}px, #000 ${b}px)`
+      : `linear-gradient(to right, #000 ${b}px, transparent ${a}px)`;
+  };
+  const bands = motion < 0.02 ? BLUR_BANDS.slice(0, 1) : BLUR_BANDS;
+  const dimStops = [0, 0.2, 0.4, 0.6, 0.8, 1].map((e) => {
+    const g = Math.max(0, (e - 0.2) / 0.8);
+    const alpha = Math.min(0.9, 1.6 * motion * Math.pow(g, 1.35));
+    return { x: xAt(e), alpha };
+  });
+  if (side === 'innerLeft') dimStops.reverse();
+  const dim = `linear-gradient(to right, ${dimStops
+    .map((st) => `rgba(0,0,0,${st.alpha.toFixed(3)}) ${st.x.toFixed(1)}px`)
+    .join(', ')})`;
+
+  return (
+    <div
+      className={`duo-interactive-slice duo-anchored-face duo-anchored-${side}`}
+      style={{
+        width: `${INNER_W}px`,
+        height: `${INNER_H}px`,
+        transform: props.matrix3d,
+        clipPath: props.clip,
+        zIndex: 17,
+        filter: props.brightness >= 0.999 ? undefined : `brightness(${props.brightness.toFixed(3)})`
+      }}
+    >
+      {bands.map((band) => {
+        const blurPx = TRANSITION_MAX_BLUR_PX * motion * band.strength;
+        const mask = maskFor(band.from, band.to);
+        return (
+          <div
+            key={band.strength}
+            className="duo-anchored-layer"
+            style={{
+              filter: blurPx > 0.3 ? `blur(${blurPx.toFixed(2)}px)` : undefined,
+              maskImage: mask,
+              WebkitMaskImage: mask
+            }}
+          >
+            <div
+              className="duo-slice-inner-viewport"
+              style={{ width: `${INNER_W}px`, height: `${INNER_H}px` }}
+            >
+              <AppSurface>
+                <WebviewContainer
+                  state={props.state}
+                  isDualUnfolded={true}
+                  reloadTick={0}
+                  onRegisterWebContentsId={(): void => {}}
+                  mirrorGuestId={props.guestId}
+                  mirrorCoverFrameOffsetX={side === 'cover' ? HINGE_X : undefined}
+                  mirrorInteractive={side === 'innerLeft'}
+                />
+              </AppSurface>
+              <SystemOverlayLayer
+                preset={props.preset}
+                state={props.state}
+                isOuterActive={false}
+                isTallInner={false}
+                tintColor={props.tintColor}
+                onGoHome={props.onGoHome}
+                logicalW={INNER_W}
+                logicalH={INNER_H}
+                onReload={props.onReload}
+                onToggleDuoFold={props.onToggleDuoFold}
+              />
+            </div>
+          </div>
+        );
+      })}
+      <div className="duo-anchored-dim" style={{ background: dim }} />
+    </div>
   );
 }
 
@@ -187,28 +314,28 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     ? '44px 44px 0 0'
     : '44px 0 0 44px';
 
-  // Display power, as on the device: exactly one panel is lit. When the
-  // hinge crosses the hand-off angle the app moves to the other display, which
-  // wakes from black (time-based, like a real panel) while the page re-lays
-  // out for its new size underneath.
-  const wakeTickRef = useRef<number>(0);
-  const lastOuterPrimaryRef = useRef<boolean>(isOuterPrimary);
-  if (lastOuterPrimaryRef.current !== isOuterPrimary) {
-    lastOuterPrimaryRef.current = isOuterPrimary;
-    wakeTickRef.current += 1;
-  }
-  const wakeClass =
-    wakeTickRef.current === 0 ? '' : wakeTickRef.current % 2 === 0 ? 'duo-wake-a' : 'duo-wake-b';
-  const primaryClip = isBentInner ? projection?.rightVisibleClip ?? undefined : undefined;
+  const rawPrimaryClip = isBentInner ? projection?.rightVisibleClip ?? undefined : undefined;
+  const primaryHidden = rawPrimaryClip === RIGHT_LEAF_HIDDEN;
+  const primaryClip = primaryHidden ? undefined : rawPrimaryClip;
   const mirrorLeft = state.duoDisplayMode !== DuoDisplayMode.SPLIT_COMPARISON;
 
-  // Keep the mirror stream warm from the moment the inner display is lit, so
-  // the left half already has a frame when it turns towards the camera.
-  const needsMirror = mirrorLeft && isBentInner && primaryGuestId !== null;
+  // One mirror stream for the whole stage. It idles at a low rate while the
+  // device rests (so a recent frame always exists when the transition starts)
+  // and runs live while the inner display is bent.
+  const transition = projection?.transition ?? null;
+  const inTransition = Boolean(transition?.active) && mirrorLeft;
+  const innerBrightness = projection?.innerBrightness ?? 1;
+  const innerFilter = innerBrightness >= 0.999 ? undefined : `brightness(${innerBrightness.toFixed(3)})`;
   useEffect((): (() => void) | void => {
-    if (!needsMirror || primaryGuestId === null) return;
+    if (!mirrorLeft || primaryGuestId === null) return;
     return acquireGuestMirror(primaryGuestId);
-  }, [needsMirror, primaryGuestId]);
+  }, [mirrorLeft, primaryGuestId]);
+  const mirrorLive = isBentInner;
+  useEffect((): void => {
+    if (primaryGuestId !== null) {
+      setGuestMirrorRate(primaryGuestId, mirrorLive ? 30 : 4);
+    }
+  }, [mirrorLive, primaryGuestId]);
 
   const foldDepthIntensity = projection
     ? Math.sin(projection.phi * Math.PI)
@@ -239,9 +366,9 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
       />
 
       {/* 2. Secondary Left / Upper Leaf Slice when in 3D Bent Posture (20°..177°) */}
-      {isBentInner && projection && projection.left.active && projection.left.matrix3d && (
+      {isBentInner && !inTransition && projection && projection.left.active && projection.left.matrix3d && (
         <div
-          className={`duo-interactive-slice duo-slice-secondary ${wakeClass}`}
+          className="duo-interactive-slice duo-slice-secondary"
           style={{
             // Extend 2px past the hinge, underneath the primary leaf: the
             // anti-aliased edges of two transformed layers otherwise leave a
@@ -250,6 +377,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
             height: `${projection.left.height + (isHorizontalSplit ? 2 : 0)}px`,
             transform: projection.left.matrix3d,
             opacity: projection.left.opacity,
+            filter: innerFilter,
             borderRadius: secondaryBorderRadius,
             zIndex: projection.left.zIndex
           }}
@@ -300,13 +428,15 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
       {/* 3. Primary Persistent Live Screen Slice (Outer at 0°..28°/Stand, Right/Bottom Leaf when Bent, Full at 180°) */}
       {primarySlice && primarySlice.matrix3d && (
         <div
-          className={`duo-interactive-slice duo-slice-primary ${wakeClass}`}
+          className="duo-interactive-slice duo-slice-primary"
           style={{
             width: `${primarySlice.width}px`,
             height: `${primarySlice.height}px`,
             transform: primarySlice.matrix3d,
-            opacity: primarySlice.opacity,
+            opacity: primaryHidden ? 0.002 : primarySlice.opacity,
+            pointerEvents: primaryHidden ? 'none' : undefined,
             clipPath: primaryClip,
+            filter: isOuterPrimary ? undefined : innerFilter,
             borderRadius: primaryBorderRadius,
             zIndex: primarySlice.zIndex
           }}
@@ -348,7 +478,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
             />
             <ScreenModalLayer />
           </div>
-          {isBentInner && (
+          {isBentInner && !inTransition && (
             <div
               className={
                 isHorizontalSplit
@@ -359,6 +489,46 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
             />
           )}
         </div>
+      )}
+
+      {/* 4. Opening / closing transition: the moving leaf's two screens show the
+          picture anchored to the unfolded plane, blurred and dimmed towards
+          the free edge, like tracing paper lifting off the page. */}
+      {inTransition && transition && projection && transition.flat.matrix3d && (
+        <>
+          {transition.leftClip && (
+            <AnchoredFace
+              side="innerLeft"
+              matrix3d={transition.flat.matrix3d}
+              clip={transition.leftClip}
+              motion={transition.innerMotion}
+              brightness={innerBrightness}
+              guestId={primaryGuestId}
+              preset={preset}
+              state={state}
+              tintColor={props.tintColor}
+              onReload={props.onReload}
+              onToggleDuoFold={props.onToggleDuoFold}
+              onGoHome={props.onGoHome}
+            />
+          )}
+          {transition.coverClip && (
+            <AnchoredFace
+              side="cover"
+              matrix3d={transition.flat.matrix3d}
+              clip={transition.coverClip}
+              motion={transition.coverMotion}
+              brightness={1}
+              guestId={primaryGuestId}
+              preset={preset}
+              state={state}
+              tintColor={props.tintColor}
+              onReload={props.onReload}
+              onToggleDuoFold={props.onToggleDuoFold}
+              onGoHome={props.onGoHome}
+            />
+          )}
+        </>
       )}
     </div>
   );

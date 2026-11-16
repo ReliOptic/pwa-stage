@@ -38,6 +38,7 @@ import {
   SimulatorState
 } from '../../types/simulator.types';
 import { clampSimulatorScale } from '../../utils/viewport-math.util';
+import { setFoldSlowFactor } from '../sim-events';
 
 export interface FloatingToolbarProps {
   readonly state: SimulatorState;
@@ -285,7 +286,7 @@ function ActionButton(props: {
   readonly icon: React.ReactNode;
   readonly label: string;
   readonly title: string;
-  readonly onClick?: () => void;
+  readonly onClick?: (e?: React.MouseEvent) => void;
   readonly active?: boolean;
   readonly badge?: number;
 }): React.ReactElement {
@@ -376,15 +377,20 @@ function HardwareRow(props: FloatingToolbarProps): React.ReactElement {
         <ActionButton
           icon={isDuoFolded ? <BookOpen size={12} /> : <FolderClosed size={12} />}
           label={isDuoFolded ? 'Unfold' : 'Fold'}
-          title={isDuoFolded ? 'Open the Duo to the inner display' : 'Close to the cover display'}
-          onClick={(): void =>
+          title={
+            isDuoFolded
+              ? 'Open the Duo to the inner display (Shift-click: slow motion)'
+              : 'Close to the cover display (Shift-click: slow motion)'
+          }
+          onClick={(e): void => {
+            setFoldSlowFactor(e?.shiftKey ? 8 : 1);
             onUpdateState({
               selectedDeviceId: isDuoFolded
                 ? DeviceModelId.IPHONE_DUO_UNFOLDED
                 : DeviceModelId.IPHONE_DUO_FOLDED,
               orientation: Orientation.PORTRAIT
-            })
-          }
+            });
+          }}
         />
       )}
       {isDuoInner && (

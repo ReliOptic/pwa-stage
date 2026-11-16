@@ -63,8 +63,8 @@ export const simulatorBridge: SimulatorBridgeApi = {
       ipcRenderer.removeListener('simulator:shortcut', handler);
     };
   },
-  setGuestMirror: (webContentsId: number, on: boolean): Promise<unknown> =>
-    ipcRenderer.invoke('simulator:guest-mirror', webContentsId, on),
+  setGuestMirror: (webContentsId: number, on: boolean, fps?: number): Promise<unknown> =>
+    ipcRenderer.invoke('simulator:guest-mirror', webContentsId, on, fps),
   onGuestFrame: (listener: (frame: GuestFrameMessage) => void): (() => void) => {
     const handler = (_event: unknown, frame: GuestFrameMessage): void => {
       listener(frame);

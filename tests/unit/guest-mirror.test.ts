@@ -1,10 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  clampMirrorFps,
   forwardGuestPointerEvent,
   sanitizeGuestPointerEvent
 } from '../../src/services/guest-mirror';
 import { resolveDeviceHingeStatus } from '../../src/utils/duo-fold-math.util';
-import { COVER_HANDOFF_DEG } from '../../src/utils/duo-3d-engine.util';
+import {
+  COVER_HANDOFF_DEG,
+  INNER_FULLY_LIT_DEG,
+  RIGHT_LEAF_HIDDEN,
+  TRANSITION_MAX_BLUR_PX
+} from '../../src/utils/duo-3d-engine.util';
 
 describe('guest mirror input forwarding', () => {
   it('accepts only well-formed pointer events', () => {
@@ -42,8 +48,25 @@ describe('guest mirror input forwarding', () => {
 });
 
 describe('cover ↔ inner hand-off', () => {
-  it('uses the same angle as DeviceHinge.Status leaving "closed"', () => {
-    expect(resolveDeviceHingeStatus(COVER_HANDOFF_DEG - 0.01)).toBe('closed');
-    expect(resolveDeviceHingeStatus(COVER_HANDOFF_DEG)).toBe('partiallyOpen');
+  it('moves the app to the inner layout as soon as the device cracks open', () => {
+    // The opening transition shows inner content beneath the lifting cover,
+    // so the hand-off must precede DeviceHinge.Status leaving "closed" (20°).
+    expect(COVER_HANDOFF_DEG).toBeLessThan(INNER_FULLY_LIT_DEG);
+    expect(resolveDeviceHingeStatus(COVER_HANDOFF_DEG)).toBe('closed');
+    expect(resolveDeviceHingeStatus(INNER_FULLY_LIT_DEG)).toBe('partiallyOpen');
+  });
+
+  it('keeps the transition constants in a sane range', () => {
+    expect(COVER_HANDOFF_DEG).toBeGreaterThan(0);
+    expect(TRANSITION_MAX_BLUR_PX).toBeGreaterThan(10);
+    expect(TRANSITION_MAX_BLUR_PX).toBeLessThan(80);
+    expect(RIGHT_LEAF_HIDDEN).not.toMatch(/^polygon/);
+  });
+
+  it('clamps the mirror frame rate', () => {
+    expect(clampMirrorFps(4)).toBe(4);
+    expect(clampMirrorFps(1000)).toBe(30);
+    expect(clampMirrorFps(0)).toBe(1);
+    expect(clampMirrorFps('fast')).toBe(30);
   });
 });
