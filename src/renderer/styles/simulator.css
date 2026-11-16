@@ -1064,3 +1064,33 @@ html, body, #root {
   display: flex; align-items: flex-start; justify-content: center; gap: 3px; padding-top: 5px;
   font-size: 11px; font-weight: 600; color: inherit; transition: height 0.22s ease;
 }
+
+/* ===================== iOS software keyboard (visual) ===================== */
+.ios-keyboard {
+  position: absolute; left: 0; bottom: 0; z-index: 35; pointer-events: none; box-sizing: border-box;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 9px; padding: 0 3px;
+  transform: translateY(102%); transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.25, 1);
+  backdrop-filter: blur(30px) saturate(180%);
+}
+.ios-keyboard-visible { transform: translateY(0); }
+.ios-keyboard-dark { background: rgba(43, 43, 46, 0.94); color: #fff; }
+.ios-keyboard-light { background: rgba(209, 212, 219, 0.96); color: #000; }
+.ios-keyboard-suggestions { display: flex; height: 36px; align-items: center; font-size: 16px; }
+.ios-keyboard-suggestions span { flex: 1; text-align: center; border-right: 1px solid rgba(128, 128, 140, 0.35); }
+.ios-keyboard-suggestions span:last-child { border-right: none; }
+.ios-keyboard-row { display: flex; justify-content: center; gap: 6px; padding: 0 1px; }
+.ios-key {
+  flex: 1 1 0; max-width: 42px; height: 42px; border-radius: 5px; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 300; box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+.ios-keyboard-dark .ios-key { background: rgba(255, 255, 255, 0.3); }
+.ios-keyboard-light .ios-key { background: #fff; }
+.ios-keyboard-dark .ios-key-fn { background: rgba(255, 255, 255, 0.14); }
+.ios-keyboard-light .ios-key-fn { background: #abb0bc; }
+.ios-key-fn { font-size: 15px; font-weight: 400; max-width: 44px; margin: 0 6px; }
+.ios-key-wide { max-width: 88px; flex: 2 1 0; margin: 0; }
+.ios-key-space { max-width: none; flex: 5 1 0; font-size: 15px; font-weight: 400; }
+.ios-keyboard-footer { position: absolute; left: 24px; right: 24px; bottom: 26px; display: flex; justify-content: space-between; opacity: 0.75; }
+.ios-keyboard-compact { gap: 5px; }
+.ios-keyboard-compact .ios-key { height: 32px; font-size: 18px; max-width: 56px; }
+.ios-keyboard-compact .ios-keyboard-suggestions { height: 26px; font-size: 14px; }

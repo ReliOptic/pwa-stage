@@ -9,6 +9,7 @@ import { logStructured } from '../utils/logger.util';
 import {
   computeShellChromeHeights,
   hasDuoSystemRail,
+  resolveKeyboardHeight,
   resolvePageSafeArea,
   resolveSafeAreaInsets
 } from '../utils/viewport-math.util';
@@ -76,7 +77,8 @@ export function buildSafeAreaCss(safeArea: SafeAreaInsets, _darkMode?: boolean):
 export function buildStandaloneInitScript(
   shellMode: BrowserShellMode,
   safeArea: SafeAreaInsets,
-  touchCursorEnabled = false
+  touchCursorEnabled = false,
+  keyboardInset = 0
 ): string {
   const isStandalone = shellMode === BrowserShellMode.PWA_STANDALONE;
   const swipeMode = touchCursorEnabled ? 'direct' : 'press';
@@ -84,7 +86,8 @@ export function buildStandaloneInitScript(
     standalone: isStandalone,
     shell: shellMode,
     swipeMode,
-    safe: safeArea
+    safe: safeArea,
+    keyboardInset
   });
   return `(() => {
   const cfg = ${config};
@@ -162,6 +165,51 @@ export function buildStandaloneInitScript(
       parseFloat(cs.paddingTop) === cfg.safe.top && parseFloat(cs.paddingRight) === cfg.safe.right;
     probe.remove();
   };
+
+  // Software keyboard. Like iOS, focusing a text field does NOT resize the
+  // layout viewport: only visualViewport shrinks, and the field is scrolled
+  // clear of the keyboard. The simulator shell draws the keyboard itself.
+  window.__simKeyboardInset = cfg.keyboardInset;
+  if (!window.__simKeyboardWatch) {
+    window.__simKeyboardWatch = true;
+    const NON_TEXT = ['button', 'checkbox', 'radio', 'range', 'color', 'file', 'submit', 'reset', 'image', 'hidden'];
+    const isEditable = (el) => {
+      if (!el || el.disabled || el.readOnly) return false;
+      if (el.isContentEditable) return true;
+      if (el.tagName === 'TEXTAREA') return true;
+      if (el.tagName === 'INPUT') return !NON_TEXT.includes(String(el.type || 'text').toLowerCase());
+      return false;
+    };
+    let shown = false;
+    try {
+      const nativeHeight = Object.getOwnPropertyDescriptor(VisualViewport.prototype, 'height');
+      Object.defineProperty(VisualViewport.prototype, 'height', {
+        configurable: true,
+        get() {
+          const h = nativeHeight.get.call(this);
+          return shown ? Math.max(0, h - (window.__simKeyboardInset || 0)) : h;
+        }
+      });
+    } catch {}
+    const setShown = (next, el) => {
+      if (next !== shown) {
+        shown = next;
+        console.debug(shown ? '__sim:keyboard:show' : '__sim:keyboard:hide');
+        try { window.visualViewport.dispatchEvent(new Event('resize')); } catch {}
+      }
+      if (shown && el) {
+        setTimeout(() => {
+          const rect = el.getBoundingClientRect();
+          const limit = window.innerHeight - (window.__simKeyboardInset || 0) - 16;
+          if (rect.bottom > limit) window.scrollBy({ top: rect.bottom - limit, behavior: 'smooth' });
+        }, 260);
+      }
+    };
+    document.addEventListener('focusin', (e) => setShown(isEditable(e.target), e.target), true);
+    document.addEventListener('focusout', () => {
+      setTimeout(() => { if (!isEditable(document.activeElement)) setShown(false, null); }, 60);
+    }, true);
+  }
 
   // Safari's compact bar collapses when the page scrolls down and expands on
   // scroll up / at the top. Report direction changes to the simulator shell.
@@ -243,7 +291,11 @@ export function buildEmulationProfile(input: EmulationProfileInput): EmulationPr
     standaloneInitScript: buildStandaloneInitScript(
       input.shellMode,
       pageSafeArea,
-      Boolean(input.touchCursorEnabled)
+      Boolean(input.touchCursorEnabled),
+      Math.max(
+        0,
+        resolveKeyboardHeight(input.preset, input.orientation) - chromeHeights.bottomBarHeight
+      )
     )
   };
 }

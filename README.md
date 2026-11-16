@@ -16,6 +16,7 @@ Screen web app present it, on every iPhone viewport class, without opening Xcode
 | **Web App (Home Screen)** | `display-mode: standalone`, and the status bar honours `apple-mobile-web-app-status-bar-style` (opaque by default, edge-to-edge only with `black-translucent`). |
 | **Home Screen** | Xcode-style **Home** (⇧⌘H, home indicator, or the SE's home button): installed web apps with their real icon/name from the manifest, launch animation and splash in `background_color`. |
 | **Web App Check** | iOS-specific installability checks: HTTPS, viewport / `viewport-fit`, manifest, `display`, `apple-touch-icon`, status-bar style, service worker, startup image. |
+| **Keyboard** | Focusing a text field raises the iOS keyboard: the layout viewport stays put, `visualViewport` shrinks and the field scrolls clear, as on device. Type with the Mac keyboard. |
 | **Permissions** | Camera / mic / location / notifications / motion requests show an iOS alert inside the screen; desktop-only APIs are denied. |
 | **iPhone Duo** | Live 3D hinge (glTF) with six postures, free-stop scrub, inner-display wake animation, 84pt iOS 27.3 system rail, span / split. |
 

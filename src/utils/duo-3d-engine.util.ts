@@ -361,12 +361,15 @@ export class Duo3DHardwareEngine {
     const joint = isLeft ? 24 : 25;
     const x0 = isLeft ? -7.87 : 0;
     const x1 = isLeft ? 0 : 7.87;
-    let q = [
-      p(x0, 0.268, -5.49, joint),
-      p(x1, 0.268, -5.49, joint),
-      p(x1, 0.268, 5.49, joint),
-      p(x0, 0.268, 5.49, joint)
-    ];
+    // The two leaves are skinned to different bones, so their hinge-side
+    // edges (x = 0) drift apart by a fraction of a pixel at mid-fold angles.
+    // Both quads use the midpoint of the two bone positions for that edge so
+    // the projected leaves always share it exactly (no gap, no overlap).
+    const hinge = (z: number): any =>
+      p(0, 0.268, z, 24).clone().add(p(0, 0.268, z, 25)).multiplyScalar(0.5);
+    let q = isLeft
+      ? [p(x0, 0.268, -5.49, joint), hinge(-5.49), hinge(5.49), p(x0, 0.268, 5.49, joint)]
+      : [hinge(-5.49), p(x1, 0.268, -5.49, joint), p(x1, 0.268, 5.49, joint), hinge(5.49)];
     if (Math.abs(rotationY) > 1.1) {
       q = [q[3], q[0], q[1], q[2]];
     }

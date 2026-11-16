@@ -20,12 +20,14 @@ import { getDevicePresetById } from '../../config/device-presets.config';
 import {
   computeShellChromeHeights,
   hasDuoSystemRail,
+  resolveKeyboardHeight,
   resolveSafeAreaInsets
 } from '../../utils/viewport-math.util';
 import { DuoStatusRing } from './DuoStatusRing';
 import { prefersLightContent } from '../../utils/color.util';
 import { useScreen } from './ScreenLayers';
-import { setSafariBarCollapsed, useSafariBarCollapsed } from '../sim-events';
+import { setSafariBarCollapsed, useKeyboardVisible, useSafariBarCollapsed } from '../sim-events';
+import { SoftwareKeyboard } from './SoftwareKeyboard';
 
 export interface BrowserShellOverlayProps {
   readonly preset: DevicePreset;
@@ -477,6 +479,7 @@ export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.Reac
   const lit = resolveLitPreset(props.preset, props.cutoutType);
   const safeArea = resolveSafeAreaInsets(lit, props.orientation);
   const safariCollapsed = useSafariBarCollapsed();
+  const keyboardVisible = useKeyboardVisible();
   const chrome = computeShellChromeHeights(
     props.state.shellMode,
     safeArea,
@@ -536,6 +539,13 @@ export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.Reac
         trailingInset={trailing}
         tintColor={props.tintColor}
         collapsed={safariCollapsed}
+      />
+      <SoftwareKeyboard
+        visible={keyboardVisible && screen.phase === 'app'}
+        height={resolveKeyboardHeight(lit, props.orientation)}
+        trailingInset={trailing}
+        darkMode={props.state.darkMode}
+        bottomSafeArea={safeArea.bottom}
       />
       {props.cutoutType !== HardwareCutoutType.NONE && (
         <HomeIndicatorOverlay

@@ -59,6 +59,22 @@ describe('emulation service', () => {
     expect(translucent.standaloneInitScript).toContain('"standalone":true');
   });
 
+  it('tells the page how much of it the software keyboard covers', () => {
+    const preset = getDevicePresetById(DeviceModelId.IPHONE_17_PRO);
+    const base = {
+      preset,
+      orientation: Orientation.PORTRAIT,
+      safariIosVersion: '27_3',
+      chromeIosVersion: '142.0.0.0',
+      darkMode: true
+    } as const;
+    const webApp = buildEmulationProfile({ ...base, shellMode: BrowserShellMode.PWA_STANDALONE });
+    expect(webApp.standaloneInitScript).toContain('"keyboardInset":336');
+    // In Safari the bottom bar (72pt) is already outside the page.
+    const safari = buildEmulationProfile({ ...base, shellMode: BrowserShellMode.IOS_SAFARI });
+    expect(safari.standaloneInitScript).toContain('"keyboardInset":264');
+  });
+
   it('exposes no top/bottom inset to pages inside Safari, whose bars cover them', () => {
     const preset = getDevicePresetById(DeviceModelId.IPHONE_17_PRO);
     const profile = buildEmulationProfile({

@@ -6,6 +6,7 @@ import {
   computeShellChromeHeights,
   computeViewportMetrics,
   hasDuoSystemRail,
+  resolveKeyboardHeight,
   resolvePageSafeArea
 } from '../../src/utils/viewport-math.util';
 import { cssColorLuminance, prefersLightContent } from '../../src/utils/color.util';
@@ -76,6 +77,19 @@ describe('screen geometry', () => {
     expect(computeShellChromeHeights(BrowserShellMode.IOS_SAFARI, pro.safeAreaLandscape).topBarHeight).toBe(0);
     const se = getDevicePresetById(DeviceModelId.IPHONE_SE_3);
     expect(computeShellChromeHeights(BrowserShellMode.IOS_SAFARI, se.safeAreaPortrait).topBarHeight).toBe(20);
+  });
+
+  it('software keyboard never covers more than the screen and shrinks in landscape', () => {
+    for (const p of DEVICE_PRESETS) {
+      const portrait = resolveKeyboardHeight(p, Orientation.PORTRAIT);
+      const landscape = resolveKeyboardHeight(p, Orientation.LANDSCAPE);
+      expect(portrait).toBeLessThan(p.height * 0.6);
+      expect(landscape).toBeLessThan(Math.max(p.width, p.height));
+      expect(portrait).toBeGreaterThan(200);
+    }
+    expect(resolveKeyboardHeight(pro, Orientation.LANDSCAPE)).toBeLessThan(
+      resolveKeyboardHeight(pro, Orientation.PORTRAIT)
+    );
   });
 
   it('window height fits the whole device under the 3-row toolbar', () => {

@@ -44,6 +44,9 @@ export function enforceGuestWebPreferences(
   prefs.allowRunningInsecureContent = false;
   prefs.experimentalFeatures = false;
   prefs.webviewTag = false;
+  // Opaque guest: pages that set no background get the white canvas iOS
+  // paints, instead of showing whatever is behind the <webview>.
+  (prefs as WebPreferences & { transparent?: boolean }).transparent = false;
   if (params.src && !isAllowedGuestUrl(params.src)) {
     return { allow: false, reason: `blocked guest src protocol: ${params.src.slice(0, 64)}` };
   }

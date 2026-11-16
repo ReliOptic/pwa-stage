@@ -91,6 +91,28 @@ export function resolvePageSafeArea(
   return { top: 0, right, bottom: 0, left: raw.left };
 }
 
+/**
+ * Height of the iOS software keyboard in points, including the suggestion
+ * bar and the bottom safe area it covers. Approximations of UIKit's keyboard
+ * frame for the default (English, predictive on) keyboard.
+ */
+export function resolveKeyboardHeight(preset: DevicePreset, orientation: Orientation): number {
+  const portrait = orientation === Orientation.PORTRAIT;
+  if (preset.formFactor === DeviceFormFactor.HOME_BUTTON_SLAB) {
+    return portrait ? 260 : 200;
+  }
+  if (preset.formFactor === DeviceFormFactor.FOLDABLE_DUAL) {
+    return portrait ? 300 : 346;
+  }
+  if (preset.formFactor === DeviceFormFactor.FOLDABLE_COVER) {
+    return portrait ? 336 : 209;
+  }
+  if (!portrait) {
+    return 209;
+  }
+  return preset.width >= 428 ? 346 : 336;
+}
+
 export function resolveBezelInsets(
   preset: DevicePreset,
   orientation: Orientation,

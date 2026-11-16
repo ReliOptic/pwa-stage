@@ -231,8 +231,11 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
         <div
           className="duo-interactive-slice duo-slice-secondary"
           style={{
-            width: `${projection.left.width}px`,
-            height: `${projection.left.height}px`,
+            // Extend 2px past the hinge, underneath the primary leaf: the
+            // anti-aliased edges of two transformed layers otherwise leave a
+            // 1px light seam along the crease.
+            width: `${projection.left.width + (isHorizontalSplit ? 0 : 2)}px`,
+            height: `${projection.left.height + (isHorizontalSplit ? 2 : 0)}px`,
             transform: projection.left.matrix3d,
             opacity: projection.left.opacity,
             filter: innerFilter,

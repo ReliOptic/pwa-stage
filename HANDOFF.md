@@ -17,6 +17,9 @@ Done in this round (see README for user-facing behaviour):
 
 - **Audit fixes**: `<webview>` `src` changes made before attach are caught up on first dom-ready (Duo primary slice showed a stale URL); Dynamic Island / notch drawn on the leading edge in landscape; Safari/Chrome top bar = status bar height only (0 in landscape, 20pt on SE); Home Screen content stays clear of the Duo rail.
 
+- **Duo crease**: both leaves share one hinge edge (midpoint of the two bones) and guests are opaque, which removed a light 1px seam at mid-fold angles. A faint dark hairline can remain in the crease under software compositing; not yet checked on a real GPU.
+- **Software keyboard** (`SoftwareKeyboard.tsx`, `resolveKeyboardHeight`, guest script in `emulation.ts`).
+
 Verification note: in headless Xvfb, Playwright's `page.screenshot()` of the shell can show stale/blank frames for the out-of-process `<webview>` after scrolling. Use `BrowserWindow.webContents.capturePage()` (what the app's Screenshot uses) for visual checks, and pass `--enable-unsafe-swiftshader` so WebGL works without a GPU.
 
 ### Should this become Rust / Tauri?
@@ -26,7 +29,7 @@ Assessed, not done. Tauri on macOS would render with WKWebView, which is *more* 
 ### Next
 
 1. Duo 3D slices use a 44px radius instead of the glTF aperture squircle. At 2× zoom the resting postures (0°, 180°) show no bleed onto the bezel; mid-fold angles are not yet audited at pixel level (Priority 1 below).
-2. Keyboard: an iOS software keyboard that shrinks the visual viewport on input focus.
+2. Keyboard is visual only (type with the Mac keyboard); heights are approximations of UIKit's frame, and Safari's bar does not yet ride above it.
 3. Optional Playwright-based visual regression suite using `capturePage()` on each viewport class.
 
 ## 1. Repository & Project Overview

@@ -6,7 +6,7 @@ import {
   hasDuoSystemRail,
   resolveSafeAreaInsets
 } from '../../utils/viewport-math.util';
-import { setSafariBarCollapsed, useSafariBarCollapsed } from '../sim-events';
+import { setKeyboardVisible, setSafariBarCollapsed, useSafariBarCollapsed } from '../sim-events';
 import { ElectronWebviewElement } from '../../types/renderer.types';
 import { DuoDisplayMode, SimulatorState } from '../../types/simulator.types';
 
@@ -87,8 +87,13 @@ function useWebviewEffects(
       const message = (evt as Event & { message?: string }).message ?? '';
       if (message === '__sim:safari-bar:collapse') setSafariBarCollapsed(true);
       else if (message === '__sim:safari-bar:expand') setSafariBarCollapsed(false);
+      else if (message === '__sim:keyboard:show') setKeyboardVisible(true);
+      else if (message === '__sim:keyboard:hide') setKeyboardVisible(false);
     };
-    const onNavigate = (): void => setSafariBarCollapsed(false);
+    const onNavigate = (): void => {
+      setSafariBarCollapsed(false);
+      setKeyboardVisible(false);
+    };
     el.addEventListener('console-message', onConsole);
     el.addEventListener('did-navigate', onNavigate);
     el.addEventListener('did-finish-load', notifyReady);
@@ -186,9 +191,10 @@ function SingleViewportPane(props: SingleViewportPaneProps): React.ReactElement 
         height: '100%',
         border: 'none',
         flex: 1,
-        // Guests are transparent by default; iOS paints a white canvas behind
-        // pages that set no background (also in Dark Mode).
-        background: '#ffffff'
+        // Black behind the guest: compositor tile seams under the Duo's
+        // perspective transform must not flash a light line. The white page
+        // canvas comes from the opaque guest itself (see security.ts).
+        background: '#000000'
       }
     });
   }

@@ -38,6 +38,7 @@ describe('guest (page under test) isolation', () => {
     expect(prefs.contextIsolation).toBe(true);
     expect(prefs.sandbox).toBe(true);
     expect(prefs.webSecurity).toBe(true);
+    expect(prefs.transparent).toBe(false);
     expect(enforceGuestWebPreferences({} as never, { src: 'file:///x' }).allow).toBe(false);
   });
 
