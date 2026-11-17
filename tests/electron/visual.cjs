@@ -148,7 +148,7 @@ server.listen(0, '127.0.0.1', async () => {
           return consecutive >= 2;
         }, 40);
       } catch (error) {
-        fs.writeFileSync(path.join(out, name + '-failed.png'), probe.toPNG());
+        if (probe) fs.writeFileSync(path.join(out, name + '-failed.png'), probe.toPNG());
         throw Error(name + ': ' + error.message + ' ' + JSON.stringify(pixels));
       }
       fs.writeFileSync(path.join(out, name + '-mask.png'), probe.toPNG());

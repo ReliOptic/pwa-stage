@@ -23,7 +23,8 @@ server.listen(18771,'127.0.0.1',async()=>{
  const click=sel=>js('document.querySelector('+JSON.stringify(sel)+').click()');
  const clickText=text=>js('Array.from(document.querySelectorAll("button")).find(b=>b.textContent.trim()==='+JSON.stringify(text)+').click()');
  const guests=()=>webContents.getAllWebContents().filter(w=>w.getType()==='webview');
- await wait(()=>guests()[0]&&!guests()[0].isLoading());await sleep(1500);
+ const pageLoaded=()=>guests().length===1&&guests()[0].getURL()==='http://127.0.0.1:18771/'&&!guests()[0].isLoading();
+ await wait(pageLoaded);await sleep(1500);
  await click('[aria-label="More"]');await clickText('Share');await clickText('Add to Home Screen');
  await wait(()=>js('!!document.querySelector(".ios-card-fields input")'));
  const toggleDefault=await js('document.querySelector(".ios-card-toggle input").checked');
@@ -38,7 +39,7 @@ server.listen(18771,'127.0.0.1',async()=>{
  const chromeBookmarkLaunch=await js('window.simulatorBridge.getInitialPayload()');
  win.webContents.send('simulator:external-state',{...chromeBookmarkLaunch.value.state,selectedDeviceId:'iphone-duo-unfolded',duoDisplayMode:'single-span'});
  await wait(async()=>js('!!document.querySelector(".duo-slice-primary webview")'));
- await wait(()=>guests().length===1&&!guests()[0].isLoading());await sleep(500);
+ await wait(pageLoaded);
  const guest=guests()[0];const before={id:guest.id,token:await guest.executeJavaScript('window.probeToken')};
  await click('button[title="Cover Display (5.4″ · 466×678pt)"]');
  await wait(()=>js('document.querySelector(".duo-hinge-slider").value==="0"'));await sleep(500);

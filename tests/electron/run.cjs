@@ -10,6 +10,9 @@ const results = [];
 for (const name of process.env.SIMULATOR_VISUAL_ONLY === '1' ? ['visual'] : ['runtime', 'home', 'duo', 'flows']) {
   const args = ['--enable-unsafe-swiftshader'];
   if (process.platform === 'linux') {
+    // CI hosts may expose an unusable Mesa/GL device. Select the software
+    // renderer explicitly instead of relying on a failed GPU initialization.
+    args.push('--use-gl=angle', '--use-angle=swiftshader');
     if (!process.env.DISPLAY) args.push('--ozone-platform=headless');
     if (process.getuid?.() === 0 || process.env.SIMULATOR_TEST_NO_SANDBOX === '1') args.push('--no-sandbox'); // restricted CI container only; never a product flag
   }
