@@ -9,7 +9,7 @@ import {
 import { setKeyboardVisible, setSafariBarCollapsed, useSafariBarCollapsed } from '../sim-events';
 import { GuestMirrorPane } from './GuestMirrorPane';
 import { ElectronWebviewElement } from '../../types/renderer.types';
-import { DuoDisplayMode, SimulatorState } from '../../types/simulator.types';
+import { SimulatorState } from '../../types/simulator.types';
 
 export interface WebviewContainerProps {
   readonly state: SimulatorState;
@@ -17,6 +17,7 @@ export interface WebviewContainerProps {
   readonly reloadTick: number;
   readonly onRegisterWebContentsId: (id: number) => void;
   readonly onPageReady?: (webContentsId: number) => void;
+  readonly onNavigate?: (url: string) => void;
   /**
    * When set (even to null while the id is still unknown), this container
    * shows a live mirror of that guest instead of loading its own page.
@@ -24,6 +25,7 @@ export interface WebviewContainerProps {
   readonly mirrorGuestId?: number | null;
   readonly mirrorCoverFrameOffsetX?: number;
   readonly mirrorInteractive?: boolean;
+  readonly reserveSystemRail?: boolean;
 }
 
 interface SingleViewportPaneProps {
@@ -32,6 +34,7 @@ interface SingleViewportPaneProps {
   readonly reloadTick: number;
   readonly onRegisterWebContentsId?: (id: number) => void;
   readonly onPageReady?: (webContentsId: number) => void;
+  readonly onNavigate?: (url: string) => void;
 }
 
 function useWebviewEffects(
@@ -40,57 +43,62 @@ function useWebviewEffects(
   iframeRef: React.RefObject<HTMLIFrameElement | null>,
   props: SingleViewportPaneProps
 ): void {
-  const readyRef = useRef<boolean>(false);
-  // A `src` change made before the guest is attached is dropped by <webview>
-  // (e.g. switching device and URL back to back). Remember what the element
-  // was mounted with and catch up on the first dom-ready.
-  const mountedUrlRef = useRef<string>(props.targetUrl);
-  const latestUrlRef = useRef<string>(props.targetUrl);
-  latestUrlRef.current = props.targetUrl;
-  if (readyRef.current) {
-    mountedUrlRef.current = props.targetUrl;
-  }
-  const shellModeRef = useRef(props.state.shellMode);
+  const latest = useRef(props);
+  latest.current = props;
+  const ready = useRef(false);
+  const synchronize = useRef<(() => void) | null>(null);
 
-  useEffect((): (() => void) | void => {
-    if (!electronMode || !webviewRef.current) {
-      return;
-    }
+  useEffect(() => {
+    if (!electronMode || !webviewRef.current) return;
     const el = webviewRef.current;
-    const applyEmulation = (): Promise<unknown> => {
-      readyRef.current = true;
-      const id = el.getWebContentsId();
-      props.onRegisterWebContentsId?.(id);
-      return getSimulatorBridge().applyWebviewEmulation({
-        webContentsId: id,
-        state: props.state
+    let disposed = false;
+    let attached = false;
+    let queue = Promise.resolve();
+    let appliedShell = props.state.shellMode;
+    let lastReload = props.reloadTick;
+
+    const sync = (): void => {
+      queue = queue.then(async () => {
+        if (disposed || !attached) return;
+        const next = latest.current;
+        const id = el.getWebContentsId();
+        next.onRegisterWebContentsId?.(id);
+        const result = await getSimulatorBridge().applyWebviewEmulation({ webContentsId: id, state: next.state });
+        if (!result.ok) throw new Error(result.error.message);
+        if (disposed) return;
+        const shellChanged = appliedShell !== next.state.shellMode;
+        const reloadChanged = lastReload !== next.reloadTick;
+        appliedShell = next.state.shellMode;
+        lastReload = next.reloadTick;
+        ready.current = true;
+        // src remains inert: even the first real request follows emulation.
+        // Skip stale requests when URL/state changed while IPC was in flight.
+        if (next.targetUrl !== latest.current.targetUrl || next.state.shellMode !== latest.current.state.shellMode) { sync(); return; }
+        if (el.getURL() !== next.targetUrl) {
+          await el.loadURL?.(next.targetUrl);
+        } else if (shellChanged || reloadChanged) {
+          el.reloadIgnoringCache();
+        }
+      }).catch((error: unknown) => {
+        if (!disposed) console.error('Could not configure mobile viewport', error);
       });
     };
-    const syncEmulation = (): void => {
-      void applyEmulation();
-    };
-    const shellChanged = shellModeRef.current !== props.state.shellMode;
-    shellModeRef.current = props.state.shellMode;
-    if (readyRef.current) {
-      if (shellChanged) {
-        // Moving between Safari, Chrome and a Home Screen web app is a fresh
-        // launch on iOS: reload so the page boots with the new environment.
-        void applyEmulation().then((): void => el.reload());
-      } else {
-        syncEmulation();
-      }
-    }
-    const handleEnterFs = (): void => {
-      window.dispatchEvent(new CustomEvent('sim:html-fullscreen', { detail: true }));
-    };
-    const handleLeaveFs = (): void => {
-      window.dispatchEvent(new CustomEvent('sim:html-fullscreen', { detail: false }));
+    synchronize.current = sync;
+    const onDomReady = (): void => {
+      attached = true;
+      if (!ready.current) sync();
     };
     const notifyReady = (): void => {
-      if (props.onPageReady) {
-        props.onPageReady(el.getWebContentsId());
-      }
+      if (ready.current && /^https?:/.test(el.getURL())) latest.current.onPageReady?.(el.getWebContentsId());
     };
+    const onNavigate = (): void => {
+      const url = el.getURL();
+      if (!ready.current || !/^https?:/.test(url)) return;
+      setSafariBarCollapsed(false);
+      setKeyboardVisible(false);
+      latest.current.onNavigate?.(url);
+    };
+    const onInPage = (): void => { onNavigate(); notifyReady(); };
     const onConsole = (evt: Event): void => {
       const message = (evt as Event & { message?: string }).message ?? '';
       if (message === '__sim:safari-bar:collapse') setSafariBarCollapsed(true);
@@ -98,86 +106,42 @@ function useWebviewEffects(
       else if (message === '__sim:keyboard:show') setKeyboardVisible(true);
       else if (message === '__sim:keyboard:hide') setKeyboardVisible(false);
     };
-    const onNavigate = (): void => {
-      setSafariBarCollapsed(false);
-      setKeyboardVisible(false);
+    const enterFs = (): void => { window.dispatchEvent(new CustomEvent('sim:html-fullscreen', { detail: true })); };
+    const leaveFs = (): void => { window.dispatchEvent(new CustomEvent('sim:html-fullscreen', { detail: false })); };
+    const listeners: [string, EventListener][] = [
+      ['dom-ready', onDomReady], ['did-navigate', onNavigate],
+      ['did-navigate-in-page', onInPage], ['did-finish-load', notifyReady],
+      ['console-message', onConsole], ['enter-html-full-screen', enterFs], ['leave-html-full-screen', leaveFs]
+    ];
+    listeners.forEach(([name, listener]) => el.addEventListener(name, listener));
+    return () => {
+      disposed = true;
+      ready.current = false;
+      synchronize.current = null;
+      listeners.forEach(([name, listener]) => el.removeEventListener(name, listener));
     };
-    el.addEventListener('console-message', onConsole);
-    el.addEventListener('did-navigate', onNavigate);
-    el.addEventListener('did-finish-load', notifyReady);
-    el.addEventListener('did-navigate-in-page', notifyReady);
-    const catchUpUrl = (): void => {
-      if (latestUrlRef.current !== mountedUrlRef.current) {
-        mountedUrlRef.current = latestUrlRef.current;
-        try {
-          void el.loadURL?.(latestUrlRef.current)?.catch((): void => undefined);
-        } catch {
-          // not attached yet: the next dom-ready retries
-          mountedUrlRef.current = '';
-        }
-      }
-    };
-    el.addEventListener('dom-ready', catchUpUrl);
-    el.addEventListener('dom-ready', syncEmulation);
-    el.addEventListener('did-navigate', syncEmulation);
-    el.addEventListener('did-navigate-in-page', syncEmulation);
-    el.addEventListener('enter-html-full-screen', handleEnterFs);
-    el.addEventListener('leave-html-full-screen', handleLeaveFs);
-    return (): void => {
-      el.removeEventListener('console-message', onConsole);
-      el.removeEventListener('did-navigate', onNavigate);
-      el.removeEventListener('did-finish-load', notifyReady);
-      el.removeEventListener('did-navigate-in-page', notifyReady);
-      el.removeEventListener('dom-ready', catchUpUrl);
-      el.removeEventListener('dom-ready', syncEmulation);
-      el.removeEventListener('did-navigate', syncEmulation);
-      el.removeEventListener('did-navigate-in-page', syncEmulation);
-      el.removeEventListener('enter-html-full-screen', handleEnterFs);
-      el.removeEventListener('leave-html-full-screen', handleLeaveFs);
-    };
-  }, [
-    electronMode,
-    props.targetUrl,
-    props.state.selectedDeviceId,
-    props.state.orientation,
-    props.state.shellMode,
-    props.state.darkMode,
-    props.state.touchCursorEnabled,
-    props.state.pwaStatusBarStyle
-  ]);
+  }, [electronMode]);
 
-  useEffect((): void => {
-    if (props.reloadTick === 0) {
-      return;
-    }
-    if (electronMode && webviewRef.current) {
-      webviewRef.current.reloadIgnoringCache();
-    } else if (iframeRef.current) {
-      iframeRef.current.src = props.targetUrl;
-    }
-  }, [props.reloadTick, electronMode, props.targetUrl]);
+  useEffect(() => {
+    synchronize.current?.();
+    if (!electronMode && iframeRef.current && props.reloadTick) iframeRef.current.src = props.targetUrl;
+  }, [electronMode, props.targetUrl, props.reloadTick, props.state.selectedDeviceId,
+    props.state.orientation, props.state.shellMode, props.state.darkMode,
+    props.state.touchCursorEnabled, props.state.pwaStatusBarStyle]);
 
-  useEffect((): (() => void) | void => {
-    if (!electronMode) {
-      return;
-    }
+  useEffect(() => {
+    if (!electronMode) return;
     const handleNav = (evt: Event): void => {
       const action = (evt as CustomEvent<'back' | 'forward'>).detail;
       const el = webviewRef.current as (ElectronWebviewElement & {
-        canGoBack?: () => boolean;
-        canGoForward?: () => boolean;
-        goBack?: () => void;
-        goForward?: () => void;
+        canGoBack?: () => boolean; canGoForward?: () => boolean;
       }) | null;
-      if (!el) return;
-      if (action === 'back' && el.canGoBack?.()) {
-        el.goBack?.();
-      } else if (action === 'forward' && el.canGoForward?.()) {
-        el.goForward?.();
-      }
+      if (!ready.current || !el) return;
+      if (action === 'back' && el.canGoBack?.()) el.goBack();
+      else if (action === 'forward' && el.canGoForward?.()) el.goForward();
     };
     window.addEventListener('sim:webview-nav', handleNav);
-    return (): void => window.removeEventListener('sim:webview-nav', handleNav);
+    return () => window.removeEventListener('sim:webview-nav', handleNav);
   }, [electronMode]);
 }
 
@@ -191,7 +155,7 @@ function SingleViewportPane(props: SingleViewportPaneProps): React.ReactElement 
   if (electronMode) {
     return React.createElement('webview', {
       ref: webviewRef,
-      src: props.targetUrl,
+      src: 'about:blank',
       allowpopups: 'true',
       style: {
         display: 'inline-flex',
@@ -224,7 +188,7 @@ function SingleViewportPane(props: SingleViewportPaneProps): React.ReactElement 
 }
 
 export function WebviewContainer(props: WebviewContainerProps): React.ReactElement {
-  const { state, isDualUnfolded, reloadTick, onRegisterWebContentsId, onPageReady } = props;
+  const { state, reloadTick, onRegisterWebContentsId, onPageReady } = props;
   const [isHtmlFullscreen, setIsHtmlFullscreen] = useState<boolean>(false);
 
   useEffect((): (() => void) => {
@@ -235,8 +199,6 @@ export function WebviewContainer(props: WebviewContainerProps): React.ReactEleme
     return (): void => window.removeEventListener('sim:html-fullscreen', onFs);
   }, []);
 
-  const isSplitDuo =
-    isDualUnfolded && state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON;
   const preset = getDevicePresetById(state.selectedDeviceId);
   const safeArea = resolveSafeAreaInsets(preset, state.orientation);
   const safariCollapsed = useSafariBarCollapsed();
@@ -246,7 +208,7 @@ export function WebviewContainer(props: WebviewContainerProps): React.ReactEleme
     state.pwaStatusBarStyle,
     safariCollapsed
   );
-  const hasDuoRightRail = !isHtmlFullscreen && hasDuoSystemRail(preset, state.orientation);
+  const hasDuoRightRail = props.reserveSystemRail !== false && !isHtmlFullscreen && hasDuoSystemRail(preset, state.orientation);
   const chromeInsetStyle: React.CSSProperties = {
     paddingTop: isHtmlFullscreen ? '0px' : `${chrome.topBarHeight}px`,
     paddingBottom: isHtmlFullscreen ? '0px' : `${chrome.bottomBarHeight}px`,
@@ -255,7 +217,7 @@ export function WebviewContainer(props: WebviewContainerProps): React.ReactEleme
     background: state.darkMode ? '#09090c' : '#f4f4f6'
   };
 
-  if (props.mirrorGuestId !== undefined && !isSplitDuo) {
+  if (props.mirrorGuestId !== undefined) {
     return (
       <div className="webview-full-bleed" style={chromeInsetStyle}>
         <GuestMirrorPane
@@ -267,29 +229,6 @@ export function WebviewContainer(props: WebviewContainerProps): React.ReactEleme
     );
   }
 
-  if (isSplitDuo) {
-    return (
-      <div
-        className="webview-full-bleed"
-        style={{
-          ...chromeInsetStyle,
-          display: 'flex',
-          flexDirection: 'row',
-          gap: '2px',
-          background: '#000000'
-        }}
-      >
-        <SingleViewportPane
-          targetUrl={state.currentUrl}
-          state={state}
-          reloadTick={reloadTick}
-          onRegisterWebContentsId={onRegisterWebContentsId}
-          onPageReady={onPageReady}
-        />
-        <SingleViewportPane targetUrl={state.currentUrl} state={state} reloadTick={reloadTick} />
-      </div>
-    );
-  }
 
   return (
     <div className="webview-full-bleed" style={chromeInsetStyle}>
@@ -299,6 +238,7 @@ export function WebviewContainer(props: WebviewContainerProps): React.ReactEleme
         reloadTick={reloadTick}
         onRegisterWebContentsId={onRegisterWebContentsId}
         onPageReady={onPageReady}
+        onNavigate={props.onNavigate}
       />
     </div>
   );

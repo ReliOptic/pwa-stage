@@ -1,7 +1,6 @@
 name: CI
 on:
   push:
-    branches: [main, astra/windows]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -23,6 +22,16 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Real Electron regression flows
+        if: runner.os == 'Linux'
+        run: npm run test:electron
+        env:
+          SIMULATOR_TEST_NO_SANDBOX: '1'
+      - name: Display aperture pixel checks
+        if: runner.os == 'Linux'
+        run: xvfb-run -a -s "-screen 0 4000x2400x24" npm run test:visual
+        env:
+          SIMULATOR_TEST_NO_SANDBOX: '1'
       # Internal tool: never publish releases or upload installers from public repos.
       - name: Package Windows installer
         if: runner.os == 'Windows'

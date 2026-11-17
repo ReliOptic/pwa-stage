@@ -37,6 +37,22 @@ const GOOD = {
 };
 
 describe('page inspector', () => {
+  it('resolves paths against the final manifest response URL', () => {
+    const page = sanitizePageInspection({ ...GOOD,
+      manifestHref: 'https://app.example.com/assets/pwa/app.webmanifest',
+      manifest: { start_url: '../../launch', scope: '../../', icons: [{ src: 'icon.png' }] }
+    });
+    expect(page?.manifest?.start_url).toBe('https://app.example.com/launch');
+    expect(page?.manifest?.scope).toBe('https://app.example.com/');
+    expect(page?.manifest?.icons?.[0].src).toBe('https://app.example.com/assets/pwa/icon.png');
+  });
+
+  it.each(['javascript:alert(1)', 'file:///tmp/app', 'https://other.example/app'])('rejects unsafe or foreign start URL %s', start_url => {
+    const page = sanitizePageInspection({ ...GOOD, manifest: { start_url, scope: 'https://other.example/' } });
+    expect(page?.manifest?.start_url).toBe(GOOD.url);
+    expect(page?.manifest?.scope).toBe('https://app.example.com/');
+  });
+
   it('sanitizes untrusted page data', () => {
     const insp = sanitizePageInspection({
       ...GOOD,

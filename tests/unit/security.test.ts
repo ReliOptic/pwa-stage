@@ -40,6 +40,9 @@ describe('guest (page under test) isolation', () => {
     expect(prefs.webSecurity).toBe(true);
     expect(prefs.transparent).toBe(false);
     expect(enforceGuestWebPreferences({} as never, { src: 'file:///x' }).allow).toBe(false);
+    expect(enforceGuestWebPreferences({} as never, { src: 'about:blank' }).allow).toBe(true);
+    expect(enforceGuestWebPreferences({} as never, { src: 'about:blank#script' }).allow).toBe(false);
+    expect(isAllowedGuestUrl('about:blank')).toBe(false);
   });
 
   it('maps Chromium permissions to iOS prompts and denies desktop-only ones', () => {

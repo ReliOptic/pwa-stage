@@ -37,6 +37,8 @@ export interface Duo3DStageProps {
   readonly onGoHome?: () => void;
   readonly tintColor?: string | null;
   readonly onPageReady?: (webContentsId: number) => void;
+  readonly onNavigate?: (url: string) => void;
+  readonly onUpdateState: (patch: Partial<SimulatorState>) => void;
 }
 
 const STAGE_WIDTH = 991;
@@ -290,31 +292,26 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     ? projection?.outer.height ?? 678
     : projection?.full.height ?? 669;
 
+  const split = state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON;
+  const sliceInner = isBentInner || split;
   const primarySlice = isOuterPrimary
     ? projection?.outer
-    : isBentInner
+    : sliceInner
       ? projection?.right
       : projection?.full;
 
-  const primaryShiftX = isBentInner && !isHorizontalSplit ? -475.5 : 0;
-  const primaryShiftY = isBentInner && isHorizontalSplit ? -475.5 : 0;
-
-  const primaryBorderRadius = isOuterPrimary
-    ? '12px 46px 46px 12px'
-    : !isBentInner
-      ? '44px'
-      : isHorizontalSplit
-        ? '0 0 44px 44px'
-        : '0 44px 44px 0';
-
-  const secondaryBorderRadius = isHorizontalSplit
-    ? '44px 44px 0 0'
-    : '44px 0 0 44px';
+  const primaryShiftX = !isOuterPrimary && sliceInner && !isHorizontalSplit ? -475.5 : 0;
+  const primaryShiftY = !isOuterPrimary && sliceInner && isHorizontalSplit ? -475.5 : 0;
 
   const rawPrimaryClip = isBentInner ? projection?.rightVisibleClip ?? undefined : undefined;
   const primaryHidden = rawPrimaryClip === RIGHT_LEAF_HIDDEN;
   const primaryClip = primaryHidden ? undefined : rawPrimaryClip;
-  const mirrorLeft = state.duoDisplayMode !== DuoDisplayMode.SPLIT_COMPARISON;
+  const mirrorLeft = !split;
+  const splitSurface = split ? {
+    width: `${isOuterPrimary ? fullLogicalW : projection?.right.width ?? fullLogicalW}px`,
+    height: `${isOuterPrimary ? fullLogicalH : projection?.right.height ?? fullLogicalH}px`,
+    left: `${-primaryShiftX}px`, top: `${-primaryShiftY}px`
+  } : undefined;
 
   // One mirror stream for the whole stage. It idles at a low rate while the
   // device rests (so a recent frame always exists when the transition starts)
@@ -353,7 +350,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
       onPointerCancel={handleStagePointerUp}
       title="Drag margin to orbit 3D device (Alt+drag over screen)"
     >
-      {/* 1. Original procedural foldable hardware canvas */}
+      {/* 1. Restored skinned foldable hardware canvas */}
       <canvas
         ref={canvasRef}
         className="duo-3d-webgl-canvas"
@@ -363,7 +360,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
       />
 
       {/* 2. Secondary Left / Upper Leaf Slice when in 3D Bent Posture (20°..177°) */}
-      {isBentInner && !inTransition && projection && projection.left.active && projection.left.matrix3d && (
+      {projection && (split || (isBentInner && !inTransition && projection.left.active && projection.left.matrix3d)) && (
         <div
           className="duo-interactive-slice duo-slice-secondary"
           style={{
@@ -372,10 +369,10 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
             // 1px light seam along the crease.
             width: `${projection.left.width + (isHorizontalSplit ? 0 : 2)}px`,
             height: `${projection.left.height + (isHorizontalSplit ? 2 : 0)}px`,
-            transform: projection.left.matrix3d,
+            transform: projection.left.matrix3d ?? undefined,
+            display: split && (isOuterPrimary || !projection.left.active) ? 'none' : undefined,
             opacity: projection.left.opacity,
             filter: innerFilter,
-            borderRadius: secondaryBorderRadius,
             zIndex: projection.left.zIndex
           }}
         >
@@ -385,12 +382,15 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
               width: `${fullLogicalW}px`,
               height: `${fullLogicalH}px`,
               left: '0px',
-              top: '0px'
+              top: '0px',
+              clipPath: projection.full.apertureClip
             }}
           >
-            <AppSurface>
+            <AppSurface style={split ? { width: `${projection.left.width}px`, height: `${projection.left.height}px` } : undefined}>
               <WebviewContainer
-                state={state}
+                state={split ? { ...state, currentUrl: state.secondaryUrl } : state}
+                reserveSystemRail={!split}
+                onNavigate={split ? (url): void => props.onUpdateState({ secondaryUrl: url }) : undefined}
                 isDualUnfolded={true}
                 reloadTick={props.reloadTick}
                 onRegisterWebContentsId={(): void => {}}
@@ -435,7 +435,6 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
             pointerEvents: primaryHidden ? 'none' : undefined,
             clipPath: primaryClip,
             filter: isOuterPrimary ? undefined : innerFilter,
-            borderRadius: primaryBorderRadius,
             zIndex: primarySlice.zIndex
           }}
         >
@@ -445,10 +444,11 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
               width: `${fullLogicalW}px`,
               height: `${fullLogicalH}px`,
               left: `${primaryShiftX}px`,
-              top: `${primaryShiftY}px`
+              top: `${primaryShiftY}px`,
+              clipPath: isOuterPrimary ? projection?.outer.apertureClip : projection?.full.apertureClip
             }}
           >
-            <AppSurface>
+            <AppSurface style={splitSurface}>
               <WebviewContainer
                 state={state}
                 isDualUnfolded={!isOuterPrimary}
@@ -458,6 +458,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
                   props.onRegisterWebContentsId(id);
                 }}
                 onPageReady={props.onPageReady}
+                onNavigate={props.onNavigate}
               />
             </AppSurface>
             <HomeScreen width={fullLogicalW} height={fullLogicalH} safeTop={54} trailingInset={isOuterPrimary || !isHorizontalSplit ? 84 : 0} />

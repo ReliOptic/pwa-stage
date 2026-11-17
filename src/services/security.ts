@@ -48,7 +48,10 @@ export function enforceGuestWebPreferences(
   // Opaque guest: pages that set no background get the white canvas iOS
   // paints, instead of showing whatever is behind the <webview>.
   (prefs as WebPreferences & { transparent?: boolean }).transparent = false;
-  if (params.src && !isAllowedGuestUrl(params.src)) {
+  // Only the trusted shell can attach a guest. Its inert bootstrap document
+  // lets CDP configure identity before the first network request. Navigation
+  // guards below still permit only HTTP(S) pages.
+  if (params.src && params.src !== 'about:blank' && !isAllowedGuestUrl(params.src)) {
     return { allow: false, reason: `blocked guest src protocol: ${params.src.slice(0, 64)}` };
   }
   return { allow: true };

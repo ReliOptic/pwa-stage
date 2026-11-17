@@ -11,11 +11,14 @@ export function resolveHomeLayout(width: number, height: number, rail = 0, safeT
   const dockHeight = rail ? 266 : 100;
   const dockBottom = rail ? (height - dockHeight) / 2 - (inner ? 16 : 40) : compact ? 8 : 18;
   const gridTop = top + (landscape ? 0 : widget + (compact && !rail ? 34 : 38));
-  const rows = landscape ? 2 : 4;
   const searchTop = rail ? height - 66 : height - (compact ? 138 : 168);
-  const pitch = Math.min(100, ((rail ? height - 42 : searchTop - 4) - gridTop - icon - 19) / (rows - 1));
+  const pageDotsTop = rail ? height - 34 : searchTop - 28;
+  const gridBottom = pageDotsTop - 8;
+  const rows = Math.max(1, Math.min(landscape ? 2 : 4,
+    1 + Math.floor((gridBottom - gridTop - icon - 19) / (icon + 16))));
+  const pitch = rows > 1 ? Math.min(100, (gridBottom - gridTop - icon - 19) / (rows - 1)) : icon + 19;
   return { inner, landscape, icon, panelWidth, left, top, widget, gridTop, rows,
-    pitch: Math.max(icon + 16, pitch), capacity: rows * 4, dockHeight, dockBottom, searchTop,
+    pitch: Math.max(icon + 16, pitch), capacity: rows * 4, dockHeight, dockBottom, searchTop, pageDotsTop,
     dockIcon: rail ? 48 : icon, label: 12 };
 }
 

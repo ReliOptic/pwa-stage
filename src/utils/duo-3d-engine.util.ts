@@ -1,3 +1,4 @@
+import { readDisplayOutline, displayOutlineCss, leftDisplayContour, DisplayOutline } from './display-outline.util';
 import {
   computeHomographyMatrix3d,
   DuoPostureId,
@@ -13,6 +14,7 @@ export interface ProjectedSurfaceSlice {
   readonly corners: readonly [Point2D, Point2D, Point2D, Point2D];
   readonly matrix3d: string | null;
   readonly zIndex: number;
+  readonly apertureClip?: string;
 }
 
 export interface Duo3DFrameProjection {
@@ -192,6 +194,7 @@ export function loadDuoSkinnedAsset(T: any, data: { readonly gltf: any; readonly
   });
 
   const meshes: any[] = [];
+  const displays: Partial<Record<'inner' | 'outer', DisplayOutline>> = {};
   const attrMap: Record<string, string> = {
     POSITION: 'position',
     NORMAL: 'normal',
@@ -226,6 +229,9 @@ export function loadDuoSkinnedAsset(T: any, data: { readonly gltf: any; readonly
         n.skin === undefined
           ? new T.Mesh(geo, materials[prim.material])
           : new T.SkinnedMesh(geo, materials[prim.material]);
+      if (prim.material === 7 || prim.material === 8) {
+        displays[prim.material === 7 ? 'outer' : 'inner'] = readDisplayOutline(geo.attributes.position.array);
+      }
       mesh.name = n.name;
       mesh.frustumCulled = false;
       mesh.userData.originalColor = mesh.material.color.clone();
@@ -283,6 +289,7 @@ export function loadDuoSkinnedAsset(T: any, data: { readonly gltf: any; readonly
   return {
     model,
     meshes,
+    displays,
     duration: clip.duration,
     setFold(phi: number): void {
       action.time = clamp(phi, 0, 1) * clip.duration;
@@ -399,27 +406,23 @@ export class Duo3DHardwareEngine {
   private getQuad3D(name: 'outer' | 'left' | 'right', rotationY: number, isStanding: boolean): any[] {
     const p = (x: number, y: number, z: number, j: number) => this.asset.point(x, y, z, j);
     if (name === 'outer') {
-      const q = [
-        p(-0.25, -0.288, -5.56, 24),
-        p(-7.94, -0.288, -5.56, 24),
-        p(-7.94, -0.288, 5.56, 24),
-        p(-0.25, -0.288, 5.56, 24)
-      ];
+      const d: DisplayOutline = this.asset.displays.outer;
+      const q = [p(d.maxX, d.y, d.minZ, 24), p(d.minX, d.y, d.minZ, 24),
+        p(d.minX, d.y, d.maxZ, 24), p(d.maxX, d.y, d.maxZ, 24)];
       return isStanding ? [q[3], q[0], q[1], q[2]] : q;
     }
+    const d: DisplayOutline = this.asset.displays.inner;
     const isLeft = name === 'left';
     const joint = isLeft ? 24 : 25;
-    const x0 = isLeft ? -7.87 : 0;
-    const x1 = isLeft ? 0 : 7.87;
-    // The two leaves are skinned to different bones, so their hinge-side
-    // edges (x = 0) drift apart by a fraction of a pixel at mid-fold angles.
-    // Both quads use the midpoint of the two bone positions for that edge so
-    // the projected leaves always share it exactly (no gap, no overlap).
+    const x0 = isLeft ? d.minX : 0;
+    const x1 = isLeft ? 0 : d.maxX;
+    // Shared hinge midpoint prevents a subpixel gap between independent bones.
     const hinge = (z: number): any =>
-      p(0, 0.268, z, 24).clone().add(p(0, 0.268, z, 25)).multiplyScalar(0.5);
+      p(0, d.y, z, 24).clone().add(p(0, d.y, z, 25)).multiplyScalar(0.5);
     let q = isLeft
-      ? [p(x0, 0.268, -5.49, joint), hinge(-5.49), hinge(5.49), p(x0, 0.268, 5.49, joint)]
-      : [hinge(-5.49), p(x1, 0.268, -5.49, joint), p(x1, 0.268, 5.49, joint), hinge(5.49)];
+      ? [p(x0, d.y, d.minZ, joint), hinge(d.minZ), hinge(d.maxZ), p(x0, d.y, d.maxZ, joint)]
+      : [hinge(d.minZ), p(x1, d.y, d.minZ, joint), p(x1, d.y, d.maxZ, joint), hinge(d.maxZ)];
+
     if (Math.abs(rotationY) > 1.1) {
       q = [q[3], q[0], q[1], q[2]];
     }
@@ -618,11 +621,10 @@ export class Duo3DHardwareEngine {
     // --- opening / closing transition ---------------------------------------
     const angleDeg = u * 180;
     const transitionActive = params.transitioning && frontView && angleDeg >= COVER_HANDOFF_DEG && angleDeg < 179;
+    const d: DisplayOutline = this.asset.displays.inner;
     const flatCorners = projectQuad([
-      this.asset.point(-7.87, 0.268, -5.49, 25),
-      this.asset.point(7.87, 0.268, -5.49, 25),
-      this.asset.point(7.87, 0.268, 5.49, 25),
-      this.asset.point(-7.87, 0.268, 5.49, 25)
+      this.asset.point(d.minX, d.y, d.minZ, 25), this.asset.point(d.maxX, d.y, d.minZ, 25),
+      this.asset.point(d.maxX, d.y, d.maxZ, 25), this.asset.point(d.minX, d.y, d.maxZ, 25)
     ]);
     const smooth01 = (t: number): number => {
       const c = clamp(t, 0, 1);
@@ -667,9 +669,9 @@ export class Duo3DHardwareEngine {
           zIndex: 17
         },
         coverClip:
-          transitionActive && outerFacing ? this.projectQuadOntoFlatPlane(quads3D.outer) : null,
+          transitionActive && outerFacing ? this.projectScreenOntoFlatPlane('outer') : null,
         leftClip:
-          transitionActive && leftFacing ? this.projectQuadOntoFlatPlane(quads3D.left) : null,
+          transitionActive && leftFacing ? this.projectScreenOntoFlatPlane('left') : null,
         coverMotion,
         innerMotion,
         coverGradientX: this.projectGradientX(quads3D.outer, false),
@@ -677,6 +679,7 @@ export class Duo3DHardwareEngine {
       },
       innerBrightness,
       outer: {
+        apertureClip: displayOutlineCss(this.asset.displays.outer, true, isStanding),
         active: outerOpacity > 0.02 && signedQuadArea(outerCorners) > 10,
         opacity: outerOpacity,
         width: outerW,
@@ -704,6 +707,7 @@ export class Duo3DHardwareEngine {
         zIndex: 15
       },
       full: {
+        apertureClip: displayOutlineCss(this.asset.displays.inner, false, isRotatedRig),
         active: innerOpacity > 0.02,
         opacity: innerOpacity,
         width: fullW,
@@ -723,11 +727,12 @@ export class Duo3DHardwareEngine {
    */
   private computeRightLeafVisibleClip(isRotatedRig: boolean): string | null {
     const T = this.T;
-    const LEAF_X = 7.87;
-    const LEAF_Z = 5.49;
-    const origin = this.asset.point(0, 0.268, -LEAF_Z, 25);
-    const ex = this.asset.point(LEAF_X, 0.268, -LEAF_Z, 25).clone().sub(origin);
-    const ez = this.asset.point(0, 0.268, LEAF_Z, 25).clone().sub(origin);
+    const d: DisplayOutline = this.asset.displays.inner;
+    const LEAF_X = d.maxX;
+    const LEAF_Z = (d.maxZ - d.minZ) / 2;
+    const origin = this.asset.point(0, d.y, d.minZ, 25);
+    const ex = this.asset.point(LEAF_X, d.y, d.minZ, 25).clone().sub(origin);
+    const ez = this.asset.point(0, d.y, d.maxZ, 25).clone().sub(origin);
     const normal = new T.Vector3().crossVectors(ex, ez);
     const cam = this.camera.position;
     const hidden = RIGHT_LEAF_HIDDEN;
@@ -743,11 +748,11 @@ export class Duo3DHardwareEngine {
       const hit = cam.clone().addScaledVector(dir, t).sub(origin);
       return {
         x: (hit.dot(ex) / ex.lengthSq()) * LEAF_X,
-        z: (hit.dot(ez) / ez.lengthSq()) * 2 * LEAF_Z - LEAF_Z
+        z: (hit.dot(ez) / ez.lengthSq()) * 2 * LEAF_Z + d.minZ
       };
     };
-    const a = project(-LEAF_Z - 0.2);
-    const b = project(LEAF_Z + 0.2);
+    const a = project(d.minZ - 0.2);
+    const b = project(d.maxZ + 0.2);
     if (!a || !b) return hidden;
     if (Math.min(a.x, b.x) >= LEAF_X) return hidden;
     if (Math.max(a.x, b.x) <= 0) return null;
@@ -759,7 +764,7 @@ export class Duo3DHardwareEngine {
     const FAR = 1000;
     const toLocal = (pt: { x: number; z: number }): string => {
       const along = (pt.x / LEAF_X) * 475.5;
-      const across = ((pt.z + LEAF_Z) / (2 * LEAF_Z)) * 669;
+      const across = ((pt.z - d.minZ) / (2 * LEAF_Z)) * 669;
       // rotated rig: corners are re-ordered so the hinge is the top edge
       const lx = isRotatedRig ? 669 - across : along;
       const ly = isRotatedRig ? along : across;
@@ -788,16 +793,19 @@ export class Duo3DHardwareEngine {
     return this.projectPointsOntoFlatPlane(samples)?.map((p) => p.x) ?? [];
   }
 
-  private projectQuadOntoFlatPlane(quad: any[]): string | null {
-    const pts = this.projectPointsOntoFlatPlane(quad);
-    return pts ? `polygon(${pts.map((p) => `${p.x.toFixed(1)}px ${p.y.toFixed(1)}px`).join(', ')})` : null;
+  private projectScreenOntoFlatPlane(name: 'outer' | 'left'): string | null {
+    const d: DisplayOutline = this.asset.displays[name === 'outer' ? 'outer' : 'inner'];
+    const contour = name === 'outer' ? d.points : leftDisplayContour(d);
+    const pts = this.projectPointsOntoFlatPlane(contour.map(([x, z]) => this.asset.point(x, d.y, z, 24)));
+    return pts ? `polygon(${pts.map(p => `${p.x.toFixed(3)}px ${p.y.toFixed(3)}px`).join(',')})` : null;
   }
 
   private projectPointsOntoFlatPlane(quad: any[]): Point2D[] | null {
     const T = this.T;
-    const origin = this.asset.point(-7.87, 0.268, -5.49, 25);
-    const ex = this.asset.point(7.87, 0.268, -5.49, 25).clone().sub(origin);
-    const ez = this.asset.point(-7.87, 0.268, 5.49, 25).clone().sub(origin);
+    const d: DisplayOutline = this.asset.displays.inner;
+    const origin = this.asset.point(d.minX, d.y, d.minZ, 25);
+    const ex = this.asset.point(d.maxX, d.y, d.minZ, 25).clone().sub(origin);
+    const ez = this.asset.point(d.minX, d.y, d.maxZ, 25).clone().sub(origin);
     const normal = new T.Vector3().crossVectors(ex, ez);
     const cam = this.camera.position;
     const pts: Point2D[] = [];

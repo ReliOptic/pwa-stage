@@ -306,7 +306,7 @@ html, body, #root {
   left: 0;
   transform-origin: 0 0;
   overflow: hidden;
-  background: #000000;
+  background: transparent;
   z-index: 22;
   will-change: transform, opacity;
   backface-visibility: hidden;
@@ -955,10 +955,10 @@ html, body, #root {
 .home-with-rail .home-dock { left: auto; right: 6px; width: 72px; flex-direction: column; border-radius: 28px; }
 .home-with-rail .home-search-pill { left: auto; right: 18px; transform: none; width: 48px; height: 48px; border-radius: 50%; justify-content: center; padding: 0; }
 .home-with-rail .home-search-pill svg { width: 23px; height: 23px; }
-.home-page-dots { position: absolute; left: var(--home-left); width: var(--home-panel); bottom: 24px; display: flex; gap: 9px; justify-content: center; }
-.home-page-dots button { padding: 0; width: 7px; height: 7px; border-radius: 50%; border: 0; background: #fff5; cursor: pointer; }
-.home-page-dots button[aria-current] { background: #fff; }
-.home-screen:not(.home-with-rail) .home-page-dots { bottom: 126px; }
+.home-page-dots { position: absolute; left: var(--home-left); width: var(--home-panel); top: var(--home-dots-top); height: 24px; display: flex; gap: 0; justify-content: center; }
+.home-page-dots button { padding: 8px; width: 24px; height: 24px; border: 0; background: transparent; cursor: pointer; }
+.home-page-dots button::after { content: ""; display: block; width: 7px; height: 7px; border-radius: 50%; background: #fff5; }
+.home-page-dots button[aria-current]::after { background: #fff; }
 .home-search-field { position: absolute; top: 28%; left: 20px; right: 20px; z-index: 2; padding: 12px; border-radius: 22px; background: #f4f7f4f5; display: flex; box-shadow: 0 4px 30px #0004; }
 .home-search-field input { flex: 1; min-width: 0; background: transparent; border: 0; color: #14282f; padding: 10px; font: 16px Arial,sans-serif; }
 .home-search-field button { border: 0; border-radius: 50%; font-size: 24px; width: 42px; cursor: pointer; }
@@ -1124,3 +1124,9 @@ html, body, #root {
 .windows-controls .traffic-dot svg { width: 12px; height: 12px; opacity: 1; }
 .windows-controls .traffic-dot:hover { background: rgba(128,128,128,.25); color: inherit; }
 .windows-controls .traffic-close:hover { background: #c42b1c; color: white; }
+
+.tb-comparison label { font-size: 10px; color: #c4c4cc; }
+
+/* Original high-resolution device skin. Canvas gutters retain the side buttons. */
+.hardware-skin { position: absolute; left: 0; top: 0; pointer-events: none; transform-origin: 0 0; }
+.hardware-skin img { position: absolute; display: block; max-width: none; pointer-events: none; }

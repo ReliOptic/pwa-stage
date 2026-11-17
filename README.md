@@ -79,10 +79,10 @@ npm run dist:win:portable  # dist_dmg/*-x64-portable.exe
 ```
 
 The installer offers a destination, Start menu and Desktop shortcuts, and uninstall.
-Build on Windows with Node 22 and `npm ci`; Linux NSIS cross-builds additionally need Wine.
+Build on Windows with Node 22 and `npm ci`; Linux cross-builds can disable signing with `-c.win.signExecutable=false`. Native OS execution must still be checked on Windows.
 The checked-in multi-resolution ICO is derived from the existing app icon; regenerate
 with `npm run assets:windows-icon` (Python + Pillow) after changing the source artwork.
-CI verifies Linux, Windows and macOS and builds NSIS on Windows. Installer artifacts
+CI is configured for Linux, Windows and macOS checks, runs real Electron regression flows on Linux, and builds NSIS on Windows. Installer artifacts
 are retained only for private repositories; nothing is published as a release.
 These internal builds are unsigned. Do not publish the repository or installers.
 
@@ -100,3 +100,22 @@ The default start page asks for a website URL. Home Screen contains Safari, Chro
 See [`HANDOFF.md`](HANDOFF.md) for architecture notes and the roadmap.
 
 Home Screen reference audit and asset licence limitations: [spec](docs/ios-home-screen-spec.md). Official iOS 27.3 visual fidelity is not verified.
+
+## Completion build 1.0.2
+
+The first request and first page script now see the mobile environment. Internal navigation updates the saved URL. Manifest paths use the final manifest URL; foreign/unsafe launch URLs fall back to the current page. Split comparison keeps two independent pages alive across folding and exposes a **Compare** URL field. Touch mode converts mouse drags to touch; Mouse mode supports hover/selection. Compact Home pagination remains clickable beside the search controls.
+
+```bash
+npm ci
+npm run typecheck
+npm test
+npm run build
+npm run test:electron
+npm run test:visual
+```
+
+The Electron suite uses isolated user data and local fixtures under `tests/`; it emits JSON and actual compositor screenshots. In restricted Linux containers that cannot initialize Chromium's sandbox, use `SIMULATOR_TEST_NO_SANDBOX=1` for this test runner only. The shipped app's guests keep their sandbox and preload-free preferences. `SIMULATOR_TEST_OUTPUT` chooses the evidence directory.
+
+The slab frame now uses the bundled hardware artwork, registered and rotated with the display. Duo clips the page to the actual bundled glass mesh contour, including its moving transition stencil. The original assets are unchanged. `test:visual` checks 19 cases at 2× output density and waits for every guest/mirrored leaf to paint before recording evidence. See [visual verification](docs/visual-verification.md) for the measured scope and limits.
+
+`display-mode` CSS emulation covers nested rules and dynamically added accessible stylesheets. Browser origin protections still apply to cross-origin CSS; validate those cases in real WebKit. This tool does not replace iOS device testing. Internal build 1.0.2 has been exercised on Linux Electron; macOS and Windows packages are cross-built and unsigned.

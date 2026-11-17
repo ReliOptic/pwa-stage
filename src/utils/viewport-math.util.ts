@@ -206,19 +206,20 @@ export function computeViewportMetrics(
   const outerFrameWidth = logicalWidth + bezelInsets.left + bezelInsets.right;
   const outerFrameHeight = logicalHeight + bezelInsets.top + bezelInsets.bottom;
 
-  const hudReserve = hudCollapsed
+  let hudReserve = hudCollapsed
     ? COLLAPSED_HUD_RESERVE_HEIGHT
     : EXPANDED_HUD_RESERVE_HEIGHT;
   const isDuoFamily =
     preset.formFactor === DeviceFormFactor.FOLDABLE_COVER ||
     preset.formFactor === DeviceFormFactor.FOLDABLE_DUAL;
+  if (isDuoFamily && !hudCollapsed) hudReserve += 28; // Comparison URL row.
   const isDuoStage = isDuoFamily && isFramed;
   const stageFrameWidth = isDuoStage ? 991 : outerFrameWidth;
   const stageFrameHeight = isDuoStage ? 718 : outerFrameHeight;
   const bottomBarReserve = isDuoFamily ? DUO_BOTTOM_MINIBAR_RESERVE_HEIGHT : 0;
 
   const scaledOuterWidth = Math.max(
-    260,
+    hudCollapsed ? 260 : 360,
     Math.ceil(stageFrameWidth * scale) + FLOATING_WINDOW_PADDING
   );
   const scaledOuterHeight =

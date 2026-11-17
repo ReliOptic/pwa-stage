@@ -136,6 +136,9 @@ describe('emulation service', () => {
 
     expect(result.ok).toBe(true);
     expect(setZoomMock).toHaveBeenCalled();
+    const commands = sendCommandMock.mock.calls.map(call => call[0]);
+    expect(commands.indexOf('Page.enable')).toBeLessThan(commands.indexOf('Page.addScriptToEvaluateOnNewDocument'));
+    expect(sendCommandMock).toHaveBeenCalledWith('Emulation.setEmitTouchEventsForMouse', { enabled: true, configuration: 'mobile' });
     expect(sendCommandMock).toHaveBeenCalledWith(
       'Emulation.setTouchEmulationEnabled',
       expect.objectContaining({ enabled: true, maxTouchPoints: 5 })

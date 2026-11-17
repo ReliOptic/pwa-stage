@@ -4,7 +4,24 @@ This document captures the current architecture, verified state, exact remaining
 
 ---
 
-## 0. Status update (2026-11-16)
+## 0. Status update (2026-11-17)
+
+### Completion build 1.0.2 (2026-11-17)
+
+Based on `f4c2db0`, with completion changes on `codex/complete-simulator`. The owner explicitly requested committing and pushing this work.
+
+- Guests attach to an inert `about:blank`, then await CDP `Page.enable`, identity, metrics and init script before loading their first HTTP(S) URL. Per-guest updates are serialized.
+- Primary and comparison navigation update their respective persisted URLs. Start-page submission and reload retain the destination.
+- Manifest members resolve against the final response URL after redirects. Launch URLs must be HTTP(S), on the document origin; invalid scope falls back to the launch directory.
+- Duo Span retains one guest. Split retains exactly two guests through Open / Book / Closed / Open, with a separate comparison URL. Shared Home/system chrome still spans the display.
+- Nested and dynamically inserted accessible stylesheets get display-mode emulation; cross-origin CSSOM restrictions remain intact.
+- Input modes now use CDP mouse-to-touch conversion: Touch drags and Mouse hover/selection. Legacy `touchCursorEnabled` storage name is retained for compatibility.
+- Compact Home pagination has separate 24px hit targets; row capacity adjusts to available space. Expanded toolbar has a minimum usable width.
+- `npm run test:electron` runs four real Electron regression scenarios (initial HTTP/boot identity + reload + nested/lazy CSS + input + navigation, Start/Home, Duo Split, Safari/Chrome install + Span continuity). It writes JSON, logs and `capturePage()` PNGs to a temporary directory, or `SIMULATOR_TEST_OUTPUT`.
+- Frame: restored slab artwork is now actually rendered, with image-body gutter registration and landscape rotation. Side buttons are not duplicated. SE keeps its existing CSS chassis and its buttons rotate with the body.
+- Duo aperture: inner/outer mesh positions provide bounds, bind-plane depth and convex contours; CSS aperture masks and camera-projected transition stencils share those contours. Occlusion uses the same screen plane. No hardware asset bytes changed.
+- Verification: typecheck, build, 107 unit/integration tests, asset audit (34 entries), four real Electron scenarios, and 19 display/posture pixel checks at 2× output density. Linux Xvfb + SwiftShader; no native Windows/macOS execution or GPU performance claim. Unsigned internal packages only. See `docs/visual-verification.md`.
+- Remaining platform limits: Chromium is not iOS WebKit; cross-origin stylesheets cannot be patched through page CSSOM; keyboard/launch/fold visuals remain estimates. macOS/Windows native smoke checks and signing remain outside this environment.
 
 ### Hardware restoration / content removal (2026-11-17; current owner decision)
 
@@ -41,7 +58,7 @@ Done in this round (see README for user-facing behaviour):
 - **Software keyboard** (`SoftwareKeyboard.tsx`, `resolveKeyboardHeight`, guest script in `emulation.ts`).
 
 - **Duo display continuity** (`services/guest-mirror.ts`, `GuestMirrorPane.tsx`, `duo-3d-engine.util.ts`):
-  - exactly one `<webview>` guest; it moves between cover and inner at `COVER_HANDOFF_DEG` (20°, same as `DeviceHinge.Status`), so state survives folding;
+  - exactly one `<webview>` guest; it moves between cover and inner at `COVER_HANDOFF_DEG` (2°; hinge status thresholds are separate), so state survives folding;
   - the left/top half of the bent inner display is a live frame mirror of that guest (capture loop in main, ≤30 fps, ~24 fps under SwiftShader) with pointer and wheel input forwarded, replacing the old second, unsynchronised page;
   - the lit display wakes with a 380 ms time-based fade instead of angle-driven opacity;
   - `rightVisibleClip` hides the part of the right leaf that the raised left leaf occludes from the camera.
@@ -59,17 +76,17 @@ Assessed, not done. Tauri on macOS would render with WKWebView, which is *more* 
 
 ### Next
 
-1. Duo 3D slices use a 44px radius instead of the glTF aperture squircle. At 2× zoom the resting postures (0°, 180°) show no bleed onto the bezel; mid-fold angles are not yet audited at pixel level (Priority 1 below).
+1. Glass-contour masking and six resting Duo postures are now covered by `test:visual`. Physical-device calibration, arbitrary orbit angles and frame-by-frame motion fidelity remain unverified; the existing film-derived timing/blur remains an estimate.
 2. Keyboard is visual only (type with the Mac keyboard); heights are approximations of UIKit's frame, and Safari's bar does not yet ride above it.
-3. Optional Playwright-based visual regression suite using `capturePage()` on each viewport class.
+3. Extend the compositor pixel suite to native Windows/macOS hardware and arbitrary orbit angles. The Linux suite uses `capturePage()` and a color round trip to reject stale guest/mirror frames.
 
 ## 1. Repository & Project Overview
 
 - **GitHub Repo**: `https://github.com/ReliOptic/pwa-stage`
-- **Stack**: Electron 33 + React 18 + TypeScript 5.6 + Vite 5 + Vitest 2 + Three.js r165 (`public/duo-3d/duo-3d-bundle.js`)
+- **Stack**: Electron 44 + React 18 + TypeScript 5.6 + Vite 5 + Vitest 2 + Three.js r165 (`public/duo-3d/duo-3d-bundle.js`)
 - **Primary Commands**:
   - `npm run typecheck` (`tsc --noEmit && tsc -p tsconfig.electron.json --noEmit`)
-  - `npm test` (`vitest run` — 8 test files, 22 tests passing as of handoff)
+  - `npm test` (`vitest run` — 19 test files, 107 tests at completion build 1.0.2)
   - `npm run build` (`tsc --noEmit && vite build && tsc -p tsconfig.electron.json`)
   - `npm run dist:app` / `npm run dist:dmg` (packages `iPhone PWA Simulator.app` via `electron-builder`)
 

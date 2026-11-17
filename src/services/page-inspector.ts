@@ -25,7 +25,7 @@ export const PAGE_INSPECTION_EXPRESSION = `(async () => {
   const manifestLink = link('link[rel="manifest"]');
   let manifest = null;
   let manifestError = null;
-  const manifestHref = manifestLink ? abs(manifestLink.getAttribute('href')) : null;
+  let manifestHref = manifestLink ? abs(manifestLink.getAttribute('href')) : null;
   if (manifestHref) {
     try {
       const ctrl = new AbortController();
@@ -36,7 +36,7 @@ export const PAGE_INSPECTION_EXPRESSION = `(async () => {
       });
       clearTimeout(timer);
       if (!res.ok) { manifestError = 'HTTP ' + res.status; }
-      else { manifest = await res.json(); }
+      else { manifestHref = res.url || manifestHref; manifest = await res.json(); }
     } catch (e) { manifestError = String(e && e.message || e); }
   }
   let serviceWorker = 'unsupported';
@@ -98,14 +98,14 @@ export function safeCssColor(value: unknown): string | null {
   return null;
 }
 
-function sanitizeManifest(raw: unknown, baseUrl: string): WebAppManifestSubset | null {
+function sanitizeManifest(raw: unknown, baseUrl: string, documentUrl: string): WebAppManifestSubset | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const m = raw as Record<string, unknown>;
   const resolve = (v: unknown): string | undefined => {
     const s = str(v);
     if (!s) return undefined;
     try {
-      return new URL(s, baseUrl).href;
+      return httpUrl(new URL(s, baseUrl).href) ?? undefined;
     } catch {
       return undefined;
     }
@@ -127,11 +127,18 @@ function sanitizeManifest(raw: unknown, baseUrl: string): WebAppManifestSubset |
         })
         .filter((i): i is WebAppManifestIcon => i !== null)
     : [];
+  const candidateStart = resolve(m.start_url);
+  const startUrl = candidateStart && new URL(candidateStart).origin === new URL(documentUrl).origin
+    ? candidateStart : documentUrl;
+  const candidateScope = resolve(m.scope);
+  const scope = candidateScope && new URL(candidateScope).origin === new URL(startUrl).origin &&
+    new URL(startUrl).pathname.startsWith(new URL(candidateScope).pathname)
+    ? candidateScope : new URL('.', startUrl).href;
   return {
     name: str(m.name, 120) ?? undefined,
     short_name: str(m.short_name, 60) ?? undefined,
-    start_url: resolve(m.start_url),
-    scope: resolve(m.scope),
+    start_url: startUrl,
+    scope,
     display: str(m.display, 32) ?? undefined,
     theme_color: safeCssColor(m.theme_color) ?? undefined,
     background_color: safeCssColor(m.background_color) ?? undefined,
@@ -161,7 +168,7 @@ export function sanitizePageInspection(raw: unknown): PageInspection | null {
     appleTouchIconSizes: str(r.appleTouchIconSizes, 32),
     hasStartupImage: r.hasStartupImage === true,
     manifestHref: httpUrl(r.manifestHref),
-    manifest: sanitizeManifest(r.manifest, url),
+    manifest: sanitizeManifest(r.manifest, httpUrl(r.manifestHref) ?? url, url),
     manifestError: str(r.manifestError, 200),
     serviceWorker:
       sw === 'controlled' || sw === 'registered' || sw === 'none' ? sw : 'unsupported'

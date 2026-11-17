@@ -35,6 +35,14 @@ describe('Home Screen reference layout', () => {
     expect(resolveHomePage(33, 16, 2)).toEqual({ pages: 3, page: 2 });
     expect(resolveHomePage(16, 16, 2)).toEqual({ pages: 1, page: 0 });
   });
+  it('separates page hit targets, search and dock on compact and rotated screens', () => {
+    for (const [width, height] of [[375, 667], [667, 375], [402, 874], [874, 402]]) {
+      const l = resolveHomeLayout(width, height);
+      expect(l.pageDotsTop + 24).toBeLessThanOrEqual(l.searchTop);
+      expect(l.gridTop + (l.rows - 1) * l.pitch + l.icon + 19).toBeLessThanOrEqual(l.pageDotsTop);
+      expect(l.searchTop + 28).toBeLessThanOrEqual(height - l.dockBottom - l.dockHeight);
+    }
+  });
   it('creates a closed original continuous-corner clip at icon size', () => {
     const path = homeIconClip(60);
     expect(path).toContain('M 60.000 30.000');

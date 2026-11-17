@@ -13,7 +13,10 @@ status, references) before changing anything.
 - `npm run build`, then drive Electron with Playwright's `_electron`:
   `NODE_PATH=$(npm root -g)`, executable `node_modules/electron/dist/electron`,
   args `['<repo>', '--no-sandbox', '--enable-unsafe-swiftshader']`,
-  under `xvfb-run -a -s "-screen 0 1920x1200x24"`, with a fresh `HOME` per run.
+  under `xvfb-run -a -s "-screen 0 1920x1200x24"`, with an isolated `app.setPath('userData', ...)` per run. Do not overwrite `HOME`.
+- Alternatively, `npm run test:electron` uses `--ozone-platform=headless` when no display is available.
+- `npm run test:visual` checks 19 display/posture cases at 2× output density. Prefer Xvfb;
+  it fences captures with a green→white guest paint round trip, including each mirrored leaf.
 - Capture with `BrowserWindow.getAllWindows()[0].webContents.capturePage()` via `app.evaluate`.
   Playwright `page.screenshot()` shows stale/blank `<webview>` content — never judge from it.
 - Selectors: toolbar starts collapsed → `button[title^="Show Toolbar"]` (label is ⌘B on macOS, Ctrl+B elsewhere);
@@ -21,13 +24,14 @@ status, references) before changing anything.
   URL `input[aria-label="Page URL"]`; browser radios `button[role="radio"]` (Safari / Chrome / Web App);
   Duo fold `.tb-action:has-text("Unfold")` / `("Fold")` — Shift-click = 8× slow motion;
   hinge readout `.duo-angle-readout`; posture chips `.duo-posture-strip button`.
-- Serve test pages from `127.0.0.1`. Bundled demo: `http://127.0.0.1:18765/reference.html`.
+- Serve test pages from `127.0.0.1`. Product has only a URL-entry start page; fixtures live under `tests/electron`.
 - Software rendering (SwiftShader): judge geometry, blur and brightness, not frame rate.
 
 ## Invariants (do not break)
 - Security: do not weaken `src/services/security.ts`, the trusted-sender / payload validation in
   `src/index.ts`, `src/preload.ts`, or the CSP in `vite.config.ts`. Guests stay sandboxed, preload-free.
-- iPhone Duo: exactly one live `<webview>` guest across folding — no reloads, page state kept.
+- iPhone Duo Span: exactly one live `<webview>` guest across folding — no reloads, page state kept.
+  Split comparison uses exactly two persistent guests, one per URL.
   Never clip a guest to zero visible pixels (it stops producing frames and freezes its mirror).
 - Resting postures (Book, Tabletop, Stand, free-stop slider) stay sharp and surface-mapped; the
   blurred anchored transition only runs while Fold / Unfold is animating.

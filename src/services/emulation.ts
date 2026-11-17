@@ -81,11 +81,11 @@ export function buildStandaloneInitScript(
   keyboardInset = 0
 ): string {
   const isStandalone = shellMode === BrowserShellMode.PWA_STANDALONE;
-  const swipeMode = touchCursorEnabled ? 'direct' : 'press';
+  const inputMode = touchCursorEnabled ? 'mouse' : 'touch';
   const config = JSON.stringify({
     standalone: isStandalone,
     shell: shellMode,
-    swipeMode,
+    inputMode,
     safe: safeArea,
     keyboardInset
   });
@@ -100,7 +100,7 @@ export function buildStandaloneInitScript(
   define(Navigator.prototype, 'maxTouchPoints', 5);
   try { delete Navigator.prototype.userAgentData; } catch {}
   define(Navigator.prototype, 'userAgentData', undefined);
-  window.__SIMULATOR_SWIPE_MODE = cfg.swipeMode;
+
 
   // --- (display-mode) media queries: Chromium cannot emulate them ---------
   window.__simDisplayMode = cfg.standalone ? 'standalone' : 'browser';
@@ -119,7 +119,7 @@ export function buildStandaloneInitScript(
     const root = document.documentElement;
     if (!root) return;
     root.dataset.simulatorShell = cfg.shell;
-    root.dataset.swipeMode = cfg.swipeMode;
+    root.dataset.simulatorInput = cfg.inputMode;
     root.style.setProperty('--__sim-sat', cfg.safe.top + 'px');
     root.style.setProperty('--__sim-sar', cfg.safe.right + 'px');
     root.style.setProperty('--__sim-sab', cfg.safe.bottom + 'px');
@@ -129,31 +129,54 @@ export function buildStandaloneInitScript(
   };
 
   // --- stylesheet fallback for env(safe-area-inset-*) and display-mode ----
-  const patchSheets = () => {
-    for (const sheet of Array.from(document.styleSheets)) {
-      let rules;
-      try { rules = sheet.cssRules; } catch { continue; }
-      if (!rules) continue;
-      for (let i = 0; i < rules.length; i++) {
-        const rule = rules[i];
-        if (rule.media && /display-mode/i.test(rule.media.mediaText)) {
-          try { rule.media.mediaText = rewriteQuery(rule.media.mediaText); } catch {}
-        }
-        if (window.__simEnvOverrideWorks) continue;
-        const cssText = rule.cssText;
-        if (cssText && cssText.includes('env(safe-area-inset-')) {
-          const patched = cssText
-            .replace(/env\\(\\s*safe-area-inset-top\\s*(?:,[^)]*)?\\)/g, 'var(--__sim-sat)')
-            .replace(/env\\(\\s*safe-area-inset-right\\s*(?:,[^)]*)?\\)/g, 'var(--__sim-sar)')
-            .replace(/env\\(\\s*safe-area-inset-bottom\\s*(?:,[^)]*)?\\)/g, 'var(--__sim-sab)')
-            .replace(/env\\(\\s*safe-area-inset-left\\s*(?:,[^)]*)?\\)/g, 'var(--__sim-sal)');
-          if (patched !== cssText) {
-            try { sheet.deleteRule(i); sheet.insertRule(patched, i); } catch {}
-          }
+  // Traverse grouping rules (@supports, @layer, nested @media, @import),
+  // and preserve the original query so a live mode change can restore it.
+  const originals = window.__simOriginalMedia || (window.__simOriginalMedia = new WeakMap());
+  const patchRules = (owner) => {
+    let rules;
+    try { rules = owner.cssRules; } catch { return; } // Keep the origin boundary.
+    if (!rules) return;
+    for (const rule of Array.from(rules)) {
+      if (rule.media) {
+        const original = originals.get(rule) || rule.media.mediaText;
+        if (/display-mode/i.test(original)) {
+          originals.set(rule, original);
+          const rewritten = rewriteQuery(original);
+          if (rewritten !== rule.media.mediaText) rule.media.mediaText = rewritten;
         }
       }
+      if (rule.styleSheet) patchRules(rule.styleSheet);
+      if (rule.cssRules) patchRules(rule);
     }
   };
+  const patchSheets = () => {
+    for (const sheet of [...document.styleSheets, ...(document.adoptedStyleSheets || [])]) patchRules(sheet);
+  };
+  window.__simPatchSheets = patchSheets;
+  // Handle lazy styles, loaded links and constructed stylesheets without
+  // polling every frame or changing the page's layout rules.
+  if (!window.__simSheetWatch) {
+    window.__simSheetWatch = true;
+    let queued = false;
+    const schedule = () => {
+      if (queued) return;
+      queued = true;
+      queueMicrotask(() => { queued = false; window.__simPatchSheets(); });
+    };
+    new MutationObserver((records) => {
+      if (records.some(r => r.type === 'childList' || r.target.nodeName === 'STYLE' || r.target.parentNode?.nodeName === 'STYLE')) schedule();
+    }).observe(document, { subtree: true, childList: true, characterData: true });
+    document.addEventListener('load', e => { if (e.target.tagName === 'LINK') schedule(); }, true);
+    for (const name of ['insertRule', 'replaceSync', 'replace']) {
+      const native = CSSStyleSheet.prototype[name];
+      CSSStyleSheet.prototype[name] = function(...args) {
+        const result = native.apply(this, args);
+        if (result && typeof result.then === 'function') result.then(schedule, () => {});
+        else schedule();
+        return result;
+      };
+    }
+  }
 
   const probeEnvOverride = () => {
     if (!document.body) return;
@@ -325,8 +348,7 @@ async function replaceInitScript(
     bookkeeping.initScriptId = null;
   }
   const added = (await target.debugger
-    .sendCommand('Page.addScriptToEvaluateOnNewDocument', { source })
-    .catch(() => null)) as { identifier?: string } | null;
+    .sendCommand('Page.addScriptToEvaluateOnNewDocument', { source })) as { identifier?: string } | null;
   bookkeeping.initScriptId = added?.identifier ?? null;
   // Also apply to the document that is already loaded. Runtime.evaluate does
   // not wait for `load` (executeJavaScript does, and can hang on pages that
@@ -347,7 +369,7 @@ async function replaceInjectedCss(
   bookkeeping.cssKey = await target.insertCSS(css);
 }
 
-export async function applyEmulationToTarget(
+async function applyEmulationNow(
   target: EmulationTargetWebContents,
   input: EmulationProfileInput
 ): Promise<Result<EmulationProfile, EmulationFailureError>> {
@@ -360,6 +382,9 @@ export async function applyEmulationToTarget(
     if (!target.debugger.isAttached()) {
       target.debugger.attach('1.3');
     }
+    // Page must be enabled before registering scripts, otherwise Chromium
+    // acknowledges the registration but skips it at document creation.
+    await target.debugger.sendCommand('Page.enable');
     target.setUserAgent(profile.userAgent);
     target.setZoomFactor?.(1.0);
 
@@ -382,6 +407,9 @@ export async function applyEmulationToTarget(
       }),
       target.debugger.sendCommand('Emulation.setTouchEmulationEnabled', {
         ...profile.touch
+      }),
+      target.debugger.sendCommand('Emulation.setEmitTouchEventsForMouse', {
+        enabled: !input.touchCursorEnabled, configuration: 'mobile'
       }),
       target.debugger.sendCommand('Emulation.setEmulatedMedia', {
         features: [
@@ -433,4 +461,20 @@ export async function applyEmulationToTarget(
       }
     };
   }
+}
+
+// Renderer state updates and navigation events can arrive concurrently. Never
+// leave two boot scripts installed or let an older profile win a race.
+const pendingByGuest = new Map<number, Promise<Result<EmulationProfile, EmulationFailureError>>>();
+export function applyEmulationToTarget(
+  target: EmulationTargetWebContents,
+  input: EmulationProfileInput
+): Promise<Result<EmulationProfile, EmulationFailureError>> {
+  const pending = (pendingByGuest.get(target.id) ?? Promise.resolve())
+    .then(() => applyEmulationNow(target, input));
+  pendingByGuest.set(target.id, pending);
+  void pending.finally(() => {
+    if (pendingByGuest.get(target.id) === pending) pendingByGuest.delete(target.id);
+  });
+  return pending;
 }

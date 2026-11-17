@@ -85,16 +85,16 @@ export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
       click: (): void => applyStatePatchFromMenu(ctx, { alwaysOnTop: !state.alwaysOnTop })
     },
     {
-      label: 'Swipe Mode',
+      label: 'Input Mode',
       submenu: [
         {
-          label: 'Drag (Click & Drag)',
+          label: 'Touch (Drag to Scroll)',
           type: 'radio',
           checked: !state.touchCursorEnabled,
           click: (): void => applyStatePatchFromMenu(ctx, { touchCursorEnabled: false })
         },
         {
-          label: 'Hover (Cursor / Trackpad)',
+          label: 'Mouse (Hover / Select)',
           type: 'radio',
           checked: state.touchCursorEnabled,
           click: (): void => applyStatePatchFromMenu(ctx, { touchCursorEnabled: true })

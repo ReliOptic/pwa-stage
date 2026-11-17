@@ -268,7 +268,7 @@ export function App(): React.ReactElement {
           presets={ctrl.ctx.presets}
           bookmarks={ctrl.ctx.bookmarks}
           activePreset={activePreset}
-          targetWidthPx={scaledFrameWidth}
+          targetWidthPx={Math.max(348, scaledFrameWidth)}
           onUpdateState={ctrl.handleUpdateState}
           onReload={ctrl.triggerReload}
           onOpenDevTools={ctrl.handleOpenDevTools}

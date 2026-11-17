@@ -89,14 +89,14 @@ export function useScreen(): ScreenContextValue {
 // App surface: wraps the live <webview> and plays launch / close transitions
 // ---------------------------------------------------------------------------
 
-export function AppSurface(props: { readonly children: React.ReactNode }): React.ReactElement {
+export function AppSurface(props: { readonly children: React.ReactNode; readonly style?: React.CSSProperties }): React.ReactElement {
   const screen = useScreen();
   const origin = `${(screen.launchOrigin.x * 100).toFixed(1)}% ${(screen.launchOrigin.y * 100).toFixed(1)}%`;
   const hidden = screen.phase === 'home';
   return (
     <div
       className={`app-surface app-surface-${screen.phase}`}
-      style={{ transformOrigin: origin, visibility: hidden ? 'hidden' : 'visible' }}
+      style={{ transformOrigin: origin, visibility: hidden ? 'hidden' : 'visible', ...props.style }}
       aria-hidden={hidden}
     >
       {props.children}
@@ -181,7 +181,7 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
     '--home-icon': `${layout.icon}px`, '--home-panel': `${layout.panelWidth}px`,
     '--home-left': `${layout.left}px`, '--home-top': `${layout.top}px`,
     '--home-widget': `${layout.widget}px`, '--home-grid-top': `${layout.gridTop}px`,
-    '--home-pitch': `${layout.pitch}px`, '--home-search-top': `${layout.searchTop}px`,
+    '--home-dots-top': `${layout.pageDotsTop}px`, '--home-pitch': `${layout.pitch}px`, '--home-search-top': `${layout.searchTop}px`,
     '--home-dock-height': `${layout.dockHeight}px`, '--home-dock-bottom': `${layout.dockBottom}px`,
     transformOrigin: `${screen.launchOrigin.x * 100}% ${screen.launchOrigin.y * 100}%`
   } as React.CSSProperties;

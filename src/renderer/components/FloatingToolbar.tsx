@@ -352,10 +352,11 @@ function HardwareRow(props: FloatingToolbarProps): React.ReactElement {
         onClick={props.onOpenDevTools}
       />
       <span className="tb-spacer" />
-      <div className="tb-seg tb-seg-small" role="radiogroup" aria-label="Pointer as touch">
+      <div className="tb-seg tb-seg-small" role="radiogroup" aria-label="Input mode">
         <button
           type="button"
           role="radio"
+          aria-label="Touch input"
           aria-checked={!state.touchCursorEnabled}
           className={`tb-seg-btn ${!state.touchCursorEnabled ? 'seg-active' : ''}`}
           title="Touch = click and drag (like a finger)"
@@ -366,9 +367,10 @@ function HardwareRow(props: FloatingToolbarProps): React.ReactElement {
         <button
           type="button"
           role="radio"
+          aria-label="Mouse input"
           aria-checked={state.touchCursorEnabled}
           className={`tb-seg-btn ${state.touchCursorEnabled ? 'seg-active' : ''}`}
-          title="Touch = hover / trackpad swipe without clicking"
+          title="Mouse = hover and select text; use wheel or trackpad to scroll"
           onClick={(): void => onUpdateState({ touchCursorEnabled: true })}
         >
           <Sparkles size={10} />
@@ -405,13 +407,32 @@ function HardwareRow(props: FloatingToolbarProps): React.ReactElement {
               duoDisplayMode:
                 state.duoDisplayMode === DuoDisplayMode.SINGLE_SPAN
                   ? DuoDisplayMode.SPLIT_COMPARISON
-                  : DuoDisplayMode.SINGLE_SPAN
+                  : DuoDisplayMode.SINGLE_SPAN,
+              ...(state.duoDisplayMode === DuoDisplayMode.SINGLE_SPAN && state.secondaryUrl === 'http://localhost:5173/' ? { secondaryUrl: state.currentUrl } : {})
             })
           }
         />
       )}
     </div>
   );
+}
+
+function ComparisonUrlRow(props: FloatingToolbarProps): React.ReactElement {
+  const [draft, setDraft] = useState(props.state.secondaryUrl);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => setDraft(props.state.secondaryUrl), [props.state.secondaryUrl]);
+  return <form className="tb-row tb-comparison" onSubmit={event => {
+    event.preventDefault();
+    const result = validateHttpUrl(draft, 'secondaryUrl');
+    if (result.ok) { setError(null); props.onUpdateState({ secondaryUrl: result.value }); }
+    else setError(result.error.message);
+  }}>
+    <label htmlFor="comparison-url">Compare</label>
+    <div className={`shadcn-input-group ${error ? 'tb-input-error' : ''}`} title={error ?? 'Page on the left / upper display'}>
+      <input id="comparison-url" className="shadcn-input" aria-label="Comparison URL" value={draft} spellCheck={false} onChange={event => setDraft(event.target.value)} />
+      <button type="submit" className="shadcn-input-submit" aria-label="Go to comparison URL"><CornerDownLeft size={9} /></button>
+    </div>
+  </form>;
 }
 
 export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement | null {
@@ -426,6 +447,7 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
       <WindowRow {...props} />
       <BrowserRow {...props} />
       <HardwareRow {...props} />
+      {isDuo(props.activePreset) && props.state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON && <ComparisonUrlRow {...props} />}
     </header>
   );
 }

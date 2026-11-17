@@ -248,14 +248,16 @@ function resolveEffectiveMetrics(
 }
 
 function resolveActiveChromeAsset(
-  _preset: DevicePreset,
+  preset: DevicePreset,
   orientation: Orientation,
   isFramed: boolean,
   isDuoFamily: boolean,
   foldAngle: number
 ): string | null {
-  if (!isFramed || !isDuoFamily) {
-    return null;
+  if (!isFramed || preset.formFactor === DeviceFormFactor.HOME_BUTTON_SLAB) return null;
+  if (!isDuoFamily) {
+    return preset.id === DeviceModelId.IPHONE_17_AIR ? IOS27_CHROME_ASSETS.phoneAir
+      : preset.width >= 428 ? IOS27_CHROME_ASSETS.phone12 : IOS27_CHROME_ASSETS.phone11;
   }
   if (foldAngle <= 3) {
     return orientation === Orientation.PORTRAIT ? IOS27_CHROME_ASSETS.phone15DuoOuter : null;
@@ -314,7 +316,18 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
       : HardwareCutoutType.UNDER_DISPLAY_HIDDEN
     : preset.cutoutType;
   const showSlabButtons =
-    !isDuoFamily && state.isFramed && state.orientation === Orientation.PORTRAIT;
+    !isDuoFamily && !chromeAsset && state.isFramed;
+
+  const slabSkin = !isDuoFamily && chromeAsset ? {
+    src: chromeAsset,
+    w: chromeAsset === IOS27_CHROME_ASSETS.phoneAir ? 920 : chromeAsset === IOS27_CHROME_ASSETS.phone12 ? 960 : 884,
+    h: chromeAsset === IOS27_CHROME_ASSETS.phoneAir ? 1892 : chromeAsset === IOS27_CHROME_ASSETS.phone12 ? 1980 : 1816
+  } : null;
+  const skinW = isPortraitOrientation ? eff.outerFrameWidth : eff.outerFrameHeight;
+  const skinH = isPortraitOrientation ? eff.outerFrameHeight : eff.outerFrameWidth;
+  // Registration of the bundled artwork's body bounds (side buttons lie outside).
+  // These are image-space gutters, not physical device measurements.
+  const skinTransform = isPortraitOrientation ? undefined : `translateY(${skinW}px) rotate(-90deg)`;
 
   const syncDeviceForAngle = useCallback(
     (deg: number, targetPosture?: DuoPostureId): void => {
@@ -423,13 +436,13 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
           <button
             type="button"
             className={`bezel-mini-btn ${state.touchCursorEnabled ? 'bezel-mini-swipe-direct' : ''}`}
-            title="Switch swipe mode: Drag vs Hover"
+            title="Switch input: Touch (drag to scroll) / Mouse (hover and select)"
             onClick={(): void =>
               props.onUpdateState({ touchCursorEnabled: !state.touchCursorEnabled })
             }
           >
             {state.touchCursorEnabled ? <Sparkles size={11} /> : <MousePointerClick size={11} />}
-            <span>{state.touchCursorEnabled ? 'Hover' : 'Drag'}</span>
+            <span>{state.touchCursorEnabled ? 'Mouse' : 'Touch'}</span>
           </button>
           <button
             type="button"
@@ -468,6 +481,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
               hinge.setPitchDeg(nextPitch);
             }}
             onRegisterWebContentsId={props.onRegisterWebContentsId}
+            onUpdateState={props.onUpdateState}
             onReload={props.onReload}
             onToggleDuoFold={(): void => {
               const nextDeg = hinge.foldAngle < 90 ? 180 : 0;
@@ -477,6 +491,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
             onGoHome={props.onGoHome}
             tintColor={props.tintColor}
             onPageReady={props.onPageReady}
+            onNavigate={(url): void => props.onUpdateState({ currentUrl: url })}
           />
         ) : (
           <div
@@ -485,20 +500,27 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
               width: `${eff.outerFrameWidth}px`,
               height: `${eff.outerFrameHeight}px`,
               borderRadius: chromeAsset ? undefined : outerRadiusCss,
-              backgroundImage: chromeAsset ? `url('${chromeAsset}')` : 'none',
+              backgroundImage: chromeAsset && !slabSkin ? `url('${chromeAsset}')` : 'none',
               backgroundSize: '100% 100%',
               transform: sc === 1 ? undefined : `scale(${sc})`,
               transformOrigin: 'top left',
               ['--titanium-finish' as string]: preset.titaniumFinish
             }}
           >
+            {slabSkin && <div className="hardware-skin" aria-hidden="true" style={{
+              width: skinW, height: skinH,
+              transform: skinTransform
+            }}><img src={slabSkin.src} alt="" draggable={false} style={{
+              left: -10 * skinW / (slabSkin.w - 20), top: -2 * skinH / (slabSkin.h - 4),
+              width: slabSkin.w * skinW / (slabSkin.w - 20), height: slabSkin.h * skinH / (slabSkin.h - 4)
+            }} /></div>}
             {showSlabButtons && (
-              <>
+              <div className="hardware-skin" style={{ width: skinW, height: skinH, transform: skinTransform }}>
                 <span className="hw-btn hw-btn-left hw-btn-action" aria-hidden="true" />
                 <span className="hw-btn hw-btn-left hw-btn-vol-up" aria-hidden="true" />
                 <span className="hw-btn hw-btn-left hw-btn-vol-down" aria-hidden="true" />
                 <span className="hw-btn hw-btn-right hw-btn-power" aria-hidden="true" />
-              </>
+              </div>
             )}
             {hasHomeButton && state.isFramed && (
               <>
@@ -555,6 +577,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
                   reloadTick={props.reloadTick}
                   onRegisterWebContentsId={props.onRegisterWebContentsId}
                   onPageReady={props.onPageReady}
+                  onNavigate={(url): void => props.onUpdateState({ currentUrl: url })}
                 />
               </AppSurface>
               <HomeScreen
