@@ -1,7 +1,9 @@
 # Agent guide — pwa-stage (iPhone PWA Simulator)
 
-Electron 44 + React 18 + TypeScript + Vite + Three.js. A floating macOS iPhone / iPhone Duo
-simulator for PWA developers. Read `README.md` (behaviour) and `HANDOFF.md` §0 (architecture,
+Electron 44 + React 18 + TypeScript + Vite + Three.js. A floating iPhone / iPhone Duo simulator
+for PWA developers, for macOS and Windows. **Personal / internal tool — not for public distribution**
+(owner decision 2026-11-17): realism comes first, so bundled hardware assets of unknown provenance
+(Duo 3D model, device chrome) are used as-is. Do not publish the repo or installers. Read `README.md` (behaviour) and `HANDOFF.md` §0 (architecture,
 status, references) before changing anything.
 
 ## Commands
@@ -30,7 +32,11 @@ status, references) before changing anything.
 - Resting postures (Book, Tabletop, Stand, free-stop slider) stay sharp and surface-mapped; the
   blurred anchored transition only runs while Fold / Unfold is animating.
 - Emulation must not inject CSS that changes the page under test (layout, overflow, color-scheme).
-- No Apple assets (video, images, 3D models) in the repo; keep reference material outside it.
+- Bundled hardware assets (`public/duo-3d`, `public/assets/ios27`) are the realism baseline: never
+  replace them with something that looks less real. Their provenance is tracked in `ASSETS.md`.
+- No mock / sample content: no bundled demo pages, fake apps, fake widgets or placeholder data in the
+  product. Test pages live outside the repo (scratch) or under `tests/`.
+- Keep reference material (films, screenshots) outside the repo.
 - Values that are estimates must be labelled as such in code/docs; do not present guesses as measurements.
 
 ## Working agreement
