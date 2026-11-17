@@ -12,19 +12,8 @@ export interface SimulatorEnvConfig {
   readonly quickBookmarks: readonly QuickUrlBookmark[];
 }
 
-const FALLBACK_TARGET_URL = [
-  'https',
-  '://',
-  'campsite',
-  '.ing/'
-].join('');
-
-const FALLBACK_REBOOT_REFERENCE_URL = [
-  'http',
-  '://',
-  '127.0.0.1',
-  ':18765/reference.html'
-].join('');
+const FALLBACK_TARGET_URL = 'http://127.0.0.1:18765/reference.html';
+const FALLBACK_REBOOT_REFERENCE_URL = FALLBACK_TARGET_URL;
 
 const FALLBACK_LOCAL_VITE_URL = [
   'http',
@@ -129,8 +118,7 @@ export function loadSimulatorEnvConfig(
       safariIosVersion: env.SIMULATOR_IOS_VERSION ?? '27_3',
       chromeIosVersion: env.SIMULATOR_CRIOS_VERSION ?? '142.0.7440.0',
       quickBookmarks: [
-        { id: 'reboot-reference', label: 'Reboot 393×852', url: rebootReferenceUrl },
-        { id: 'prod-campsite', label: 'campsite.ing (Prod)', url: FALLBACK_TARGET_URL },
+        { id: 'reboot-reference', label: 'Field Notes · local demo', url: rebootReferenceUrl },
         { id: 'local-vite', label: 'Localhost :5173', url: FALLBACK_LOCAL_VITE_URL },
         { id: 'local-next', label: 'Localhost :3000', url: FALLBACK_LOCAL_NEXT_URL }
       ]

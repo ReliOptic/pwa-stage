@@ -174,6 +174,7 @@ function AnchoredFace(props: AnchoredFaceProps): React.ReactElement {
                   mirrorInteractive={side === 'innerLeft'}
                 />
               </AppSurface>
+              <HomeScreen mirror width={INNER_W} height={INNER_H} safeTop={20} trailingInset={84} />
               <SystemOverlayLayer
                 preset={props.preset}
                 state={props.state}
@@ -352,7 +353,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
       onPointerCancel={handleStagePointerUp}
       title="Drag margin to orbit 3D device (Alt+drag over screen)"
     >
-      {/* 1. Apple Official 3D Skinned glTF Hardware Mesh Canvas */}
+      {/* 1. Original procedural foldable hardware canvas */}
       <canvas
         ref={canvasRef}
         className="duo-3d-webgl-canvas"
@@ -396,6 +397,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
                 mirrorGuestId={mirrorLeft ? primaryGuestId : undefined}
               />
             </AppSurface>
+            <HomeScreen width={fullLogicalW} height={fullLogicalH} safeTop={54} trailingInset={isHorizontalSplit ? 0 : 84} />
             <SystemOverlayLayer
               preset={preset}
               state={state}
@@ -458,7 +460,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
                 onPageReady={props.onPageReady}
               />
             </AppSurface>
-            <HomeScreen trailingInset={isOuterPrimary || !isHorizontalSplit ? 84 : 0} />
+            <HomeScreen width={fullLogicalW} height={fullLogicalH} safeTop={54} trailingInset={isOuterPrimary || !isHorizontalSplit ? 84 : 0} />
             <LaunchSplash />
             <SystemOverlayLayer
               preset={preset}

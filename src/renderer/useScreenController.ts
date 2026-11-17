@@ -4,6 +4,7 @@ import { InstalledWebApp } from '../types/pwa.types';
 import { BrowserShellMode, SimulatorState } from '../types/simulator.types';
 import { getSimulatorBridge } from '../utils/renderer-bridge.util';
 import {
+  HomeNavigation,
   LaunchOrigin,
   PermissionPromptState,
   ScreenContextValue,
@@ -67,6 +68,7 @@ export function useScreenController(
   reload: () => void
 ): ScreenController {
   const [phase, setPhase] = useState<ScreenPhase>('app');
+  const [homeNavigation, setHomeNavigation] = useState<HomeNavigation>({ page: 0, searching: false, query: '' });
   const [launchOrigin, setLaunchOrigin] = useState<LaunchOrigin>({ x: 0.5, y: 0.92 });
   const [splash, setSplash] = useState<ScreenContextValue['splash']>(null);
   const [installedApps, setInstalledApps] = useState<InstalledWebApp[]>(() => loadInstalledApps());
@@ -240,6 +242,8 @@ export function useScreenController(
 
   const value = useMemo<ScreenContextValue>(
     () => ({
+      homeNavigation,
+      setHomeNavigation,
       phase,
       launchOrigin,
       splash,
@@ -258,6 +262,7 @@ export function useScreenController(
       reload
     }),
     [
+      homeNavigation,
       phase,
       launchOrigin,
       splash,

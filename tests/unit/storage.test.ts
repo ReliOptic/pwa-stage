@@ -37,7 +37,7 @@ describe('storage service', () => {
   }
   const envConfig = envResult.value;
 
-  it('returns default campsite.ing state when storage file does not exist', () => {
+  it('returns default local demo state when storage file does not exist', () => {
     const fsAdapter = createMemoryFs();
     const res = loadSimulatorState({
       storageFilePath: '/tmp/state.json',
@@ -47,7 +47,7 @@ describe('storage service', () => {
 
     expect(res.ok).toBe(true);
     if (res.ok) {
-      expect(res.value.currentUrl).toBe('https://campsite.ing/');
+      expect(res.value.currentUrl).toBe('http://127.0.0.1:18765/reference.html');
       expect(res.value.selectedDeviceId).toBe(DeviceModelId.IPHONE_17_PRO);
     }
   });

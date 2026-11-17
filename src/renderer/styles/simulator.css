@@ -929,52 +929,70 @@ html, body, #root {
 .screenshot-flash { position: absolute; inset: 0; z-index: 60; background: #fff; pointer-events: none; animation: sim-flash 420ms ease-out forwards; border-radius: inherit; }
 @keyframes sim-flash { from { opacity: 0.85; } to { opacity: 0; } }
 
-/* ===================== Home Screen (original artwork, not Apple's) ===================== */
-.home-screen { position: absolute; inset: 0; z-index: 24; overflow: hidden; border-radius: inherit; color: #fff; }
+/* Home geometry: reference-normalized estimates; docs/ios-home-layout-measurements.md.
+   Original CSS landscape and hand-drawn neutral symbols. No Apple artwork/fonts. */
+.home-screen { position: absolute; inset: 0; z-index: 24; overflow: hidden; border-radius: inherit; color: #fff; font-family: Arial, sans-serif; }
 .home-screen-closing { animation: sim-home-in 320ms ease-out both; }
-.home-screen-launching { animation: sim-home-out 420ms ease-in both; }
-@keyframes sim-home-in { from { transform: scale(1.08); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
+.home-screen-launching { animation: sim-home-out 420ms ease-in both; pointer-events: none; }
+@keyframes sim-home-in { from { transform: scale(1.12); opacity: .5; } to { transform: scale(1); opacity: 1; } }
 @keyframes sim-home-out { to { transform: scale(1.12); opacity: 0; } }
-.home-wallpaper {
-  position: absolute; inset: 0;
-  background:
-    radial-gradient(120% 70% at 15% 10%, #3b5bdb 0%, transparent 60%),
-    radial-gradient(90% 60% at 90% 35%, #9c36b5 0%, transparent 60%),
-    radial-gradient(120% 80% at 50% 110%, #0b7285 0%, transparent 65%),
-    #101527;
-}
-.home-content { position: relative; padding: 72px calc(22px + var(--home-trailing, 0px)) 0 22px; display: flex; flex-direction: column; gap: 22px; }
-.home-widget {
-  display: flex; flex-direction: column; padding: 14px 16px; border-radius: 22px; width: 100%; max-width: 360px;
-  background: rgba(255, 255, 255, 0.14); backdrop-filter: blur(24px) saturate(160%);
-  border: 0.5px solid rgba(255, 255, 255, 0.25);
-}
-.home-widget-day { font-size: 12px; font-weight: 700; color: #ff6b6b; letter-spacing: 0.4px; }
-.home-widget-date { font-size: 40px; font-weight: 300; line-height: 1.05; }
-.home-widget-sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
-.home-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 18px; column-gap: 12px; }
+.home-wallpaper { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(170deg,#294e6d 0%,#7fadb7 40%,#d0b69a 62%,#a87d60 100%); }
+.home-wallpaper i { position: absolute; display: block; width: 160%; height: 65%; left: -35%; top: 48%; border-radius: 50% 65% 0 0; transform: rotate(-18deg); background: linear-gradient(170deg,#a8c7bf,#356c70 55%,#234e58); box-shadow: inset 0 2px 1px #def1df80; }
+.home-wallpaper i:nth-child(2) { left: 5%; top: 66%; transform: rotate(-28deg); background: linear-gradient(155deg,#c6c2a2,#708f83 46%,#315b62); }
+.home-wallpaper i:nth-child(3) { left: -45%; top: 87%; transform: rotate(18deg); background: linear-gradient(170deg,#e3c1a2,#ac8067 50%,#664f50); }
+.home-widgets { position: absolute; left: var(--home-left); top: var(--home-top); width: var(--home-panel); display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.home-widget { height: var(--home-widget); padding: 15px; box-sizing: border-box; border-radius: 24px; display: flex; flex-direction: column; box-shadow: inset 0 1px 1px #ffffff40, 0 2px 5px #00000012; overflow: hidden; }
+.home-weather { background: linear-gradient(150deg,#235d8c,#4385ad); font-size: 14px; }
+.home-weather strong { font-size: 40px; font-weight: 300; line-height: 1.05; }
+.home-weather svg { width: 22px; height: 22px; margin-top: auto; }
+.home-weather small { font-size: 10px; margin-top: 2px; }
+.home-date { background: #faf8f3; color: #2a353b; }
+.home-date > small { font-size: 10px; color: #ba554f; }
+.home-date > strong { font-size: 34px; line-height: 1.1; font-weight: 300; }
+.home-mini-calendar { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; font-size: 9px; text-align: center; margin-top: auto; }
+.home-today { background: #b9594d; border-radius: 50%; color: white; }
+.home-widget-caption { display: block; text-align: center; font-size: 12px; line-height: 20px; text-shadow: 0 1px 3px #0006; }
+.home-grid { position: absolute; left: var(--home-left); top: var(--home-grid-top); width: var(--home-panel); display: grid; grid-template-columns: repeat(4, var(--home-icon)); justify-content: space-between; grid-auto-rows: var(--home-pitch); }
 .home-app { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
-.home-app-icon {
-  width: 62px; height: 62px; border-radius: 14.5px; /* ≈ continuous corner of iOS icons */
-  display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 0; cursor: pointer;
-  border: 0.5px solid rgba(255, 255, 255, 0.18); background: linear-gradient(160deg, #4c6ef5, #364fc7);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28); pointer-events: auto;
-}
+.home-app-icon { width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 0; cursor: pointer; border: 0; color: #fff; background: linear-gradient(150deg,#5289be,#34658f); box-shadow: inset 0 1px 1px #ffffff66; pointer-events: auto; position: relative; }
+.home-app-icon:disabled { cursor: default; opacity: 1; }
+.home-app-icon::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 1px 1px #ffffff45; pointer-events: none; }
 .home-app-icon img { width: 100%; height: 100%; object-fit: cover; }
-.home-app-icon:active { transform: scale(0.92); filter: brightness(0.85); }
+.home-app-icon:enabled:active { transform: scale(.94); filter: brightness(.85); }
 .home-app-initial { font-size: 28px; font-weight: 600; color: #fff; }
-.home-app-icon-ghost { background: rgba(255, 255, 255, 0.12); border: 1.5px dashed rgba(255, 255, 255, 0.55); color: #fff; box-shadow: none; }
-.home-app-label { font-size: 11.5px; font-weight: 500; max-width: 74px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
-.home-search-pill {
-  position: absolute; left: calc((100% - var(--home-trailing, 0px)) / 2); bottom: 122px; transform: translateX(-50%); height: 28px; padding: 0 12px;
-  display: inline-flex; align-items: center; gap: 5px; border-radius: 14px; font-size: 12px; font-weight: 600;
-  background: rgba(255, 255, 255, 0.18); backdrop-filter: blur(20px);
-}
-.home-dock {
-  position: absolute; left: 12px; right: calc(12px + var(--home-trailing, 0px)); bottom: 14px; height: 92px; border-radius: 34px;
-  display: flex; align-items: center; justify-content: space-around; padding: 0 12px;
-  background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(28px) saturate(170%); border: 0.5px solid rgba(255, 255, 255, 0.25);
-}
+.home-app-label { font-size: 12px; font-weight: 400; max-width: 82px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 3px #0008; line-height: 14px; }
+.home-search-pill { position: absolute; left: 50%; top: var(--home-search-top); transform: translateX(-50%); height: 28px; padding: 0 11px; display: inline-flex; align-items: center; gap: 4px; border-radius: 20px; color: inherit; font: 12px Arial,sans-serif; cursor: pointer; }
+.home-search-pill, .home-dock { background: #d8f3ef26; backdrop-filter: blur(24px) saturate(130%); border: 1px solid #fff3; box-shadow: inset 0 1px 1px #ffffff40, inset 0 -1px 1px #ffffff20, 0 2px 5px #0000000c; }
+.home-dock { position: absolute; left: 16px; right: 16px; bottom: var(--home-dock-bottom); height: var(--home-dock-height); border-radius: 38px; display: flex; align-items: center; justify-content: space-evenly; }
+.home-with-rail .home-dock { left: auto; right: 6px; width: 72px; flex-direction: column; border-radius: 28px; }
+.home-with-rail .home-search-pill { left: auto; right: 18px; transform: none; width: 48px; height: 48px; border-radius: 50%; justify-content: center; padding: 0; }
+.home-with-rail .home-search-pill svg { width: 23px; height: 23px; }
+.home-page-dots { position: absolute; left: var(--home-left); width: var(--home-panel); bottom: 24px; display: flex; gap: 9px; justify-content: center; }
+.home-page-dots button { padding: 0; width: 7px; height: 7px; border-radius: 50%; border: 0; background: #fff5; cursor: pointer; }
+.home-page-dots button[aria-current] { background: #fff; }
+.home-screen:not(.home-with-rail) .home-page-dots { bottom: 126px; }
+.home-search-field { position: absolute; top: 28%; left: 20px; right: 20px; z-index: 2; padding: 12px; border-radius: 22px; background: #f4f7f4f5; display: flex; box-shadow: 0 4px 30px #0004; }
+.home-search-field input { flex: 1; min-width: 0; background: transparent; border: 0; color: #14282f; padding: 10px; font: 16px Arial,sans-serif; }
+.home-search-field button { border: 0; border-radius: 50%; font-size: 24px; width: 42px; cursor: pointer; }
+.home-extra-widgets { position: absolute; left: 66px; top: 52px; width: 338px; }
+.home-music-widget { height: 160px; padding: 16px; box-sizing: border-box; background: #4d4145e8; border-radius: 26px; display: flex; gap: 16px; align-items: center; }
+.home-album { width: 126px; height: 126px; flex-shrink: 0; border-radius: 12px; display: grid; place-items: center; background: repeating-linear-gradient(140deg,#d5a779 0 12px,#597e7c 12px 26px,#344d64 26px 38px); }
+.home-music-widget > div:last-child { display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
+.home-music-widget small { font-size: 9px; opacity: .7; }
+.home-music-widget strong { font-size: 17px; }
+.home-play { font-size: 11px; padding: 6px 8px; background: #fff2; border-radius: 16px; margin-top: 9px; }
+.home-agenda-widget { height: 358px; margin-top: 18px; padding: 22px; border-radius: 28px; background: #fbfaf6; color: #303e46; box-sizing: border-box; }
+.home-agenda-widget > small { color: #b65e55; font-size: 10px; display: block; }
+.home-agenda-widget > strong { font-size: 32px; font-weight: 300; }
+.home-agenda-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; font-size: 11px; }
+.home-agenda-columns span { font-size: 9px; color: #788888; }
+.home-agenda-columns p { padding: 13px 8px; border-left: 3px solid #729b89; background: #e1ebe4; min-height: 35px; margin: 10px 0 18px; }
+.home-agenda-columns > div:last-child p { background: #f1e2dc; border-color: #c29180; }
+/* The existing status layer retains its original glyphs; Home owns only dock/search. */
+.ios-overlay-home .ios-duo-vertical-rail { background: transparent; border: 0; box-shadow: none; backdrop-filter: none; }
+.ios-overlay-home .ios-duo-v68-status { margin-top: 88px; }
+.ios-overlay-home .ios-v68-aux-line { display: none; }
+@media (prefers-reduced-motion: reduce) { .home-screen, .app-surface, .launch-splash { animation-duration: 1ms; } }
 
 /* ===================== iOS sheets, alerts ===================== */
 .ios-sheet-scrim {

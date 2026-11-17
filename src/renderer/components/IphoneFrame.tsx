@@ -557,6 +557,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
                 />
               </AppSurface>
               <HomeScreen
+                width={eff.logicalWidth} height={eff.logicalHeight} safeTop={eff.safeArea.top}
                 trailingInset={
                   hasDuoSystemRail(preset, state.orientation) ? eff.safeArea.right : 0
                 }

@@ -45,7 +45,7 @@ export function getHostnameForDisplay(rawUrl: string): string {
   try {
     const parsed = new URL(rawUrl);
     if (parsed.hostname === '127.0.0.1' && parsed.pathname.includes('reference.html')) {
-      return 'campsite.ing (Reboot Preview)';
+      return 'Field Notes (Local Demo)';
     }
     return parsed.host;
   } catch {
@@ -516,7 +516,7 @@ export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.Reac
   const lightContent = prefersLightContent(statusBackdrop, props.state.darkMode);
   return (
     <div
-      className="ios-overlay-scaler"
+      className={`ios-overlay-scaler ${onHome ? 'ios-overlay-home' : ''}`}
       style={{ width: `${props.logicalW}px`, height: `${props.logicalH}px` }}
     >
       {pwaBand && (

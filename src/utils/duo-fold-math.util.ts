@@ -30,25 +30,9 @@ export interface DuoFoldInterpolatedMetrics {
   readonly perspectiveTiltDeg: number;
 }
 
-/**
- * Apple / Campsite R13 non-linear hinge curve knots:
- * Maps UI progress u = theta / 180 in [0, 1] -> physical rig progress phi in [0, 1].
- */
-export const FOLD_CURVE_KNOTS: readonly (readonly [number, number])[] = [
-  [0.0, 0.0],
-  [0.08, 0.04],
-  [0.17, 0.1],
-  [0.25, 0.18],
-  [0.33, 0.28],
-  [0.42, 0.4],
-  [0.5, 0.5],
-  [0.58, 0.6],
-  [0.67, 0.72],
-  [0.75, 0.82],
-  [0.83, 0.9],
-  [0.92, 0.96],
-  [1.0, 1.0]
-];
+/** Original linear angle-to-rig mapping. Timing easing is applied by the driver;
+ * physical aperture angle equals the UI angle (an estimated device mechanism). */
+export const FOLD_CURVE_KNOTS: readonly (readonly [number, number])[] = [[0, 0], [1, 1]];
 
 const KNOT_SECANTS = FOLD_CURVE_KNOTS.slice(1).map(
   (pt, idx) => (pt[1] - FOLD_CURVE_KNOTS[idx][1]) / (pt[0] - FOLD_CURVE_KNOTS[idx][0])

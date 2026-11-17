@@ -32,3 +32,11 @@ Sheet implementation uses the [official Safari 26 screenshot](https://webkit.org
 ## Duo film inspection
 
 The prior task's locally available Apple product film was inspected at 76.8s (opening), from [Apple's official film playlist](https://www.apple.com/105/media/us/iphone-duo/2026/9305e4b9-72d9-4c05-9381-b572adadd5e5/films/product/iphone-duo-product-tpl-us-2026_16x9.m3u8). It shows a right-side four-column icon area below Weather/Find My widgets, extra widgets on the left and a vertical dock in the right system rail; page dots sit below the icon grid and search sits at the rail bottom. Wallpaper is photographic. This contradicts the fallback's full-width horizontal bottom dock, gradient wallpaper and single date widget. Film perspective/motion does not establish logical-point sizes, corner curves or a 27.3 build number. No film artwork was extracted into the app. A faithful Home Screen replacement remains blocked on permitted runtime artwork and precise layout calibration; the current fallback is explicitly retained.
+
+## Original-artwork Home layout implementation (2026-11-17)
+
+The [measurement ledger](ios-home-layout-measurements.md) supersedes the earlier
+claim that permitted runtime artwork blocks geometry work. Standard and Duo
+cover/inner layouts now use normalized public references and entirely original
+Home artwork. It records raw coordinates, sources, confidence, all viewport
+classes, and the still-unverified 27.3 motion/per-device details.

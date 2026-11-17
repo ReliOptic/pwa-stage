@@ -63,7 +63,7 @@ describe('integration: simulator full device & shell switching flow', () => {
       return;
     }
 
-    expect(getHostnameForDisplay(initial.value.state.currentUrl)).toBe('campsite.ing');
+    expect(getHostnameForDisplay(initial.value.state.currentUrl)).toBe('Field Notes (Local Demo)');
 
     const duoState = {
       ...initial.value.state,

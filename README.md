@@ -18,7 +18,7 @@ Screen web app present it, on every iPhone viewport class, without opening Xcode
 | **Web App Check** | iOS-specific installability checks: HTTPS, viewport / `viewport-fit`, manifest, `display`, `apple-touch-icon`, status-bar style, service worker, startup image. |
 | **Keyboard** | Focusing a text field raises the iOS keyboard: the layout viewport stays put, `visualViewport` shrinks and the field scrolls clear, as on device. Type with the Mac keyboard. |
 | **Permissions** | Camera / mic / location / notifications / motion requests show an iOS alert inside the screen; desktop-only APIs are denied. |
-| **iPhone Duo** | Live 3D hinge (glTF) with six postures and free-stop scrub. One app instance moves between the two displays (scroll position and JS state carry over, nothing reloads). **Fold / Unfold plays the Duo's signature transition**: content stays anchored in space while the moving half passes over it like tracing paper, blurring and darkening towards its free edge; the cover shows the content lying beneath it, the half in your hand stays sharp, and the other half comes into focus as it lies flat. Shift-click Fold / Unfold for slow motion. At rest (Book, Tabletop, free-stop scrub) the inner display is one sharp, continuous page across the crease. 84pt iOS 27.3 system rail, span / split. |
+| **iPhone Duo** | Original procedural 3D hinge with six postures and free-stop scrub. One app instance moves between the two displays (scroll position and JS state carry over, nothing reloads). **Fold / Unfold plays the Duo's signature transition**: content stays anchored in space while the moving half passes over it like tracing paper, blurring and darkening towards its free edge; the cover shows the content lying beneath it, the half in your hand stays sharp, and the other half comes into focus as it lies flat. Shift-click Fold / Unfold for slow motion. At rest (Book, Tabletop, free-stop scrub) the inner display is one sharp, continuous page across the crease. 84pt iOS 27.3 system rail, span / split. |
 
 For the final pixel check use real WebKit: tray menu → **Open URL in Xcode iOS Simulator**.
 
@@ -65,7 +65,7 @@ npm run dist:dmg   # .dmg installer
 
 ## License
 
-Source code: [MIT](LICENSE). The bundled binary assets (`public/duo-3d`, `public/assets/ios27`, `public/reboot`) are not covered by that grant until their provenance is confirmed by the maintainers. This project is not affiliated with Apple; iPhone 18 and iPhone Duo presets are projections, not shipped hardware.
+Application source and original artwork: [MIT](LICENSE). Bundled dependencies retain their permissive licences and notices. See [ASSETS.md](ASSETS.md) for the complete provenance register and regeneration commands. This project is not affiliated with Apple; iPhone 18 and iPhone Duo presets are projections, not shipped hardware.
 
 See [`HANDOFF.md`](HANDOFF.md) for architecture notes and the roadmap.
 

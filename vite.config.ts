@@ -36,6 +36,8 @@ function shellCspPlugin(): Plugin {
 
 export const viteConfig = defineConfig({
   base: './',
+  // Keep worktree caches local even when node_modules is a shared symlink.
+  cacheDir: '.cache/vite',
   plugins: [react(), shellCspPlugin()],
   build: {
     outDir: 'dist',
