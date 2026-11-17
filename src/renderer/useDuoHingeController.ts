@@ -111,9 +111,12 @@ export function useDuoHingeController(selectedDeviceId: DeviceModelId) {
       window.removeEventListener('keydown', escape);
     };
   }, [selectedDeviceId, toggle, pause]);
+  // Toolbar and bottom controls must name the same next action after a scrub
+  // or pause too; the active display alone changes at 2°, not halfway.
+  const foldActionBase = targetAngle ?? (foldAngle < 90 ? 0 : 180);
   useEffect(() => {
-    publishDuoFoldTarget(targetAngle);
-  }, [targetAngle]);
+    publishDuoFoldTarget(foldActionBase);
+  }, [foldActionBase]);
 
   return { foldAngle, targetAngle, resumeAngle, isAnimating: targetAngle !== null, posture, finish,
     orbitDeg, pitchDeg, setFinish, setOrbitDeg, setPitchDeg, pause, toggle,

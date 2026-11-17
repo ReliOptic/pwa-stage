@@ -76,6 +76,12 @@ server.listen(0, '127.0.0.1', async () => {
       await wait(async()=>angle===8 ? (await state()).target==='paused' : Math.abs((await state()).angle-angle)<2);
       s=await state(); scrubbed.push(s);
       assert.equal(s.posture,scrubPosture); assert.equal(s.target,'paused');
+      if(angle===16) {
+        await shell.executeJavaScript(`document.querySelector('button[title^="Show Toolbar"]').click()`);
+        await wait(()=>shell.executeJavaScript(`!!document.querySelector('.tb-action[aria-label="Unfold"]')`));
+        await shell.executeJavaScript(`document.querySelector('button[aria-label="Hide toolbar"]').click()`);
+        await wait(()=>shell.executeJavaScript(`!document.querySelector('.tb-action[aria-label="Unfold"]')`));
+      }
     }
     const released=(await state()).angle; await sleep(200); assert.equal((await state()).angle,released);
     // Native range keyboard semantics remain usable.
