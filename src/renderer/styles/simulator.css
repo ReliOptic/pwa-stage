@@ -1105,3 +1105,23 @@ html, body, #root {
 .duo-anchored-innerLeft { pointer-events: auto; }
 .duo-anchored-layer { position: absolute; inset: 0; }
 .duo-anchored-dim { position: absolute; inset: 0; pointer-events: none; z-index: 60; }
+
+/* Confirmation geometry estimated from WebKit's official Safari 26 illustration.
+   Not measured iOS 27.3 metrics. Original CSS; no Apple artwork embedded. */
+.ios-card-sheet { height: 91%; border-radius: 30px 30px 0 0; overflow: auto; }
+.ios-card-sheet.ios-sheet-light { background: #f2f2f7; color: #111; }
+.ios-card-sheet.ios-sheet-dark { background: #1c1c1e; color: #fff; }
+.ios-card-nav { min-height: 88px; padding: 16px; gap: 10px; }
+.ios-card-nav strong { font-size: 16px; text-align: center; }
+.ios-card-nav .ios-card-close { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(128,128,140,.12); color: inherit; flex-shrink: 0; }
+.ios-card-nav .ios-card-primary { background: #009aff; color: #fff; border-radius: 24px; min-width: 56px; height: 44px; }
+.ios-card-body { padding: 0; gap: 0; }
+.ios-card-row { padding: 14px 16px; background: rgba(128,128,140,.08); }
+.ios-sheet-light .ios-card-row, .ios-sheet-light .ios-card-toggle { background: #fff; }
+.ios-card-icon { flex-shrink: 0; box-shadow: none; }
+.ios-card-fields { gap: 12px; }
+.ios-card-fields input { font-size: 17px; padding: 0 0 12px; }
+.ios-card-host { font-size: 16px; }
+.ios-card-toggle { margin-top: 36px; padding: 12px 16px; background: rgba(128,128,140,.08); }
+.ios-card-note { margin: 8px 16px; }
+.ios-card-toggle input:focus-visible + .ios-switch { outline: 2px solid #0a84ff; outline-offset: 3px; }

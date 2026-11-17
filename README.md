@@ -11,10 +11,10 @@ Screen web app present it, on every iPhone viewport class, without opening Xcode
 | **Devices** | One preset per iOS 26/27 *viewport class* (375×667 SE … 440×956 Pro Max, 390×844 notch, 414×896 @2x, Air, iPhone 18 projected, Duo cover/inner). Each lists every model sharing that viewport. Correct safe areas, display corner radii, Dynamic Island / notch / Touch ID chassis. |
 | **Rendering** | `devicePixelRatio` 2/3, `screen.width/height`, mobile viewport (`<meta viewport>`), overlay scrollbars, touch events, `env(safe-area-inset-*)` via CDP. |
 | **Identity** | Safari / Chrome iOS User-Agent (OS token frozen at `18_6` like Safari 26+), `navigator.vendor = "Apple Computer, Inc."`, no `navigator.userAgentData`, `navigator.standalone`. |
-| **Safari** | iOS 26+ compact tab bar; collapses while you scroll down, growing `innerHeight` / `dvh` like a real device. ⋯ → **Add to Home Screen**. Status-bar area tinted from `theme-color` / page background. |
-| **Chrome for iOS** | Top omnibox + bottom toolbar. |
+| **Safari** | iOS 26+ compact tab bar; collapses while you scroll down, growing `innerHeight` / `dvh` like a real device. ⋯ → Share → **Add to Home Screen**. Status-bar area tinted from `theme-color` / page background. |
+| **Chrome for iOS** | Top omnibox + bottom toolbar; Share → Add to Home Screen. |
 | **Web App (Home Screen)** | `display-mode: standalone`, and the status bar honours `apple-mobile-web-app-status-bar-style` (opaque by default, edge-to-edge only with `black-translucent`). |
-| **Home Screen** | Xcode-style **Home** (⇧⌘H, home indicator, or the SE's home button): installed web apps with their real icon/name from the manifest, launch animation and splash in `background_color`. |
+| **Home Screen** | Xcode-style **Home** (⇧⌘H, home indicator, or the SE's home button): installed web apps with their real icon/name from the manifest, estimated launch animation and blank launch placeholder. |
 | **Web App Check** | iOS-specific installability checks: HTTPS, viewport / `viewport-fit`, manifest, `display`, `apple-touch-icon`, status-bar style, service worker, startup image. |
 | **Keyboard** | Focusing a text field raises the iOS keyboard: the layout viewport stays put, `visualViewport` shrinks and the field scrolls clear, as on device. Type with the Mac keyboard. |
 | **Permissions** | Camera / mic / location / notifications / motion requests show an iOS alert inside the screen; desktop-only APIs are denied. |
@@ -68,3 +68,5 @@ npm run dist:dmg   # .dmg installer
 Source code: [MIT](LICENSE). The bundled binary assets (`public/duo-3d`, `public/assets/ios27`, `public/reboot`) are not covered by that grant until their provenance is confirmed by the maintainers. This project is not affiliated with Apple; iPhone 18 and iPhone Duo presets are projections, not shipped hardware.
 
 See [`HANDOFF.md`](HANDOFF.md) for architecture notes and the roadmap.
+
+Home Screen reference audit and asset licence limitations: [spec](docs/ios-home-screen-spec.md). The original artwork remains the fallback; official iOS 27.3 visual fidelity is not verified.

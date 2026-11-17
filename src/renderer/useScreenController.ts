@@ -12,6 +12,7 @@ import {
 } from './components/ScreenLayers';
 
 const INSTALLED_APPS_KEY = 'pwa-stage.installed-web-apps.v1';
+// Estimated simulator animation timings, not measured iOS 27.3 values.
 const CLOSE_MS = 320;
 const LAUNCH_MS = 420;
 const SPLASH_MIN_MS = 650;
@@ -133,16 +134,16 @@ export function useScreenController(
     if (lastGuestRef.current !== null) runInspection(lastGuestRef.current);
   }, [runInspection]);
 
-  // Picking a browser / URL / device in the toolbar while on the Home Screen
+  // Picking a browser / URL in the toolbar while on the Home Screen
   // means "show me the page": leave the springboard.
-  const lastTargetRef = useRef(`${state.shellMode}|${state.currentUrl}|${state.selectedDeviceId}`);
+  const lastTargetRef = useRef(`${state.shellMode}|${state.currentUrl}`);
   useEffect((): void => {
-    const key = `${state.shellMode}|${state.currentUrl}|${state.selectedDeviceId}`;
+    const key = `${state.shellMode}|${state.currentUrl}`;
     if (key === lastTargetRef.current) return;
     lastTargetRef.current = key;
     setPhase((p) => (p === 'home' ? 'launching' : p));
     later(() => setPhase((p) => (p === 'launching' ? 'app' : p)), LAUNCH_MS);
-  }, [state.shellMode, state.currentUrl, state.selectedDeviceId, later]);
+  }, [state.shellMode, state.currentUrl, later]);
 
   // --- permission prompts from the main process ----------------------------
   useEffect((): (() => void) | void => {
@@ -182,7 +183,9 @@ export function useScreenController(
       });
       setSplash(
         app.opensAsWebApp
-          ? { background: app.backgroundColor ?? '#ffffff', iconUrl: app.iconUrl }
+          // iOS does not generate Android-style manifest icon/colour splashes.
+          // White is an estimated fallback until startup images are supported.
+          ? { background: '#ffffff', iconUrl: null }
           : null
       );
       setPhase('launching');

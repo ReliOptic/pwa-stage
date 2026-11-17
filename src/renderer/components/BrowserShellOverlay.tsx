@@ -5,7 +5,8 @@ import {
   Lock,
   MoreHorizontal,
   Plus,
-  RotateCw
+  RotateCw,
+  Share
 } from 'lucide-react';
 import { IOS27_NOTCH_03_SVG_PATH, IOS27_STATUS_ICONS } from '../../config/ios27-assets.config';
 import {
@@ -360,7 +361,7 @@ export function BrowserShellBarOverlay(props: BrowserShellBarOverlayProps): Reac
             type="button"
             className={`ios-safari-round-btn ${glassClass}`}
             onClick={(): void => screen.openSheet('safari-more')}
-            title="More (Forward, Add to Home Screen…)"
+            title="More (Share, Forward…)"
             aria-label="More"
           >
             <MoreHorizontal size={17} />
@@ -378,6 +379,10 @@ export function BrowserShellBarOverlay(props: BrowserShellBarOverlayProps): Reac
             {isSecure && <Lock size={10} />}
             <span className="ios-shell-domain-text">{host}</span>
           </span>
+          <button type="button" className="ios-shell-icon-btn"
+            onClick={(): void => screen.openSheet('share')} title="Share" aria-label="Share">
+            <Share size={16} />
+          </button>
           <button
             type="button"
             className="ios-shell-reload"

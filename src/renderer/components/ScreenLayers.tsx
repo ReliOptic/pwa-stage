@@ -27,7 +27,7 @@ export interface LaunchOrigin {
 }
 
 export interface ScreenSheetState {
-  readonly kind: 'none' | 'safari-more' | 'add-to-home';
+  readonly kind: 'none' | 'safari-more' | 'share' | 'add-to-home';
 }
 
 export interface PermissionPromptState {
@@ -185,7 +185,7 @@ export function HomeScreen(props: { readonly trailingInset?: number }): React.Re
           <span className="home-widget-date">{now.getDate()}</span>
           <span className="home-widget-sub">
             {screen.installedApps.length === 0
-              ? 'Add your web app from Safari → ⋯ → Add to Home Screen'
+              ? 'Add your web app from Safari → ⋯ → Share → Add to Home Screen'
               : `${screen.installedApps.length} web app${screen.installedApps.length > 1 ? 's' : ''} installed`}
           </span>
         </div>
@@ -254,7 +254,7 @@ export function HomeScreen(props: { readonly trailingInset?: number }): React.Re
   );
 }
 
-/** iOS shows background_color (or white) while a Home Screen web app boots. */
+/** Estimated launch placeholder; iOS 27.3 startup-image/colour precedence is unverified. */
 export function LaunchSplash(): React.ReactElement | null {
   const screen = useScreen();
   if (screen.phase !== 'launching' || !screen.splash) {
@@ -280,8 +280,8 @@ function SafariMoreSheet(): React.ReactElement {
         onClick={(e): void => e.stopPropagation()}
       >
         <div className="ios-action-group">
-          <button type="button" onClick={(): void => screen.openSheet('add-to-home')}>
-            Add to Home Screen
+          <button type="button" onClick={(): void => screen.openSheet('share')}>
+            Share
           </button>
           <button
             type="button"
@@ -312,6 +312,28 @@ function SafariMoreSheet(): React.ReactElement {
   );
 }
 
+/** Shared system share entry; layout is an approximation, not the full activity sheet. */
+function ShareSheet(): React.ReactElement {
+  const screen = useScreen();
+  return (
+    <div className="ios-sheet-scrim" onClick={(): void => screen.openSheet('none')}>
+      <div className={`ios-action-sheet ${screen.darkMode ? 'ios-sheet-dark' : 'ios-sheet-light'}`}
+        role="dialog" aria-label="Share" onClick={(e): void => e.stopPropagation()}>
+        <div className="ios-action-group">
+          <button type="button" onClick={(): void => screen.openSheet('add-to-home')}>
+            Add to Home Screen
+          </button>
+        </div>
+        <div className="ios-action-group">
+          <button type="button" className="ios-action-cancel" onClick={(): void => screen.openSheet('none')}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AddToHomeSheet(): React.ReactElement | null {
   const screen = useScreen();
   const identity = screen.report?.identity ?? null;
@@ -330,12 +352,6 @@ function AddToHomeSheet(): React.ReactElement | null {
       </div>
     );
   }
-  let host = identity.launchUrl;
-  try {
-    host = new URL(identity.launchUrl).host;
-  } catch {
-    // keep
-  }
   return (
     <div className="ios-sheet-scrim" onClick={(): void => screen.openSheet('none')}>
       <div
@@ -345,8 +361,9 @@ function AddToHomeSheet(): React.ReactElement | null {
         aria-label="Add to Home Screen"
       >
         <div className="ios-card-nav">
-          <button type="button" onClick={(): void => screen.openSheet('none')}>
-            Cancel
+          <button type="button" className="ios-card-close" aria-label="Cancel"
+            onClick={(): void => screen.openSheet('none')}>
+            <X size={22} />
           </button>
           <strong>Add to Home Screen</strong>
           <button
@@ -374,7 +391,7 @@ function AddToHomeSheet(): React.ReactElement | null {
                 onChange={(e): void => setName(e.target.value)}
                 aria-label="Home Screen name"
               />
-              <span className="ios-card-host">{host}</span>
+              <span className="ios-card-host">{identity.launchUrl}</span>
             </div>
           </div>
           <label className="ios-card-toggle">
@@ -427,6 +444,7 @@ export function ScreenModalLayer(): React.ReactElement | null {
   return (
     <>
       {screen.sheet.kind === 'safari-more' && <SafariMoreSheet />}
+      {screen.sheet.kind === 'share' && <ShareSheet />}
       {screen.sheet.kind === 'add-to-home' && <AddToHomeSheet />}
       <PermissionAlert />
     </>

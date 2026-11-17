@@ -212,14 +212,13 @@ export function resolveHomeScreenIdentity(insp: PageInspection): HomeScreenIdent
     insp.title.trim() ||
     host;
   const icon = insp.appleTouchIcon ?? largestIcon(m?.icons)?.src ?? null;
-  const display = m?.display ?? '';
   return {
     name: name.slice(0, 40),
     iconUrl: icon,
     launchUrl: m?.start_url ?? insp.url,
     // iOS 26+: every Home Screen bookmark opens as a web app unless the user
-    // turns it off; display:"browser" in the manifest opts out.
-    opensAsWebApp: display !== 'browser',
+    // turns it off, even when the manifest requests display:"browser".
+    opensAsWebApp: true,
     backgroundColor: m?.background_color ?? insp.bodyBackground,
     themeColor: insp.themeColor ?? m?.theme_color ?? null,
     statusBarStyle: normalizeStatusBarStyle(insp.appleStatusBarStyle)
@@ -280,7 +279,7 @@ export function evaluatePwaChecks(insp: PageInspection): PwaCheck[] {
     add(
       display === 'standalone' || display === 'fullscreen' || display === 'minimal-ui'
         ? { id: 'display', level: 'pass', title: `display: ${display}`, detail: display === 'fullscreen' ? 'iOS treats fullscreen like standalone (status bar stays visible).' : 'Opens without Safari UI from the Home Screen.' }
-        : { id: 'display', level: 'warn', title: `display: ${display}`, detail: 'With display "browser" the Home Screen icon opens in Safari, not as a web app.' }
+        : { id: 'display', level: 'warn', title: `display: ${display}`, detail: 'Open as Web App defaults on regardless of display. Turn it off when adding to create a browser bookmark.' }
     );
     if (!m.start_url) {
       add({ id: 'start_url', level: 'info', title: 'No start_url', detail: 'iOS launches the URL that was open when the user tapped Add to Home Screen.' });

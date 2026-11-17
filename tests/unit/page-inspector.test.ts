@@ -101,10 +101,16 @@ describe('page inspector', () => {
     expect(fails).toEqual(expect.arrayContaining(['https', 'viewport', 'touch-icon']));
   });
 
-  it('warns that display:"browser" opens in Safari', () => {
+  it('keeps Open as Web App enabled for display:"browser"', () => {
     const insp = sanitizePageInspection({ ...GOOD, manifest: { ...GOOD.manifest, display: 'browser' } });
     if (!insp) throw new Error('sanitize');
-    expect(resolveHomeScreenIdentity(insp).opensAsWebApp).toBe(false);
+    expect(resolveHomeScreenIdentity(insp).opensAsWebApp).toBe(true);
     expect(evaluatePwaChecks(insp).find((c) => c.id === 'display')?.level).toBe('warn');
   });
+  it('defaults to a web app without a manifest or legacy capable tag', () => {
+    const insp = sanitizePageInspection({ ...GOOD, manifest: null, appleMobileWebAppCapable: false });
+    if (!insp) throw new Error('sanitize');
+    expect(resolveHomeScreenIdentity(insp).opensAsWebApp).toBe(true);
+  });
+
 });
