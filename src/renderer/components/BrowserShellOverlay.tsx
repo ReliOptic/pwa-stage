@@ -1,3 +1,4 @@
+import { platformLabel } from '../../utils/platform.util';
 import React from 'react';
 import {
   ChevronLeft,
@@ -44,8 +45,8 @@ export interface BrowserShellOverlayProps {
 export function getHostnameForDisplay(rawUrl: string): string {
   try {
     const parsed = new URL(rawUrl);
-    if (parsed.hostname === '127.0.0.1' && parsed.pathname.includes('reference.html')) {
-      return 'Field Notes (Local Demo)';
+    if (parsed.hostname === '127.0.0.1' && parsed.pathname === '/index.html') {
+      return 'Start page';
     }
     return parsed.host;
   } catch {
@@ -438,7 +439,7 @@ export function HomeIndicatorOverlay(props: {
     <button
       type="button"
       className="ios-home-indicator"
-      title="Swipe up / click to go Home (⇧⌘H)"
+      title={platformLabel("Swipe up / click to go Home (⇧⌘H)")}
       aria-label="Home"
       onClick={props.onGoHome}
       style={{

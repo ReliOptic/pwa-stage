@@ -1,3 +1,4 @@
+import { shortcutModifier } from '../utils/platform.util';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { DEVICE_PRESETS, getDevicePresetById } from '../config/device-presets.config';
 import { loadSimulatorEnvConfig } from '../config/env.config';
@@ -47,7 +48,11 @@ function useSimulatorShortcuts(
 ): void {
   useEffect((): (() => void) => {
     const handle = (key: string, shift: boolean): boolean => {
-      if (shift && key === 'h') {
+      if (key === 's' && shift) {
+        void getSimulatorBridge().closeWindow();
+      } else if (key === 'm') {
+        void getSimulatorBridge().minimizeWindow();
+      } else if (shift && key === 'h') {
         actions.goHome();
       } else if (shift && key === 'a') {
         onUpdateState({ darkMode: !state.darkMode });
@@ -74,7 +79,7 @@ function useSimulatorShortcuts(
     };
 
     const onKeyDown = (e: KeyboardEvent): void => {
-      if (!(e.metaKey || e.ctrlKey)) {
+      if (!shortcutModifier(e.metaKey, e.ctrlKey, e.altKey)) {
         return;
       }
       const target = e.target as HTMLElement | null;
@@ -89,7 +94,7 @@ function useSimulatorShortcuts(
     };
 
     const onWheel = (e: WheelEvent): void => {
-      if (e.metaKey || e.ctrlKey) {
+      if (shortcutModifier(e.metaKey, e.ctrlKey, e.altKey)) {
         e.preventDefault();
         const delta = e.deltaY < 0 ? 0.03 : -0.03;
         onUpdateState({ scale: clampSimulatorScale(state.scale + delta) });

@@ -16,7 +16,7 @@ status, references) before changing anything.
   under `xvfb-run -a -s "-screen 0 1920x1200x24"`, with a fresh `HOME` per run.
 - Capture with `BrowserWindow.getAllWindows()[0].webContents.capturePage()` via `app.evaluate`.
   Playwright `page.screenshot()` shows stale/blank `<webview>` content — never judge from it.
-- Selectors: toolbar starts collapsed → `button[title="Show Toolbar (⌘B)"]`;
+- Selectors: toolbar starts collapsed → `button[title^="Show Toolbar"]` (label is ⌘B on macOS, Ctrl+B elsewhere);
   device `select[aria-label="Device Model"]` (`iphone-duo-folded` / `iphone-duo-unfolded`);
   URL `input[aria-label="Page URL"]`; browser radios `button[role="radio"]` (Safari / Chrome / Web App);
   Duo fold `.tb-action:has-text("Unfold")` / `("Fold")` — Shift-click = 8× slow motion;

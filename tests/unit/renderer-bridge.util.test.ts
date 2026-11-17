@@ -8,7 +8,7 @@ describe('renderer-bridge.util', () => {
     const initial = await bridge.getInitialPayload();
     expect(initial.ok).toBe(true);
     if (initial.ok) {
-      expect(initial.value.state.currentUrl).toBe('http://127.0.0.1:18765/reference.html');
+      expect(initial.value.state.currentUrl).toBe('http://127.0.0.1:18765/index.html');
       const emu = await bridge.applyWebviewEmulation({
         webContentsId: 1,
         state: initial.value.state

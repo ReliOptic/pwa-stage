@@ -17,6 +17,8 @@ export interface NativeFloatingWindow {
   readonly setAlwaysOnTop: (flag: boolean, level?: 'floating' | 'screen-saver' | 'normal') => void;
   readonly isAlwaysOnTop: () => boolean;
   readonly setVisibleOnAllWorkspaces: (visible: boolean, options?: { visibleOnFullScreen?: boolean }) => void;
+  readonly isMinimized?: () => boolean;
+  readonly restore?: () => void;
   readonly minimize: () => void;
   readonly close: () => void;
 }

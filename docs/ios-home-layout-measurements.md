@@ -100,12 +100,11 @@ cover safe-area clearance and no label/dock overlap for every preset.
 
 ## Behaviour, artwork and limits
 
-- Procedural layered landscape, 16 hand-drawn neutral SVG symbols, calendar,
-  sample weather, sample agenda and sample playlist are authored in code.
-  They deliberately differ from Apple artwork. Illustrative tiles are disabled,
-  not pretend native applications. Browser dock icons are original symbols.
+- Original layered wallpaper and browser symbols remain. Sample weather, agenda,
+  playlist and illustrative apps were removed per the personal-tool decision.
+  The measured grid/dock/search geometry is retained, leaving unused areas empty.
 - Installed sites retain their names and manifest/apple-touch-icon artwork.
-  Installed apps replace illustrative cells first; overflow pages stay reachable.
+  Overflow pages stay reachable.
   Search filters installed sites only. Page/search state is shared across Duo
   surface copies. Animated copies are inert; bent resting surfaces remain sharp.
 - Both cover and inner have a true vertical dock; Home makes the existing system

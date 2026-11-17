@@ -17,18 +17,18 @@ const MIME_BY_EXT: Readonly<Record<string, string>> = {
 
 export function resolveRebootStaticRoot(baseDir: string, resourcesPath?: string): string {
   const candidates = [
-    resourcesPath ? path.join(resourcesPath, 'reboot') : '',
-    path.join(baseDir, '../public/reboot'),
-    path.join(baseDir, '../dist/reboot'),
-    path.join(process.cwd(), 'public/reboot')
+    resourcesPath ? path.join(resourcesPath, 'start') : '',
+    path.join(baseDir, '../public/start'),
+    path.join(baseDir, '../dist/start'),
+    path.join(process.cwd(), 'public/start')
   ].filter(Boolean);
 
   for (const candidate of candidates) {
-    if (fs.existsSync(path.join(candidate, 'reference.html'))) {
+    if (fs.existsSync(path.join(candidate, 'index.html'))) {
       return candidate;
     }
   }
-  return candidates[0] ?? path.join(baseDir, '../public/reboot');
+  return candidates[0] ?? path.join(baseDir, '../public/start');
 }
 
 const ALLOWED_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
@@ -56,9 +56,9 @@ export function resolveSafeStaticPath(rootDir: string, rawUrl: string): string |
     return null;
   }
   const relativePath =
-    pathname === '/' || pathname === '/reboot' || pathname === '/reboot/'
-      ? 'reference.html'
-      : pathname.replace(/^\/reboot\//, '').replace(/^\/+/, '');
+    pathname === '/' || pathname === '/reference.html' || pathname === '/start' || pathname === '/start/'
+      ? 'index.html'
+      : pathname.replace(/^\/start\//, '').replace(/^\/+/, '');
   const normalizedRoot = path.resolve(rootDir);
   const resolvedFile = path.resolve(normalizedRoot, relativePath);
   if (resolvedFile !== normalizedRoot && !resolvedFile.startsWith(normalizedRoot + path.sep)) {
@@ -97,7 +97,7 @@ function handleStaticRequest(
 
   try {
     const stat = fs.statSync(resolvedFile);
-    const targetFile = stat.isDirectory() ? path.join(resolvedFile, 'reference.html') : resolvedFile;
+    const targetFile = stat.isDirectory() ? path.join(resolvedFile, 'index.html') : resolvedFile;
     const ext = path.extname(targetFile).toLowerCase();
     const contentType = MIME_BY_EXT[ext] ?? 'application/octet-stream';
     const content = fs.readFileSync(targetFile);
@@ -122,7 +122,7 @@ export function startEmbeddedRebootServer(
     const onListening = (): void => {
       const addr = server.address();
       const port = typeof addr === 'object' && addr ? addr.port : preferredPort;
-      const url = `http://127.0.0.1:${port}/reference.html`;
+      const url = `http://127.0.0.1:${port}/index.html`;
       logStructured('info', 'reboot.server', 'embedded_reboot_server_started', {
         rootDir,
         url
@@ -135,7 +135,7 @@ export function startEmbeddedRebootServer(
       fallbackServer.listen(0, '127.0.0.1', () => {
         const addr = fallbackServer.address();
         const port = typeof addr === 'object' && addr ? addr.port : preferredPort;
-        resolve(`http://127.0.0.1:${port}/reference.html`);
+        resolve(`http://127.0.0.1:${port}/index.html`);
       });
     });
 

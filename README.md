@@ -1,6 +1,6 @@
 # iPhone PWA Simulator (`pwa-stage`)
 
-A floating macOS iPhone (and iPhone Duo foldable) simulator for people who build
+A floating macOS and Windows iPhone (and iPhone Duo foldable) simulator for people who build
 Progressive Web Apps: see your site the way Safari, Chrome for iOS and a Home
 Screen web app present it, on every iPhone viewport class, without opening Xcode.
 
@@ -16,11 +16,11 @@ Screen web app present it, on every iPhone viewport class, without opening Xcode
 | **Web App (Home Screen)** | `display-mode: standalone`, and the status bar honours `apple-mobile-web-app-status-bar-style` (opaque by default, edge-to-edge only with `black-translucent`). |
 | **Home Screen** | Xcode-style **Home** (⇧⌘H, home indicator, or the SE's home button): installed web apps with their real icon/name from the manifest, estimated launch animation and blank launch placeholder. |
 | **Web App Check** | iOS-specific installability checks: HTTPS, viewport / `viewport-fit`, manifest, `display`, `apple-touch-icon`, status-bar style, service worker, startup image. |
-| **Keyboard** | Focusing a text field raises the iOS keyboard: the layout viewport stays put, `visualViewport` shrinks and the field scrolls clear, as on device. Type with the Mac keyboard. |
+| **Keyboard** | Focusing a text field raises the iOS keyboard: the layout viewport stays put, `visualViewport` shrinks and the field scrolls clear, as on device. Type with the desktop keyboard. |
 | **Permissions** | Camera / mic / location / notifications / motion requests show an iOS alert inside the screen; desktop-only APIs are denied. |
-| **iPhone Duo** | Original procedural 3D hinge with six postures and free-stop scrub. One app instance moves between the two displays (scroll position and JS state carry over, nothing reloads). **Fold / Unfold plays the Duo's signature transition**: content stays anchored in space while the moving half passes over it like tracing paper, blurring and darkening towards its free edge; the cover shows the content lying beneath it, the half in your hand stays sharp, and the other half comes into focus as it lies flat. Shift-click Fold / Unfold for slow motion. At rest (Book, Tabletop, free-stop scrub) the inner display is one sharp, continuous page across the crease. 84pt iOS 27.3 system rail, span / split. |
+| **iPhone Duo** | Restored skinned 3D hardware with six postures and free-stop scrub. One app instance moves between the two displays (scroll position and JS state carry over, nothing reloads). **Fold / Unfold plays the Duo's signature transition**: content stays anchored in space while the moving half passes over it like tracing paper, blurring and darkening towards its free edge; the cover shows the content lying beneath it, the half in your hand stays sharp, and the other half comes into focus as it lies flat. Shift-click Fold / Unfold for slow motion. At rest (Book, Tabletop, free-stop scrub) the inner display is one sharp, continuous page across the crease. 84pt iOS 27.3 system rail, span / split. |
 
-For the final pixel check use real WebKit: tray menu → **Open URL in Xcode iOS Simulator**.
+On macOS, for the final pixel check use real WebKit: tray menu → **Open URL in Xcode iOS Simulator**.
 
 ## Shortcuts (Xcode Simulator compatible)
 
@@ -36,6 +36,14 @@ For the final pixel check use real WebKit: tray menu → **Open URL in Xcode iOS
 | ⌘B | Show / hide toolbar |
 | ⇧⌘S | Hide to menu bar (global) |
 
+On Windows, replace ⌘ with Ctrl and ⇧ with Shift. Ctrl+T toggles **Always on top**
+on the current virtual desktop. Ctrl+Shift+S hides/restores via the system tray.
+Minimize uses the taskbar; closing (including Alt+F4) hides to the tray. Right-click
+the tray icon to Quit. The toolbar has right-aligned minimize/close controls.
+Resize using the corner grips or zoom controls; maximize is intentionally unavailable
+for the transparent device window. A shortcut already reserved by another app may
+not register globally; the tray remains available.
+
 Shortcuts also work while the page under test has keyboard focus.
 
 ## Security model
@@ -44,7 +52,7 @@ Shortcuts also work while the page under test has keyboard focus.
 - Only `http(s)` pages may load; popups navigate in place, the shell can't be navigated away.
 - IPC answers only the shell's top frame; every payload is validated (state enums/URLs, guest ids must belong to the shell, window coordinates).
 - The shell renderer is sandboxed with a production CSP.
-- The embedded demo server binds to `127.0.0.1`, rejects non-loopback `Host` headers, traversal and malformed encodings.
+- The local start-page server binds to `127.0.0.1`, rejects non-loopback `Host` headers, traversal and malformed encodings.
 - Page responses keep their own security headers (no global `X-Frame-Options` / CSP stripping).
 
 ## Development
@@ -63,10 +71,32 @@ npm run dist:app   # dist_dmg/mac-arm64/iPhone PWA Simulator.app
 npm run dist:dmg   # .dmg installer
 ```
 
+## Build Windows App (personal / internal use only)
+
+```bash
+npm run dist:win           # dist_dmg/*-x64-setup.exe (per-user NSIS installer)
+npm run dist:win:portable  # dist_dmg/*-x64-portable.exe
+```
+
+The installer offers a destination, Start menu and Desktop shortcuts, and uninstall.
+Build on Windows with Node 22 and `npm ci`; Linux NSIS cross-builds additionally need Wine.
+The checked-in multi-resolution ICO is derived from the existing app icon; regenerate
+with `npm run assets:windows-icon` (Python + Pillow) after changing the source artwork.
+CI verifies Linux, Windows and macOS and builds NSIS on Windows. Installer artifacts
+are retained only for private repositories; nothing is published as a release.
+These internal builds are unsigned. Do not publish the repository or installers.
+
+Settings use Electron's host `userData` directory (on Windows, under `%APPDATA%`).
+Screenshots use the OS Desktop path, including a redirected Desktop, with Windows-safe
+filenames. Xcode handoff is available only on macOS. Rendering/emulation is shared
+across platforms and uses Chromium, not WebKit.
+
 ## License
 
-Application source and original artwork: [MIT](LICENSE). Bundled dependencies retain their permissive licences and notices. See [ASSETS.md](ASSETS.md) for the complete provenance register and regeneration commands. This project is not affiliated with Apple; iPhone 18 and iPhone Duo presets are projections, not shipped hardware.
+**Personal / internal tool — not for public distribution. Do not publish the repository or installers.** Application source is covered by [MIT](LICENSE); this does not license the bundled hardware artwork/model, whose provenance and redistribution rights are unknown. See [ASSETS.md](ASSETS.md). This project is not affiliated with Apple; projected device geometry and animation tuning are estimates.
+
+The default start page asks for a website URL. Home Screen contains Safari, Chrome, and only web apps you add through the browser's Add to Home Screen flow.
 
 See [`HANDOFF.md`](HANDOFF.md) for architecture notes and the roadmap.
 
-Home Screen reference audit and asset licence limitations: [spec](docs/ios-home-screen-spec.md). The original artwork remains the fallback; official iOS 27.3 visual fidelity is not verified.
+Home Screen reference audit and asset licence limitations: [spec](docs/ios-home-screen-spec.md). Official iOS 27.3 visual fidelity is not verified.

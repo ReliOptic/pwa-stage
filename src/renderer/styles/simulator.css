@@ -2,7 +2,7 @@
 
 html, body, #root {
   width: 100%; height: 100%; background: transparent; overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif; color: #fafafa;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', sans-serif; color: #fafafa;
 }
 
 .simulator-root {
@@ -940,18 +940,6 @@ html, body, #root {
 .home-wallpaper i { position: absolute; display: block; width: 160%; height: 65%; left: -35%; top: 48%; border-radius: 50% 65% 0 0; transform: rotate(-18deg); background: linear-gradient(170deg,#a8c7bf,#356c70 55%,#234e58); box-shadow: inset 0 2px 1px #def1df80; }
 .home-wallpaper i:nth-child(2) { left: 5%; top: 66%; transform: rotate(-28deg); background: linear-gradient(155deg,#c6c2a2,#708f83 46%,#315b62); }
 .home-wallpaper i:nth-child(3) { left: -45%; top: 87%; transform: rotate(18deg); background: linear-gradient(170deg,#e3c1a2,#ac8067 50%,#664f50); }
-.home-widgets { position: absolute; left: var(--home-left); top: var(--home-top); width: var(--home-panel); display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
-.home-widget { height: var(--home-widget); padding: 15px; box-sizing: border-box; border-radius: 24px; display: flex; flex-direction: column; box-shadow: inset 0 1px 1px #ffffff40, 0 2px 5px #00000012; overflow: hidden; }
-.home-weather { background: linear-gradient(150deg,#235d8c,#4385ad); font-size: 14px; }
-.home-weather strong { font-size: 40px; font-weight: 300; line-height: 1.05; }
-.home-weather svg { width: 22px; height: 22px; margin-top: auto; }
-.home-weather small { font-size: 10px; margin-top: 2px; }
-.home-date { background: #faf8f3; color: #2a353b; }
-.home-date > small { font-size: 10px; color: #ba554f; }
-.home-date > strong { font-size: 34px; line-height: 1.1; font-weight: 300; }
-.home-mini-calendar { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; font-size: 9px; text-align: center; margin-top: auto; }
-.home-today { background: #b9594d; border-radius: 50%; color: white; }
-.home-widget-caption { display: block; text-align: center; font-size: 12px; line-height: 20px; text-shadow: 0 1px 3px #0006; }
 .home-grid { position: absolute; left: var(--home-left); top: var(--home-grid-top); width: var(--home-panel); display: grid; grid-template-columns: repeat(4, var(--home-icon)); justify-content: space-between; grid-auto-rows: var(--home-pitch); }
 .home-app { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
 .home-app-icon { width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 0; cursor: pointer; border: 0; color: #fff; background: linear-gradient(150deg,#5289be,#34658f); box-shadow: inset 0 1px 1px #ffffff66; pointer-events: auto; position: relative; }
@@ -974,20 +962,6 @@ html, body, #root {
 .home-search-field { position: absolute; top: 28%; left: 20px; right: 20px; z-index: 2; padding: 12px; border-radius: 22px; background: #f4f7f4f5; display: flex; box-shadow: 0 4px 30px #0004; }
 .home-search-field input { flex: 1; min-width: 0; background: transparent; border: 0; color: #14282f; padding: 10px; font: 16px Arial,sans-serif; }
 .home-search-field button { border: 0; border-radius: 50%; font-size: 24px; width: 42px; cursor: pointer; }
-.home-extra-widgets { position: absolute; left: 66px; top: 52px; width: 338px; }
-.home-music-widget { height: 160px; padding: 16px; box-sizing: border-box; background: #4d4145e8; border-radius: 26px; display: flex; gap: 16px; align-items: center; }
-.home-album { width: 126px; height: 126px; flex-shrink: 0; border-radius: 12px; display: grid; place-items: center; background: repeating-linear-gradient(140deg,#d5a779 0 12px,#597e7c 12px 26px,#344d64 26px 38px); }
-.home-music-widget > div:last-child { display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
-.home-music-widget small { font-size: 9px; opacity: .7; }
-.home-music-widget strong { font-size: 17px; }
-.home-play { font-size: 11px; padding: 6px 8px; background: #fff2; border-radius: 16px; margin-top: 9px; }
-.home-agenda-widget { height: 358px; margin-top: 18px; padding: 22px; border-radius: 28px; background: #fbfaf6; color: #303e46; box-sizing: border-box; }
-.home-agenda-widget > small { color: #b65e55; font-size: 10px; display: block; }
-.home-agenda-widget > strong { font-size: 32px; font-weight: 300; }
-.home-agenda-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; font-size: 11px; }
-.home-agenda-columns span { font-size: 9px; color: #788888; }
-.home-agenda-columns p { padding: 13px 8px; border-left: 3px solid #729b89; background: #e1ebe4; min-height: 35px; margin: 10px 0 18px; }
-.home-agenda-columns > div:last-child p { background: #f1e2dc; border-color: #c29180; }
 /* The existing status layer retains its original glyphs; Home owns only dock/search. */
 .ios-overlay-home .ios-duo-vertical-rail { background: transparent; border: 0; box-shadow: none; backdrop-filter: none; }
 .ios-overlay-home .ios-duo-v68-status { margin-top: 88px; }
@@ -1143,3 +1117,10 @@ html, body, #root {
 .ios-card-toggle { margin-top: 36px; padding: 12px 16px; background: rgba(128,128,140,.08); }
 .ios-card-note { margin: 8px 16px; }
 .ios-card-toggle input:focus-visible + .ios-switch { outline: 2px solid #0a84ff; outline-offset: 3px; }
+
+/* Windows caption actions: right aligned, minimize before close, no traffic lights. */
+.windows-controls { order: 10; flex-direction: row-reverse; margin-left: auto; gap: 0; }
+.windows-controls .traffic-dot { width: 24px; height: 22px; border-radius: 2px; background: transparent; color: inherit; }
+.windows-controls .traffic-dot svg { width: 12px; height: 12px; opacity: 1; }
+.windows-controls .traffic-dot:hover { background: rgba(128,128,128,.25); color: inherit; }
+.windows-controls .traffic-close:hover { background: #c42b1c; color: white; }

@@ -1,7 +1,7 @@
 {
   "name": "macos-iphone-pwa-simulator",
   "version": "1.0.0",
-  "description": "Floating macOS iPhone & iPhone Duo simulator for Progressive Web App developers",
+  "description": "Floating macOS and Windows iPhone & iPhone Duo simulator for Progressive Web App developers",
   "main": "dist-electron/index.js",
   "author": "reliqbit",
   "scripts": {
@@ -17,7 +17,10 @@
     "dist:app": "npm run build && electron-builder --mac dir",
     "assets:generate": "python3 scripts/generate-assets.py",
     "assets:notices": "node scripts/collect-notices.cjs",
-    "assets:audit": "node scripts/audit-assets.cjs"
+    "assets:audit": "node scripts/audit-assets.cjs",
+    "dist:win": "npm run build && electron-builder --win nsis --x64 --publish never",
+    "dist:win:portable": "npm run build && electron-builder --win portable --x64 --publish never",
+    "assets:windows-icon": "python3 scripts/generate-windows-icon.py"
   },
   "build": {
     "appId": "com.reliqbit.iphone-pwa-simulator",
@@ -92,13 +95,35 @@
         ]
       },
       {
-        "from": "public/reboot/",
-        "to": "reboot",
+        "from": "public/start/",
+        "to": "start",
         "filter": [
           "**/*"
         ]
       }
-    ]
+    ],
+    "win": {
+      "icon": "build/windows/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-${arch}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-${arch}-portable.${ext}"
+    }
   },
   "dependencies": {
     "lucide-react": "^1.57.0",

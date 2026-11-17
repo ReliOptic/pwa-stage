@@ -93,7 +93,9 @@ export function setFloatingPin(
 
   try {
     win.setAlwaysOnTop(pinned, pinned ? 'floating' : 'normal');
-    win.setVisibleOnAllWorkspaces(pinned, { visibleOnFullScreen: true });
+    if (process.platform !== 'win32') {
+      win.setVisibleOnAllWorkspaces(pinned, { visibleOnFullScreen: true });
+    }
 
     logStructured('info', 'window-manager.service', 'floating_pin_changed', {
       alwaysOnTop: pinned
@@ -111,7 +113,7 @@ export function setFloatingPin(
         kind: 'WINDOW_OPERATION_ERROR',
         operation: 'setFloatingPin',
         message,
-        recoveryHint: 'Verify macOS window permissions'
+        recoveryHint: 'Verify window permissions'
       }
     };
   }
@@ -130,6 +132,13 @@ export function toggleFloatingWindowVisibility(
         recoveryHint: 'Re-open the simulator window'
       }
     };
+  }
+
+  if (process.platform === 'win32' && win.isMinimized?.()) {
+    win.restore?.();
+    win.show?.();
+    win.focus?.();
+    return { ok: true, value: true };
   }
 
   const currentlyVisible = win.isVisible ? win.isVisible() : true;

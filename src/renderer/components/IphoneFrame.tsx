@@ -1,3 +1,4 @@
+import { platformLabel } from '../../utils/platform.util';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { GripHorizontal, MousePointerClick, Pin, PinOff, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { IOS27_CHROME_ASSETS } from '../../config/ios27-assets.config';
@@ -411,13 +412,13 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
             className={`bezel-mini-btn ${state.alwaysOnTop ? 'bezel-mini-pin-on' : ''}`}
             title={
               state.alwaysOnTop
-                ? 'Floating on All Spaces (⌘T)'
-                : 'Stays on This Space only (⌘T)'
+                ? platformLabel("Floating on All Spaces (⌘T)")
+                : platformLabel("Stays on This Space only (⌘T)")
             }
             onClick={(): void => props.onUpdateState({ alwaysOnTop: !state.alwaysOnTop })}
           >
             {state.alwaysOnTop ? <Pin size={11} /> : <PinOff size={11} />}
-            <span>{state.alwaysOnTop ? 'All Spaces' : 'This Space'}</span>
+            <span>{platformLabel(state.alwaysOnTop ? 'All Spaces' : 'This Space')}</span>
           </button>
           <button
             type="button"
@@ -433,7 +434,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
           <button
             type="button"
             className="bezel-mini-btn"
-            title="Show Toolbar (⌘B)"
+            title={platformLabel("Show Toolbar (⌘B)")}
             onClick={props.onExpandHud}
           >
             <SlidersHorizontal size={11} />
@@ -517,7 +518,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
                 <button
                   type="button"
                   className="hw-home-button"
-                  title="Home (⇧⌘H)"
+                  title={platformLabel("Home (⇧⌘H)")}
                   aria-label="Home button"
                   onClick={props.onGoHome}
                   style={

@@ -1,5 +1,3 @@
-import * as THREE from '../vendor/three.module.js';
-import { createDuoProceduralModel } from './duo-procedural-model.util';
 import {
   computeHomographyMatrix3d,
   DuoPostureId,
@@ -71,6 +69,17 @@ export interface Duo3DRenderParams {
   readonly finish: 'night' | 'white';
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+declare global {
+  interface Window {
+    THREE?: any;
+    __DUO_ASSET?: {
+      readonly gltf: any;
+      readonly binary: string;
+    };
+  }
+}
+
 /**
  * Hinge angle at which the app moves from the cover layout to the inner
  * layout. It has to happen as soon as the device cracks open: during the
@@ -103,6 +112,191 @@ function signedQuadArea(q: readonly Point2D[]): number {
   return area * 0.5;
 }
 
+export function loadDuoSkinnedAsset(T: any, data: { readonly gltf: any; readonly binary: string }): any {
+  const g = data.gltf;
+  const bytes = Uint8Array.from(atob(data.binary), (c) => c.charCodeAt(0));
+  const types: Record<number, any> = {
+    5120: Int8Array,
+    5121: Uint8Array,
+    5122: Int16Array,
+    5123: Uint16Array,
+    5125: Uint32Array,
+    5126: Float32Array
+  };
+  const sizes: Record<string, number> = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
+
+  function readAccessorArray(idx: number): any {
+    const acc = g.accessors[idx];
+    const view = g.bufferViews[acc.bufferView];
+    const Ctor = types[acc.componentType];
+    const itemSize = sizes[acc.type];
+    const offset = (view.byteOffset || 0) + (acc.byteOffset || 0);
+    const stride = view.byteStride || itemSize * Ctor.BYTES_PER_ELEMENT;
+    if (stride === itemSize * Ctor.BYTES_PER_ELEMENT) {
+      return new Ctor(bytes.buffer.slice(offset, offset + acc.count * stride));
+    }
+    const out = new Ctor(acc.count * itemSize);
+    for (let n = 0; n < acc.count; n++) {
+      const sliceStart = offset + n * stride;
+      out.set(
+        new Ctor(bytes.buffer.slice(sliceStart, sliceStart + itemSize * Ctor.BYTES_PER_ELEMENT)),
+        n * itemSize
+      );
+    }
+    return out;
+  }
+
+  const nodes = g.nodes.map((n: any, idx: number) => {
+    const bone = new T.Bone();
+    bone.name = `duo-node-${idx}`;
+    bone.position.fromArray(n.translation || [0, 0, 0]);
+    bone.quaternion.fromArray(n.rotation || [0, 0, 0, 1]);
+    bone.scale.fromArray(n.scale || [1, 1, 1]);
+    if (n.matrix) {
+      bone.matrix.fromArray(n.matrix);
+      bone.matrix.decompose(bone.position, bone.quaternion, bone.scale);
+    }
+    return bone;
+  });
+
+  g.nodes.forEach((n: any, idx: number) => {
+    (n.children || []).forEach((childIdx: number) => nodes[idx].add(nodes[childIdx]));
+  });
+
+  const model = new T.Group();
+  g.scenes[g.scene || 0].nodes.forEach((rootIdx: number) => model.add(nodes[rootIdx]));
+  model.updateMatrixWorld(true);
+
+  const materials = g.materials.map((m: any, idx: number) => {
+    const pbr = m.pbrMetallicRoughness || {};
+    const factor = pbr.baseColorFactor || [0.045, 0.045, 0.049, 1];
+    const col = new T.Color().fromArray(factor);
+    const metalness = pbr.metallicFactor ?? 0.86;
+    const roughness = pbr.roughnessFactor ?? 0.28;
+    if (idx === 7 || idx === 8) {
+      return new T.MeshBasicMaterial({ color: 0x09090b, side: T.DoubleSide });
+    }
+    if (Math.max(factor[0], factor[1], factor[2]) > 0.45) {
+      const gray = (factor[0] + factor[1] + factor[2]) / 3;
+      col.setRGB(gray * 0.95, gray * 0.965, gray * 0.975);
+    }
+    return new T.MeshStandardMaterial({
+      color: col,
+      metalness,
+      roughness: Math.max(0.15, roughness),
+      transparent: factor[3] < 1,
+      opacity: factor[3],
+      side: T.FrontSide,
+      depthWrite: factor[3] > 0.4
+    });
+  });
+
+  const meshes: any[] = [];
+  const attrMap: Record<string, string> = {
+    POSITION: 'position',
+    NORMAL: 'normal',
+    TEXCOORD_0: 'uv',
+    TEXCOORD_1: 'uv1',
+    JOINTS_0: 'skinIndex',
+    WEIGHTS_0: 'skinWeight'
+  };
+
+  g.nodes.forEach((n: any, nodeIdx: number) => {
+    if (n.mesh === undefined) return;
+    g.meshes[n.mesh].primitives.forEach((prim: any) => {
+      const geo = new T.BufferGeometry();
+      for (const [attrName, accIdx] of Object.entries(prim.attributes)) {
+        const mapped = attrMap[attrName];
+        if (mapped) {
+          const acc = g.accessors[accIdx as number];
+          geo.setAttribute(
+            mapped,
+            new T.BufferAttribute(
+              readAccessorArray(accIdx as number),
+              sizes[acc.type],
+              acc.normalized || false
+            )
+          );
+        }
+      }
+      if (prim.indices !== undefined) {
+        geo.setIndex(new T.BufferAttribute(readAccessorArray(prim.indices), 1));
+      }
+      const mesh =
+        n.skin === undefined
+          ? new T.Mesh(geo, materials[prim.material])
+          : new T.SkinnedMesh(geo, materials[prim.material]);
+      mesh.name = n.name;
+      mesh.frustumCulled = false;
+      mesh.userData.originalColor = mesh.material.color.clone();
+      nodes[nodeIdx].add(mesh);
+      meshes.push(mesh);
+
+      if (n.skin !== undefined) {
+        const skin = g.skins[n.skin];
+        const invArr = readAccessorArray(skin.inverseBindMatrices);
+        const skeleton = new T.Skeleton(
+          skin.joints.map((j: number) => nodes[j]),
+          skin.joints.map((_: number, jIdx: number) => new T.Matrix4().fromArray(invArr, jIdx * 16))
+        );
+        model.updateMatrixWorld(true);
+        mesh.bind(skeleton, mesh.matrixWorld);
+        mesh.normalizeSkinWeights();
+      }
+    });
+  });
+
+  const sliderAnim = g.animations.find((a: any) => a.name === 'Slider');
+  const tracks: any[] = [];
+  const propMap: Record<string, string> = {
+    translation: 'position',
+    rotation: 'quaternion',
+    scale: 'scale'
+  };
+  for (const ch of sliderAnim.channels) {
+    const sampler = sliderAnim.samplers[ch.sampler];
+    const prop = propMap[ch.target.path];
+    const TrackCtor = prop === 'quaternion' ? T.QuaternionKeyframeTrack : T.VectorKeyframeTrack;
+    const track = new TrackCtor(
+      `${nodes[ch.target.node].uuid}.${prop}`,
+      readAccessorArray(sampler.input),
+      readAccessorArray(sampler.output)
+    );
+    if (sampler.interpolation === 'STEP') {
+      track.setInterpolation(T.InterpolateDiscrete);
+    }
+    tracks.push(track);
+  }
+
+  const mixer = new T.AnimationMixer(model);
+  const clip = new T.AnimationClip('Apple Slider', -1, tracks);
+  const action = mixer.clipAction(clip);
+  action.play();
+  action.paused = true;
+
+  const skin0 = g.skins[0];
+  const inv0 = readAccessorArray(skin0.inverseBindMatrices);
+  const inverseMatrices = skin0.joints.map((_: number, idx: number) =>
+    new T.Matrix4().fromArray(inv0, idx * 16)
+  );
+
+  return {
+    model,
+    meshes,
+    duration: clip.duration,
+    setFold(phi: number): void {
+      action.time = clamp(phi, 0, 1) * clip.duration;
+      mixer.update(0);
+      model.updateMatrixWorld(true);
+    },
+    point(x: number, y: number, z: number, jointIdx: number): any {
+      return new T.Vector3(x, y, z)
+        .applyMatrix4(inverseMatrices[jointIdx])
+        .applyMatrix4(nodes[skin0.joints[jointIdx]].matrixWorld);
+    }
+  };
+}
+
 export class Duo3DHardwareEngine {
   private readonly T: any;
   private readonly canvas: HTMLCanvasElement;
@@ -119,12 +313,16 @@ export class Duo3DHardwareEngine {
 
   public constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
-    this.T = THREE;
+    this.T = window.THREE;
+    if (!this.T || !window.__DUO_ASSET) {
+      throw new Error('Apple iPhone Duo 3D bundle (THREE / __DUO_ASSET) is not loaded');
+    }
+
     const T = this.T;
     this.scene = new T.Scene();
     this.camera = new T.PerspectiveCamera(27.5, 1, 0.1, 200);
     this.rig = new T.Group();
-    this.asset = createDuoProceduralModel(T);
+    this.asset = loadDuoSkinnedAsset(T, window.__DUO_ASSET);
     this.rig.add(this.asset.model);
     this.scene.add(this.rig);
 
@@ -213,7 +411,10 @@ export class Duo3DHardwareEngine {
     const joint = isLeft ? 24 : 25;
     const x0 = isLeft ? -7.87 : 0;
     const x1 = isLeft ? 0 : 7.87;
-    // Both original leaves rotate around the exact inner-surface hinge axis.
+    // The two leaves are skinned to different bones, so their hinge-side
+    // edges (x = 0) drift apart by a fraction of a pixel at mid-fold angles.
+    // Both quads use the midpoint of the two bone positions for that edge so
+    // the projected leaves always share it exactly (no gap, no overlap).
     const hinge = (z: number): any =>
       p(0, 0.268, z, 24).clone().add(p(0, 0.268, z, 25)).multiplyScalar(0.5);
     let q = isLeft

@@ -1,20 +1,37 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [main, astra/windows]
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci --ignore-scripts
+      - run: npm ci
       - run: npm run typecheck
       - run: npm test
-      - run: npx vite build
+      - run: npm run build
+      # Internal tool: never publish releases or upload installers from public repos.
+      - name: Package Windows installer
+        if: runner.os == 'Windows'
+        run: npx electron-builder --win nsis --x64 --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows' && github.event.repository.private == true
+        with:
+          name: windows-installer-internal
+          path: dist_dmg/*.exe
+          retention-days: 7

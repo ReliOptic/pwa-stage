@@ -1,3 +1,4 @@
+import { shortcutModifier } from '../utils/platform.util';
 import type {
   BrowserWindow,
   IpcMainInvokeEvent,
@@ -256,7 +257,7 @@ export function installGuestPermissionPrompts(
  *    navigate in place (what an iOS standalone PWA effectively does)
  *  - only http(s) navigations are allowed inside guests
  */
-const SIMULATOR_SHORTCUT_KEYS = new Set(['h', 'a', 's', 'r', 't', 'b', 'arrowleft', 'arrowright', '=', '+', '-', '0']);
+const SIMULATOR_SHORTCUT_KEYS = new Set(['h', 'a', 's', 'r', 'm', 't', 'b', 'arrowleft', 'arrowright', '=', '+', '-', '0']);
 const SHIFT_ONLY_KEYS = new Set(['h', 'a']);
 
 export function installNavigationGuards(
@@ -284,10 +285,12 @@ export function installNavigationGuards(
   shell.on('did-attach-webview', (_event, guest) => {
     // Simulator shortcuts must keep working while the page under test has focus.
     guest.on('before-input-event', (event, input) => {
-      if (input.type !== 'keyDown' || !(input.meta || input.control)) {
+      if (input.type !== 'keyDown' || !shortcutModifier(input.meta, input.control, input.alt)) {
         return;
       }
       const key = input.key.toLowerCase();
+      // The global hide shortcut owns Shift+S; never turn it into a screenshot.
+      if (key === 's' && input.shift) return;
       if (SIMULATOR_SHORTCUT_KEYS.has(key) && (!SHIFT_ONLY_KEYS.has(key) || input.shift)) {
         event.preventDefault();
         if (!shell.isDestroyed()) {

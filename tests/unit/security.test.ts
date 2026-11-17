@@ -84,7 +84,8 @@ describe('embedded static server', () => {
   const root = '/srv/reboot';
 
   it('serves files inside the root only', () => {
-    expect(resolveSafeStaticPath(root, '/')).toBe('/srv/reboot/reference.html');
+    expect(resolveSafeStaticPath(root, '/')).toBe('/srv/reboot/index.html');
+    expect(resolveSafeStaticPath(root, '/reference.html')).toBe('/srv/reboot/index.html');
     expect(resolveSafeStaticPath(root, '/feed.js?x=1')).toBe('/srv/reboot/feed.js');
     expect(resolveSafeStaticPath(root, '/../../etc/passwd')).toBeNull();
     expect(resolveSafeStaticPath(root, '/%2e%2e/%2e%2e/etc/passwd')).toBeNull();

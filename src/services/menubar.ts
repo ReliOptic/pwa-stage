@@ -1,3 +1,4 @@
+import { platformLabel } from '../utils/platform.util';
 import { execFile } from 'node:child_process';
 import { logStructured } from '../utils/logger.util';
 import * as fs from 'node:fs';
@@ -43,6 +44,7 @@ export function applyStatePatchFromMenu(
  * array (no shell) and the URL is validated to http(s) first.
  */
 export function openInXcodeSimulator(rawUrl: string): void {
+  if (process.platform !== 'darwin') return;
   let url: string;
   try {
     const parsed = new URL(rawUrl);
@@ -71,12 +73,12 @@ export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
   return Menu.buildFromTemplate([
     {
       label: 'Open URL in Xcode iOS Simulator (WebKit reference)',
-      enabled: process.platform === 'darwin',
+      visible: process.platform === 'darwin',
       click: (): void => openInXcodeSimulator(state.currentUrl)
     },
     { type: 'separator' },
     {
-      label: `Float on All Spaces (${state.alwaysOnTop ? 'ON' : 'OFF — This Space'})`,
+      label: platformLabel(`Float on All Spaces (${state.alwaysOnTop ? 'ON' : 'OFF — This Space'})`),
       type: 'checkbox',
       checked: state.alwaysOnTop,
       accelerator: 'CommandOrControl+T',
@@ -100,20 +102,20 @@ export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
       ]
     },
     {
-      label: state.hudCollapsed ? 'Show Toolbar (⌘B)' : 'Hide Toolbar (⌘B)',
+      label: state.hudCollapsed ? platformLabel("Show Toolbar (⌘B)") : platformLabel("Hide Toolbar (⌘B)"),
       accelerator: 'CommandOrControl+B',
       click: (): void => applyStatePatchFromMenu(ctx, { hudCollapsed: !state.hudCollapsed })
     },
     { type: 'separator' },
     {
-      label: 'Minimize to Dock',
+      label: platformLabel('Minimize to Dock'),
       accelerator: 'CommandOrControl+M',
       click: (): void => {
         win?.minimize();
       }
     },
     {
-      label: visible ? 'Hide to Menu Bar (⌘⇧S)' : 'Show Simulator (⌘⇧S)',
+      label: visible ? platformLabel("Hide to Menu Bar (⌘⇧S)") : platformLabel("Show Simulator (⌘⇧S)"),
       accelerator: 'CommandOrControl+Shift+S',
       click: (): void => {
         if (win) {
@@ -209,18 +211,19 @@ export function popUpTwoFingerMenu(ctx: MenuControllerContext): void {
   menu.popup({ window: win });
 }
 
-export function createMacMenuBarTray(ctx: MenuControllerContext): Tray {
+export function createMenuBarTray(ctx: MenuControllerContext): Tray {
+  const asset = process.platform === 'darwin' ? 'menubar-iconTemplate.png' : 'icon-512.png';
   const candidates = [
-    path.join(app.getAppPath(), 'public/assets/ios27/menubar-iconTemplate.png'),
-    path.join(app.getAppPath(), 'dist/assets/ios27/menubar-iconTemplate.png')
+    path.join(app.getAppPath(), `public/assets/ios27/${asset}`),
+    path.join(app.getAppPath(), `dist/assets/ios27/${asset}`)
   ];
   const found = candidates.find((p) => fs.existsSync(p));
   const icon = found ? nativeImage.createFromPath(found) : nativeImage.createEmpty();
-  icon.setTemplateImage(true);
+  icon.setTemplateImage(process.platform === 'darwin');
 
-  const tray = new Tray(icon);
-  tray.setTitle(' iPhone');
-  tray.setToolTip('iPhone PWA Simulator — Click to Show/Hide (⌘⇧S)');
+  const tray = new Tray(process.platform === 'darwin' ? icon : icon.resize({ width: 32, height: 32 }));
+  if (process.platform === 'darwin') tray.setTitle(' iPhone');
+  tray.setToolTip(platformLabel("iPhone PWA Simulator — Click to Show/Hide (⌘⇧S)"));
 
   tray.on('click', () => {
     const win = ctx.getWindow();

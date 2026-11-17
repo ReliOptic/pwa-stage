@@ -163,43 +163,13 @@ function AppIcon(props: {
   );
 }
 
-function useClock(): Date {
-  const [now, setNow] = useState<Date>(() => new Date());
-  useEffect((): (() => void) => {
-    const id = window.setInterval(() => setNow(new Date()), 30_000);
-    return (): void => window.clearInterval(id);
-  }, []);
-  return now;
-}
-
 /** Original neutral symbols, drawn here; no SF Symbols or Apple app artwork. */
 function HomeGlyph({ kind }: { readonly kind: number }): React.ReactElement {
-  const paths = [
-    'M12 17 L24 9 L36 17 L36 33 L24 41 L12 33 Z M12 17 L24 25 L36 17 M24 25 V41',
-    'M10 15 H38 V36 H10 Z M10 21 H38 M17 11 V18 M31 11 V18 M18 27 H22 M27 27 H31',
-    'M11 34 L20 14 L27 28 L32 20 L39 34 Z M32 11 V15 M30 13 H34',
-    'M13 12 H35 V38 H13 Z M18 19 H30 M18 25 H30 M18 31 H26',
-    'M10 17 Q24 6 38 17 V33 Q24 44 10 33 Z M10 17 L24 29 L38 17',
-    'M12 34 Q12 14 24 14 Q36 14 36 34 M12 28 H16 V37 H12 Z M32 28 H36 V37 H32 Z',
-    'M24 9 V15 M24 33 V39 M9 24 H15 M33 24 H39 M15 15 L19 19 M29 29 L33 33 M15 33 L19 29 M29 19 L33 15',
-    'M10 32 L18 20 L26 28 L37 12 M29 12 H37 V20 M10 38 H38',
-    'M15 11 H33 V37 H15 Z M20 16 H28 M20 23 H28 M20 30 H25',
-    'M10 24 Q24 5 38 24 Q24 43 10 24 Z M19 24 A5 5 0 1 0 29 24 A5 5 0 1 0 19 24',
-    'M12 12 H36 V36 H12 Z M12 24 H36 M24 12 V36',
-    'M24 10 C8 10 8 30 24 39 C40 30 40 10 24 10 Z M19 22 L23 27 L30 18',
-    'M10 18 H25 L30 12 H38 V36 H10 Z M16 26 H31',
-    'M16 10 L35 24 L16 38 Z',
-    'M11 35 L17 13 L24 30 L31 13 L37 35',
-    'M12 15 H36 M12 24 H36 M12 33 H36 M19 11 V19 M29 20 V28 M22 29 V37'
-  ];
-  return <svg width="72%" height="72%" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[kind % paths.length]} /></svg>;
+  return <svg width="72%" height="72%" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><circle cx="24" cy="24" r="18" />{kind === 9 ? <path d="m30 16-4 10-10 6 6-12Z" fill="#ed655d" /> : <><circle cx="24" cy="24" r="8" /><path d="M24 6h1l10 18M8 15l10 17m12-1-8 11" /></>}</svg>;
 }
-const HOME_SAMPLES = ['Parcel', 'Calendar', 'Trails', 'Journal', 'Letters', 'Audio', 'Daylight', 'Activity', 'Reading', 'Focus', 'Studio', 'Wellbeing', 'Files', 'Cinema', 'Waves', 'Controls'];
-const HOME_TONES = ['#40ad7e', '#c66150', '#5689bd', '#737992', '#3d93cc', '#985db6', '#cf9b37', '#dd7550', '#568c85', '#4b698e', '#6879c4', '#ba6285', '#b99356', '#555a73', '#7a6bb0', '#667b8d'];
 
 export function HomeScreen(props: { readonly mirror?: boolean; readonly width: number; readonly height: number; readonly safeTop?: number; readonly trailingInset?: number }): React.ReactElement | null {
   const screen = useScreen();
-  const now = useClock();
   const { page: requestedPage, searching, query } = screen.homeNavigation;
   const updateNavigation = (patch: Partial<HomeNavigation>): void => screen.setHomeNavigation({ ...screen.homeNavigation, ...patch });
   const rail = props.trailingInset ?? 0;
@@ -219,19 +189,8 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
   return (
     <div className={`home-screen home-screen-${screen.phase} ${rail ? 'home-with-rail' : ''} ${layout.landscape ? 'home-landscape' : ''}`} style={style} ref={el => { if (el) el.inert = Boolean(props.mirror); }} aria-hidden={props.mirror || undefined}>
       <div className="home-wallpaper" aria-hidden="true"><i /><i /><i /></div>
-      {layout.inner && <div className="home-extra-widgets" aria-label="Sample widgets">
-        <div className="home-music-widget"><div className="home-album"><HomeGlyph kind={14} /></div><div><small>SAMPLE PLAYLIST</small><strong>Quiet hours</strong><span>Ambient collection</span><span className="home-play">Ⅱ &nbsp; Listening room</span></div></div>
-        <span className="home-widget-caption">Audio</span>
-        <div className="home-agenda-widget"><small>{now.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()}</small><strong>{now.getDate()}</strong><div className="home-agenda-columns"><div><span>09:00</span><p>Morning walk</p><span>11:00</span><p>Creative time</p></div><div><span>TOMORROW</span><p>Explore somewhere new</p><span>14:00</span><p>Make time to read</p></div></div></div>
-        <span className="home-widget-caption">Sample calendar</span>
-      </div>}
-      {!layout.landscape && <div className="home-widgets">
-        <div><div className="home-widget home-weather"><span>Cupertino</span><strong>21°</strong><HomeGlyph kind={6} /><span>Mostly sunny</span><small>H:24° L:16° · Sample</small></div><span className="home-widget-caption">Weather</span></div>
-        <div><div className="home-widget home-date"><small>{now.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()}</small><strong>{now.getDate()}</strong><div className="home-mini-calendar">{Array.from({length: 21}, (_, i) => <span key={i} className={i + 1 === now.getDate() ? 'home-today' : ''}>{i + 1}</span>)}</div></div><span className="home-widget-caption">Calendar</span></div>
-      </div>}
       <div className="home-grid" aria-label="Home Screen apps">
         {visible.map(app => <AppIcon key={app.id} label={app.name} iconUrl={app.iconUrl} size={layout.icon} onOpen={origin => screen.launchApp(app, origin)} onRemove={() => screen.removeApp(app.id)} />)}
-        {!query && HOME_SAMPLES.slice(0, layout.capacity - visible.length).map((name, i) => <AppIcon key={name} label={name} size={layout.icon} tone={`linear-gradient(150deg, ${HOME_TONES[i]}, ${HOME_TONES[i]}dd)`} glyph={<HomeGlyph kind={i} />} />)}
       </div>
       {(rail > 0 || pages > 1) && <div className="home-page-dots" aria-label="Home Screen pages">{Array.from({length: pages}, (_, i) => <button key={i} aria-label={`Page ${i + 1}`} aria-current={page === i ? 'page' : undefined} onClick={() => updateNavigation({ page: i })} />)}</div>}
       <button className="home-search-pill" aria-label="Search installed apps" onClick={() => updateNavigation({ searching: true })}><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="8" cy="8" r="5" /><path d="m12 12 5 5" /></svg>{!rail && <span>Search</span>}</button>
@@ -239,8 +198,7 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
       <div className="home-dock" aria-label="Dock">
         <AppIcon label="Safari" hideLabel size={layout.dockIcon} tone="linear-gradient(145deg,#60bbd1,#2675ae)" glyph={<HomeGlyph kind={9} />} onOpen={origin => screen.launchApp('safari', origin)} />
         <AppIcon label="Chrome" hideLabel size={layout.dockIcon} tone="linear-gradient(145deg,#60b28e,#28765b)" glyph={<HomeGlyph kind={0} />} onOpen={origin => screen.launchApp('chrome', origin)} />
-        {screen.installedApps[0] ? <AppIcon label={screen.installedApps[0].name} hideLabel size={layout.dockIcon} iconUrl={screen.installedApps[0].iconUrl} onOpen={origin => screen.launchApp(screen.installedApps[0], origin)} /> : <AppIcon label="Sample audio" hideLabel size={layout.dockIcon} tone="#a25d97" glyph={<HomeGlyph kind={5} />} />}
-        <AppIcon label="Sample library" hideLabel size={layout.dockIcon} tone="#cc795c" glyph={<HomeGlyph kind={8} />} />
+        {screen.installedApps[0] ? <AppIcon label={screen.installedApps[0].name} hideLabel size={layout.dockIcon} iconUrl={screen.installedApps[0].iconUrl} onOpen={origin => screen.launchApp(screen.installedApps[0], origin)} /> : null}
       </div>
     </div>
   );

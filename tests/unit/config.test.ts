@@ -4,11 +4,11 @@ import { loadSimulatorEnvConfig, validateHttpUrl } from '../../src/config/env.co
 import { DeviceModelId } from '../../src/types/device.types';
 
 describe('env.config & device-presets.config', () => {
-  it('loads the original local demo when env is empty', () => {
+  it('loads the neutral start page when env is empty', () => {
     const result = loadSimulatorEnvConfig({});
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.defaultTargetUrl).toBe('http://127.0.0.1:18765/reference.html');
+      expect(result.value.defaultTargetUrl).toBe('http://127.0.0.1:18765/index.html');
       expect(result.value.defaultScale).toBe(1.0);
       expect(result.value.defaultAlwaysOnTop).toBe(true);
       expect(result.value.quickBookmarks.length).toBeGreaterThanOrEqual(3);

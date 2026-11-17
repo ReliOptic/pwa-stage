@@ -44,7 +44,7 @@ import {
   sanitizePageInspection
 } from './services/page-inspector';
 import {
-  createMacMenuBarTray,
+  createMenuBarTray,
   MenuControllerContext,
   popUpTwoFingerMenu,
   readCurrentState
@@ -448,7 +448,11 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
     transparent: true,
     frame: false,
     hasShadow: false,
-    resizable: true,
+    // Custom corner grips resize programmatically; native resizing breaks Windows transparency.
+    resizable: process.platform !== 'win32',
+    ...(process.platform === 'win32' ? { maximizable: false } : {}),
+    autoHideMenuBar: true,
+    icon: path.join(app.getAppPath(), 'public/assets/ios27/icon-512.png'),
     alwaysOnTop: state.alwaysOnTop,
     backgroundColor: '#00000000',
     webPreferences: {
@@ -461,6 +465,8 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
       webviewTag: true
     }
   });
+  // The tray owns app actions; Electron's default Windows menu would intercept Ctrl shortcuts.
+  if (process.platform === 'win32') win.setMenu(null);
   installNavigationGuards(win, (url) => isSameShellUrl(url, win.webContents.getURL() || url));
 
   setFloatingPin(win, state.alwaysOnTop);
@@ -473,6 +479,10 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
     if (latest.alwaysOnTop) {
       win.show();
       win.focus();
+      return;
+    }
+    if (process.platform !== 'darwin') {
+      win.showInactive();
       return;
     }
     void getTopmostOtherAppBundleId().then(async (currentOtherBundleId) => {
@@ -540,13 +550,17 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
 }
 
 export function bootstrapElectronApp(): void {
+  app.on('will-quit', () => globalShortcut.unregisterAll());
   app.on('before-quit', () => {
     isQuittingApp = true;
   });
 
   void app.whenReady().then(async () => {
-    app.dock?.hide();
-    capturedLaunchFrontBundleIdPromise = getTopmostOtherAppBundleId();
+    if (process.platform === 'darwin') {
+      app.dock?.hide();
+      capturedLaunchFrontBundleIdPromise = getTopmostOtherAppBundleId();
+    }
+    if (process.platform === 'win32') app.setAppUserModelId('com.reliqbit.iphone-pwa-simulator');
     const rebootRoot = resolveRebootStaticRoot(__dirname, process.resourcesPath);
     const rebootServerUrl = await startEmbeddedRebootServer(rebootRoot, 18765);
     const deps = buildCoordinatorDependencies(rebootServerUrl);
@@ -579,14 +593,15 @@ export function bootstrapElectronApp(): void {
 
     registerIpcHandlers(ctx);
     mainFloatingWindow = createFloatingSimulatorWindow(ctx);
-    menuBarTray = createMacMenuBarTray(ctx);
+    menuBarTray = createMenuBarTray(ctx);
     void menuBarTray;
 
-    globalShortcut.register('CommandOrControl+Shift+S', () => {
+    const registered = globalShortcut.register('CommandOrControl+Shift+S', () => {
       if (mainFloatingWindow) {
         toggleFloatingWindowVisibility(mainFloatingWindow);
       }
     });
+    if (!registered) logStructured('warn', 'main.entry', 'hide_shortcut_unavailable', {});
   });
 }
 

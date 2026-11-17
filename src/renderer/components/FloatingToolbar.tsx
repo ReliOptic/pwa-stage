@@ -1,3 +1,4 @@
+import { platformLabel, hostPlatform } from '../../utils/platform.util';
 import React, { useEffect, useState } from 'react';
 import {
   BookOpen,
@@ -94,11 +95,11 @@ function WindowRow(props: FloatingToolbarProps): React.ReactElement {
   };
   return (
     <div className="tb-row">
-      <div className="traffic-lights">
+      <div className={hostPlatform() === 'win32' ? 'traffic-lights windows-controls' : 'traffic-lights'}>
         <button
           type="button"
           className="traffic-dot traffic-close"
-          title="Hide to Menu Bar (⇧⌘S)"
+          title={platformLabel("Hide to Menu Bar (⇧⌘S)")}
           aria-label="Hide simulator"
           onClick={props.onClose}
         >
@@ -107,7 +108,7 @@ function WindowRow(props: FloatingToolbarProps): React.ReactElement {
         <button
           type="button"
           className="traffic-dot traffic-min"
-          title="Minimize (⌘M)"
+          title={platformLabel("Minimize (⌘M)")}
           aria-label="Minimize simulator"
           onClick={props.onMinimize}
         >
@@ -143,7 +144,7 @@ function WindowRow(props: FloatingToolbarProps): React.ReactElement {
         <button
           type="button"
           className="scale-step-btn"
-          title="Zoom Out (⌘−)"
+          title={platformLabel("Zoom Out (⌘−)")}
           aria-label="Zoom out"
           onClick={(): void => stepScale(-0.05)}
         >
@@ -152,7 +153,7 @@ function WindowRow(props: FloatingToolbarProps): React.ReactElement {
         <button
           type="button"
           className="scale-readout-btn"
-          title="Toggle 85% / 100% (⌘0). Drag a corner to resize."
+          title={platformLabel("Toggle 85% / 100% (⌘0). Drag a corner to resize.")}
           onClick={(): void =>
             onUpdateState({ scale: Math.abs(state.scale - 0.85) < 0.02 ? 1.0 : 0.85 })
           }
@@ -162,7 +163,7 @@ function WindowRow(props: FloatingToolbarProps): React.ReactElement {
         <button
           type="button"
           className="scale-step-btn"
-          title="Zoom In (⌘+)"
+          title={platformLabel("Zoom In (⌘+)")}
           aria-label="Zoom in"
           onClick={(): void => stepScale(0.05)}
         >
@@ -175,11 +176,11 @@ function WindowRow(props: FloatingToolbarProps): React.ReactElement {
         className={`shadcn-icon-btn ${state.alwaysOnTop ? 'tb-on' : ''}`}
         title={
           state.alwaysOnTop
-            ? 'Floating on all Spaces & full-screen apps (⌘T to keep on this Space)'
-            : 'On this Space only (⌘T to float on all Spaces)'
+            ? platformLabel("Floating on all Spaces & full-screen apps (⌘T to keep on this Space)")
+            : platformLabel("On this Space only (⌘T to float on all Spaces)")
         }
         aria-pressed={state.alwaysOnTop}
-        aria-label="Float on all Spaces"
+        aria-label={platformLabel("Float on all Spaces")}
         onClick={(): void => onUpdateState({ alwaysOnTop: !state.alwaysOnTop })}
       >
         {state.alwaysOnTop ? <Pin size={11} /> : <PinOff size={11} />}
@@ -187,7 +188,7 @@ function WindowRow(props: FloatingToolbarProps): React.ReactElement {
       <button
         type="button"
         className="shadcn-icon-btn"
-        title="Hide toolbar (⌘B)"
+        title={platformLabel("Hide toolbar (⌘B)")}
         aria-label="Hide toolbar"
         onClick={(): void => onUpdateState({ hudCollapsed: true })}
       >
@@ -317,23 +318,23 @@ function HardwareRow(props: FloatingToolbarProps): React.ReactElement {
 
   return (
     <div className="tb-row tb-actions">
-      <ActionButton icon={<House size={12} />} label="Home" title="Home (⇧⌘H)" onClick={props.onGoHome} />
+      <ActionButton icon={<House size={12} />} label="Home" title={platformLabel("Home (⇧⌘H)")} onClick={props.onGoHome} />
       <ActionButton
         icon={<RotateCw size={12} />}
         label="Rotate"
-        title="Rotate (⌘← / ⌘→)"
+        title={platformLabel("Rotate (⌘← / ⌘→)")}
         onClick={(): void => onUpdateState({ orientation: nextOrientation })}
       />
       <ActionButton
         icon={state.darkMode ? <Moon size={12} /> : <Sun size={12} />}
         label={state.darkMode ? 'Dark' : 'Light'}
-        title="Appearance: prefers-color-scheme (⇧⌘A)"
+        title={platformLabel("Appearance: prefers-color-scheme (⇧⌘A)")}
         onClick={(): void => onUpdateState({ darkMode: !state.darkMode })}
       />
       <ActionButton
         icon={<Camera size={12} />}
         label="Shot"
-        title="Save screenshot to Desktop (⌘S)"
+        title={platformLabel("Save screenshot to Desktop (⌘S)")}
         onClick={props.onScreenshot}
       />
       <ActionButton

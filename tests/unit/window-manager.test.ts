@@ -75,6 +75,7 @@ describe('window-manager service', () => {
   });
 
   it('toggles macOS floating pin and workspace visibility', () => {
+    const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
     const win = createMockWindow(false);
     const pinnedRes = setFloatingPin(win, true);
     expect(pinnedRes.ok).toBe(true);
@@ -85,6 +86,7 @@ describe('window-manager service', () => {
     expect(unpinnedRes.ok).toBe(true);
     expect(win.setAlwaysOnTop).toHaveBeenCalledWith(false, 'normal');
 
+    platform.mockRestore();
     const hideRes = toggleFloatingWindowVisibility(win);
     expect(hideRes.ok).toBe(true);
     if (hideRes.ok) {
@@ -96,5 +98,33 @@ describe('window-manager service', () => {
     if (showRes.ok) {
       expect(showRes.value).toBe(true);
     }
+  });
+});
+
+describe('host platform pinning', () => {
+  it.each(['win32', 'darwin', 'linux'])('applies native pin semantics on %s', (platform) => {
+    const mock = vi.spyOn(process, 'platform', 'get').mockReturnValue(platform as NodeJS.Platform);
+    try {
+      const win = createMockWindow();
+      expect(setFloatingPin(win, true).ok).toBe(true);
+      expect(setFloatingPin(win, false).ok).toBe(true);
+      expect(win.setAlwaysOnTop).toHaveBeenLastCalledWith(false, 'normal');
+      if (platform === 'win32') expect(win.setVisibleOnAllWorkspaces).not.toHaveBeenCalled();
+      else expect(win.setVisibleOnAllWorkspaces).toHaveBeenLastCalledWith(false, { visibleOnFullScreen: true });
+    } finally { mock.mockRestore(); }
+  });
+});
+
+describe('Windows taskbar restore', () => {
+  it('restores a minimized window when invoked from the tray', () => {
+    const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+    try {
+      const restore = vi.fn();
+      const win = { ...createMockWindow(), isMinimized: () => true, restore };
+      expect(toggleFloatingWindowVisibility(win)).toEqual({ ok: true, value: true });
+      expect(restore).toHaveBeenCalledOnce();
+      expect(win.focus).toHaveBeenCalledOnce();
+      expect(win.hide).not.toHaveBeenCalled();
+    } finally { platform.mockRestore(); }
   });
 });
