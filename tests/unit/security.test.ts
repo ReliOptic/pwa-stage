@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import * as path from 'node:path';
 import {
   buildPromptMessage,
   enforceGuestWebPreferences,
@@ -84,12 +85,12 @@ describe('guest (page under test) isolation', () => {
 });
 
 describe('embedded static server', () => {
-  const root = '/srv/reboot';
+  const root = path.resolve('/srv/reboot');
 
   it('serves files inside the root only', () => {
-    expect(resolveSafeStaticPath(root, '/')).toBe('/srv/reboot/index.html');
-    expect(resolveSafeStaticPath(root, '/reference.html')).toBe('/srv/reboot/index.html');
-    expect(resolveSafeStaticPath(root, '/feed.js?x=1')).toBe('/srv/reboot/feed.js');
+    expect(resolveSafeStaticPath(root, '/')).toBe(path.join(root, 'index.html'));
+    expect(resolveSafeStaticPath(root, '/reference.html')).toBe(path.join(root, 'index.html'));
+    expect(resolveSafeStaticPath(root, '/feed.js?x=1')).toBe(path.join(root, 'feed.js'));
     expect(resolveSafeStaticPath(root, '/../../etc/passwd')).toBeNull();
     expect(resolveSafeStaticPath(root, '/%2e%2e/%2e%2e/etc/passwd')).toBeNull();
     // sibling directory sharing the prefix "/srv/reboot"
