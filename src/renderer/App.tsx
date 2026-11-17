@@ -1,3 +1,4 @@
+import { requestDuoFoldToggle } from './sim-events';
 import { shortcutModifier } from '../utils/platform.util';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { DEVICE_PRESETS, getDevicePresetById } from '../config/device-presets.config';
@@ -174,15 +175,8 @@ function useSimulatorController(): SimulatorController {
   }, [activeWebContentsId]);
 
   const handleToggleDuoFold = useCallback((): void => {
-    const nextId =
-      ctx.state.selectedDeviceId === DeviceModelId.IPHONE_DUO_FOLDED
-        ? DeviceModelId.IPHONE_DUO_UNFOLDED
-        : DeviceModelId.IPHONE_DUO_FOLDED;
-    handleUpdateState({
-      selectedDeviceId: nextId,
-      orientation: Orientation.PORTRAIT
-    });
-  }, [ctx.state.selectedDeviceId, handleUpdateState]);
+    requestDuoFoldToggle();
+  }, []);
 
   return {
     ctx,

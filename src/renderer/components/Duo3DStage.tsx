@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ComputedViewportMetrics,
   DevicePreset,
@@ -221,7 +221,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     readonly startPitch: number;
   } | null>(null);
 
-  useEffect((): (() => void) => {
+  useLayoutEffect((): (() => void) => {
     if (!canvasRef.current) return (): void => {};
     try {
       engineRef.current = new Duo3DHardwareEngine(canvasRef.current);
@@ -234,7 +234,8 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     };
   }, []);
 
-  useEffect((): void => {
+  // Commit the canvas and its DOM apertures before the same paint.
+  useLayoutEffect((): void => {
     if (!engineRef.current) return;
     const nextProj = engineRef.current.renderFrame({
       stageWidth: STAGE_WIDTH,
@@ -324,7 +325,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     if (!mirrorLeft || primaryGuestId === null) return;
     return acquireGuestMirror(primaryGuestId);
   }, [mirrorLeft, primaryGuestId]);
-  const mirrorLive = isBentInner;
+  const mirrorLive = transitioning || isBentInner;
   useEffect((): void => {
     if (primaryGuestId !== null) {
       setGuestMirrorRate(primaryGuestId, mirrorLive ? 30 : 4);

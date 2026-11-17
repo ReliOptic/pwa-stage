@@ -449,7 +449,7 @@ export class Duo3DHardwareEngine {
 
     const u = clamp(params.foldAngleDeg / 180, 0, 1);
     const phi = sampleFoldCurve(u);
-    const isStanding = params.posture === 'standing' && u >= 0.2 && u <= 0.72;
+    const isStanding = params.posture === 'standing';
     const isRotatedRig = params.posture === 'tabletop' || params.posture === 'portrait';
     const rotationY = isRotatedRig ? -Math.PI / 2 : 0;
 

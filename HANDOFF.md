@@ -6,6 +6,16 @@ This document captures the current architecture, verified state, exact remaining
 
 ## 0. Status update (2026-11-17)
 
+### Interaction build 1.0.3 (2026-11-17)
+
+Apple's official product page and opening/closing film segments were inspected again after the owner reported difficult, unnatural controls. See `docs/fold-interaction-review.md` for the reference and limits.
+
+- One target-aware controller handles toolbar and stage fold commands; repeat clicks reverse the destination from the current position/velocity.
+- Critically damped playback (estimated simulator tuning), Escape pause, resume, direct slider takeover, and reduced motion.
+- Angle scrubbing preserves the selected camera; Stand retains its cover rig. Display emulation follows the actual handoff instead of jumping on a destination click.
+- Two control rows, 36 px primary targets, a flexible slider and a 20 px thumb; 112 px window reserve. Canvas/projection update in one pre-paint layout pass.
+- `tests/electron/motion.cjs` exercises real pointer and keyboard controls and guest continuity. `SIMULATOR_RECORD_MOTION=1` writes compositor frames and angle/time metadata.
+
 ### Completion build 1.0.2 (2026-11-17)
 
 Based on `f4c2db0`, with completion changes on `codex/complete-simulator`. The owner explicitly requested committing and pushing this work.

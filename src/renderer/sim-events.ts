@@ -47,3 +47,27 @@ export function setFoldSlowFactor(factor: number): void {
 export function getFoldSlowFactor(): number {
   return foldSlowFactor;
 }
+
+export const DUO_FOLD_TOGGLE_EVENT = 'sim:duo-fold-toggle';
+export const DUO_FOLD_TARGET_EVENT = 'sim:duo-fold-target';
+let currentFoldTarget: number | null = null;
+
+export function publishDuoFoldTarget(target: number | null): void {
+  currentFoldTarget = target;
+  window.dispatchEvent(new CustomEvent(DUO_FOLD_TARGET_EVENT, { detail: target }));
+}
+
+export function requestDuoFoldToggle(slow = false): void {
+  setFoldSlowFactor(slow ? 8 : 1);
+  window.dispatchEvent(new Event(DUO_FOLD_TOGGLE_EVENT));
+}
+
+export function useDuoFoldTarget(): number | null {
+  const [target, setTarget] = useState<number | null>(() => currentFoldTarget);
+  useEffect(() => {
+    const onTarget = (event: Event) => setTarget((event as CustomEvent<number | null>).detail);
+    window.addEventListener(DUO_FOLD_TARGET_EVENT, onTarget);
+    return () => window.removeEventListener(DUO_FOLD_TARGET_EVENT, onTarget);
+  }, []);
+  return target;
+}

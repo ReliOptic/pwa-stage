@@ -135,8 +135,28 @@ export function resolveDeviceHingeStatus(angleDeg: number): DeviceHingeStatus {
 export function computeFoldDriveDurationMs(fromDeg: number, toDeg: number): number {
   const deltaNorm = Math.abs(toDeg - fromDeg) / 180;
   if (deltaNorm <= 0.001) return 0;
-  const baseMs = toDeg > fromDeg ? 1360 : 1140;
-  return Math.max(260, Math.round(baseMs * Math.pow(deltaNorm, 0.65)));
+  const baseMs = toDeg > fromDeg ? 960 : 840;
+  return Math.max(240, Math.round(baseMs * Math.pow(deltaNorm, 0.5)));
+}
+
+/** Critically damped, bounded hinge drive. Retargeting keeps position and velocity.
+ * Playback tuning for this simulator, not an Apple hardware timing measurement.
+ * Analytic sampling makes the trajectory independent of refresh rate.
+ */
+export function sampleHingeMotion(from: number, velocity: number, to: number, elapsedMs: number, durationMs: number) {
+  const t = Math.max(0, elapsedMs) / 1000;
+  const omega = 9 / (Math.max(1, durationMs) / 1000);
+  const displacement = from - to;
+  const coefficient = velocity + omega * displacement;
+  const decay = Math.exp(-omega * t);
+  const rawAngle = to + (displacement + coefficient * t) * decay;
+  const nextVelocity = (velocity - omega * coefficient * t) * decay;
+  const settled = Math.abs(rawAngle - to) < 0.25 && Math.abs(nextVelocity) < 3;
+  return {
+    angle: settled ? to : Math.max(0, Math.min(180, rawAngle)),
+    velocity: settled || rawAngle < 0 || rawAngle > 180 ? 0 : nextVelocity,
+    settled
+  };
 }
 
 /**

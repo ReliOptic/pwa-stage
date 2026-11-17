@@ -39,7 +39,7 @@ import {
   SimulatorState
 } from '../../types/simulator.types';
 import { clampSimulatorScale } from '../../utils/viewport-math.util';
-import { setFoldSlowFactor } from '../sim-events';
+import { requestDuoFoldToggle, useDuoFoldTarget } from '../sim-events';
 
 export interface FloatingToolbarProps {
   readonly state: SimulatorState;
@@ -311,7 +311,8 @@ function ActionButton(props: {
 function HardwareRow(props: FloatingToolbarProps): React.ReactElement {
   const { state, activePreset, onUpdateState } = props;
   const duo = isDuo(activePreset);
-  const isDuoFolded = state.selectedDeviceId === DeviceModelId.IPHONE_DUO_FOLDED;
+  const foldTarget = useDuoFoldTarget();
+  const isDuoFolded = foldTarget !== null ? foldTarget === 0 : state.selectedDeviceId === DeviceModelId.IPHONE_DUO_FOLDED;
   const isDuoInner = activePreset.formFactor === DeviceFormFactor.FOLDABLE_DUAL;
   const nextOrientation =
     state.orientation === Orientation.PORTRAIT ? Orientation.LANDSCAPE : Orientation.PORTRAIT;
@@ -386,13 +387,7 @@ function HardwareRow(props: FloatingToolbarProps): React.ReactElement {
               : 'Close to the cover display (Shift-click: slow motion)'
           }
           onClick={(e): void => {
-            setFoldSlowFactor(e?.shiftKey ? 8 : 1);
-            onUpdateState({
-              selectedDeviceId: isDuoFolded
-                ? DeviceModelId.IPHONE_DUO_UNFOLDED
-                : DeviceModelId.IPHONE_DUO_FOLDED,
-              orientation: Orientation.PORTRAIT
-            });
+            requestDuoFoldToggle(e?.shiftKey);
           }}
         />
       )}

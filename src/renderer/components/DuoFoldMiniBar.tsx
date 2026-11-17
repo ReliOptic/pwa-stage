@@ -5,6 +5,8 @@ import {
   ChevronRight,
   Laptop,
   Play,
+  Pause,
+  FolderClosed,
   RotateCcw,
   Smartphone,
   Tent
@@ -14,9 +16,15 @@ import {
   resolveDeviceHingeStatus,
   sampleFoldCurve
 } from '../../utils/duo-fold-math.util';
+import { POSTURE_TARGET_DEG } from '../useDuoHingeController';
 
 export interface DuoFoldMiniBarProps {
   readonly foldAngle: number;
+  readonly targetAngle: number | null;
+  readonly canResume: boolean;
+  readonly onResume: () => void;
+  readonly onToggleFold: (slow?: boolean) => void;
+  readonly onPause: () => void;
   readonly posture: DuoPostureId;
   readonly logicalWidth: number;
   readonly logicalHeight: number;
@@ -48,6 +56,11 @@ const DETENT_TICKS: readonly number[] = [0, 70, 100, 108, 180];
 export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
   const {
     foldAngle,
+    targetAngle,
+    canResume,
+    onResume,
+    onToggleFold,
+    onPause,
     posture,
     logicalWidth,
     logicalHeight,
@@ -64,7 +77,7 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
   const phi = sampleFoldCurve(foldAngle / 180);
   const status = resolveDeviceHingeStatus(foldAngle);
   const statusBadgeText =
-    status === 'closed' ? 'Cover' : status === 'fullyOpen' ? 'Inner' : 'Folding';
+    targetAngle !== null ? targetAngle > foldAngle ? 'Opening' : 'Closing' : 'Free-stop';
 
   const renderPostureIcon = (id: DuoPostureId): React.ReactNode => {
     switch (id) {
@@ -84,28 +97,21 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
   };
 
   return (
-    <div className="duo-bottom-minibar" role="region" aria-label="iPhone Duo 3D Hinge Control">
-      <div className="duo-posture-strip" role="group" aria-label="Preview Posture">
-        {POSTURE_ITEMS.map((item) => {
-          const isActive = posture === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              className={`shadcn-seg-item ${isActive ? 'shadcn-seg-active' : ''}`}
-              onClick={(): void => onSelectPosture(item.id)}
-              title={item.title}
-              aria-pressed={isActive}
-            >
-              {renderPostureIcon(item.id)}
-              <span>{item.label}</span>
-              <small className="duo-chip-deg">{item.angleLabel}</small>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="duo-scrub-deck" title="Free-Stop hinge angle (0°–180°)">
+    <div className="duo-bottom-minibar" role="region" aria-label="iPhone Duo 3D Hinge Control" data-posture={posture} data-target={targetAngle ?? "paused"}>
+      <div className="duo-scrub-deck">
+        <button type="button" className="duo-fold-toggle"
+          onClick={e => onToggleFold(e.shiftKey)}
+          title="Open / close. Click again to reverse. Shift-click for slow motion."
+          aria-label={(targetAngle ?? foldAngle) < 90 ? 'Open Duo' : 'Close Duo'}>
+          {(targetAngle ?? foldAngle) < 90 ? <BookOpen size={15} /> : <FolderClosed size={15} />}
+          <span>{(targetAngle ?? foldAngle) < 90 ? 'Open' : 'Close'}</span>
+        </button>
+        <button type="button" className="duo-pause-btn" onClick={canResume ? onResume : onPause}
+          disabled={targetAngle === null && !canResume}
+          aria-label={canResume ? 'Resume hinge motion' : 'Pause hinge motion'}
+          title={canResume ? 'Resume' : 'Pause (Escape)'}>
+          {canResume ? <Play size={15} /> : <Pause size={15} />}
+        </button>
         <button
           type="button"
           className="duo-frame-step-btn"
@@ -135,6 +141,8 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
             value={roundedAngle}
             aria-label="iPhone Duo Hinge Angle (0 to 180 degrees)"
             className="duo-hinge-slider"
+            aria-valuetext={`${roundedAngle} degrees`}
+            onPointerDown={e => { e.currentTarget.focus(); onPause(); }}
             onChange={(e): void => onScrubAngle(Number(e.target.value))}
           />
         </div>
@@ -149,6 +157,29 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
           <span>+1°</span>
           <ChevronRight size={11} />
         </button>
+        <output className="duo-current-angle" aria-hidden="true">{roundedAngle}°</output>
+      </div>
+
+      <div className="duo-secondary-controls">
+      <div className="duo-posture-strip" role="group" aria-label="Preview Posture">
+        {POSTURE_ITEMS.map((item) => {
+          const matchesView = posture === item.id ||
+            ((posture === 'closed' || posture === 'open') && (item.id === 'closed' || item.id === 'open'));
+          const isActive = matchesView && Math.abs(foldAngle - POSTURE_TARGET_DEG[item.id]) < 0.5;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`shadcn-seg-item ${isActive ? 'shadcn-seg-active' : ''}`}
+              onClick={(): void => onSelectPosture(item.id)}
+              title={item.title}
+              aria-pressed={isActive}
+            >
+              {renderPostureIcon(item.id)}
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="duo-telemetry-group">
@@ -179,6 +210,7 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
             <RotateCcw size={10} />
           </button>
         )}
+      </div>
       </div>
     </div>
   );

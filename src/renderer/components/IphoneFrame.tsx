@@ -1,13 +1,11 @@
 import { platformLabel } from '../../utils/platform.util';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { GripHorizontal, MousePointerClick, Pin, PinOff, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { IOS27_CHROME_ASSETS } from '../../config/ios27-assets.config';
 import {
   computeDuoFoldMetrics,
-  computeFoldDriveDurationMs,
   DuoFoldInterpolatedMetrics,
-  DuoPostureId,
-  evaluateFoldDriveEasing
+  DuoPostureId
 } from '../../utils/duo-fold-math.util';
 import { getSimulatorBridge } from '../../utils/renderer-bridge.util';
 import { clampSimulatorScale, hasDuoSystemRail } from '../../utils/viewport-math.util';
@@ -21,7 +19,8 @@ import {
 } from '../../types/device.types';
 import { SimulatorState } from '../../types/simulator.types';
 import { COVER_HANDOFF_DEG } from '../../utils/duo-3d-engine.util';
-import { getFoldSlowFactor } from '../sim-events';
+import { requestDuoFoldToggle } from '../sim-events';
+import { useDuoHingeController } from '../useDuoHingeController';
 import { ScreenSystemOverlay } from './BrowserShellOverlay';
 import { AppSurface, HomeScreen, LaunchSplash, ScreenModalLayer } from './ScreenLayers';
 import { Duo3DStage } from './Duo3DStage';
@@ -42,180 +41,6 @@ export interface IphoneFrameProps {
   readonly onGoHome?: () => void;
   readonly tintColor?: string | null;
   readonly onPageReady?: (webContentsId: number) => void;
-}
-
-const POSTURE_TARGET_DEG: Record<DuoPostureId, number> = {
-  closed: 0,
-  standing: 70,
-  book: 100,
-  tabletop: 108,
-  open: 180,
-  portrait: 180
-};
-
-interface DuoHingeController {
-  readonly isAnimating: boolean;
-  readonly foldAngle: number;
-  readonly posture: DuoPostureId;
-  readonly finish: 'night' | 'white';
-  readonly orbitDeg: number;
-  readonly pitchDeg: number;
-  readonly setFinish: React.Dispatch<React.SetStateAction<'night' | 'white'>>;
-  readonly setOrbitDeg: React.Dispatch<React.SetStateAction<number>>;
-  readonly setPitchDeg: React.Dispatch<React.SetStateAction<number>>;
-  readonly scrubToAngle: (deg: number) => void;
-  readonly animateToAngle: (targetDeg: number, nextPosture?: DuoPostureId) => void;
-  readonly selectPosture: (posture: DuoPostureId) => void;
-  readonly markInternalSync: (targetId: DeviceModelId) => void;
-}
-
-function inferPostureFromAngle(deg: number, currentPosture: DuoPostureId): DuoPostureId {
-  if (deg <= 12) {
-    return 'closed';
-  }
-  if (deg >= 168) {
-    return currentPosture === 'portrait' ? 'portrait' : 'open';
-  }
-  if (Math.abs(deg - 70) <= 12 && currentPosture === 'standing') {
-    return 'standing';
-  }
-  if (Math.abs(deg - 108) <= 12 && currentPosture === 'tabletop') {
-    return 'tabletop';
-  }
-  return 'book';
-}
-
-function useDuoHingeController(selectedDeviceId: DeviceModelId): DuoHingeController {
-  const initialDeg = selectedDeviceId === DeviceModelId.IPHONE_DUO_FOLDED ? 0 : 180;
-  const initialPosture: DuoPostureId = initialDeg === 0 ? 'closed' : 'open';
-
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [foldAngle, setFoldAngle] = useState<number>(initialDeg);
-  const [posture, setPosture] = useState<DuoPostureId>(initialPosture);
-  const [finish, setFinish] = useState<'night' | 'white'>('night');
-  const [orbitDeg, setOrbitDeg] = useState<number>(0);
-  const [pitchDeg, setPitchDeg] = useState<number>(0);
-
-  const rafRef = useRef<number | null>(null);
-  const angleRef = useRef<number>(initialDeg);
-  const postureRef = useRef<DuoPostureId>(initialPosture);
-  const prevDeviceIdRef = useRef<DeviceModelId>(selectedDeviceId);
-  const internalSyncTargetRef = useRef<DeviceModelId | null>(null);
-
-  const stopAnim = useCallback((): void => {
-    setIsAnimating(false);
-    if (rafRef.current !== null) {
-      window.cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-  }, []);
-
-  const markInternalSync = useCallback((targetId: DeviceModelId): void => {
-    internalSyncTargetRef.current = targetId;
-  }, []);
-
-  const animateToAngle = useCallback(
-    (targetDeg: number, nextPosture?: DuoPostureId): void => {
-      stopAnim();
-      const clampedTarget = Math.max(0, Math.min(180, targetDeg));
-      const resolvedPosture =
-        nextPosture ?? inferPostureFromAngle(clampedTarget, postureRef.current);
-      postureRef.current = resolvedPosture;
-      setPosture(resolvedPosture);
-
-      const startDeg = angleRef.current;
-      const delta = clampedTarget - startDeg;
-      if (Math.abs(delta) < 0.35) {
-        angleRef.current = clampedTarget;
-        setFoldAngle(clampedTarget);
-        return;
-      }
-
-      setIsAnimating(true);
-      const durationMs = computeFoldDriveDurationMs(startDeg, clampedTarget) * getFoldSlowFactor();
-      const startTime = performance.now();
-
-      const step = (now: number): void => {
-        const rawT = Math.min(1, (now - startTime) / durationMs);
-        const eased = evaluateFoldDriveEasing(rawT);
-        const nextVal = startDeg + delta * eased;
-        angleRef.current = nextVal;
-        setFoldAngle(nextVal);
-        if (rawT < 1) {
-          rafRef.current = window.requestAnimationFrame(step);
-        } else {
-          angleRef.current = clampedTarget;
-          setFoldAngle(clampedTarget);
-          rafRef.current = null;
-          setIsAnimating(false);
-        }
-      };
-      rafRef.current = window.requestAnimationFrame(step);
-    },
-    [stopAnim]
-  );
-
-  // Stop the hinge animation only on unmount. (Returning stopAnim from the
-  // device-sync effect below cancelled every posture animation the moment the
-  // hinge crossed 20° and swapped Outer <-> Inner, freezing Closed / Stand.)
-  useEffect((): (() => void) => stopAnim, [stopAnim]);
-
-  useEffect((): void => {
-    if (prevDeviceIdRef.current === selectedDeviceId) {
-      return;
-    }
-    prevDeviceIdRef.current = selectedDeviceId;
-    if (internalSyncTargetRef.current === selectedDeviceId) {
-      internalSyncTargetRef.current = null;
-      return;
-    }
-    internalSyncTargetRef.current = null;
-    if (selectedDeviceId === DeviceModelId.IPHONE_DUO_FOLDED) {
-      animateToAngle(0, 'closed');
-    } else if (selectedDeviceId === DeviceModelId.IPHONE_DUO_UNFOLDED) {
-      animateToAngle(180, postureRef.current === 'portrait' ? 'portrait' : 'open');
-    }
-  }, [selectedDeviceId, animateToAngle]);
-
-  const scrubToAngle = useCallback(
-    (deg: number): void => {
-      stopAnim();
-      const clamped = Math.max(0, Math.min(180, deg));
-      angleRef.current = clamped;
-      setFoldAngle(clamped);
-      const nextPosture = inferPostureFromAngle(clamped, postureRef.current);
-      if (nextPosture !== postureRef.current) {
-        postureRef.current = nextPosture;
-        setPosture(nextPosture);
-      }
-    },
-    [stopAnim]
-  );
-
-  const selectPosture = useCallback(
-    (targetPosture: DuoPostureId): void => {
-      setOrbitDeg(0);
-      setPitchDeg(0);
-      animateToAngle(POSTURE_TARGET_DEG[targetPosture], targetPosture);
-    },
-    [animateToAngle]
-  );
-
-  return {
-    isAnimating,
-    foldAngle,
-    posture,
-    finish,
-    orbitDeg,
-    pitchDeg,
-    setFinish,
-    setOrbitDeg,
-    setPitchDeg,
-    scrubToAngle,
-    animateToAngle,
-    selectPosture,
-    markInternalSync
-  };
 }
 
 function resolveEffectiveMetrics(
@@ -333,7 +158,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
     (deg: number, targetPosture?: DuoPostureId): void => {
       const posture = targetPosture ?? hinge.posture;
       // Stand / tent mode shows content on the *cover* display turned sideways.
-      const usesCover = deg < COVER_HANDOFF_DEG || (posture === 'standing' && deg <= 130);
+      const usesCover = deg < COVER_HANDOFF_DEG || posture === 'standing';
       const targetId = usesCover
         ? DeviceModelId.IPHONE_DUO_FOLDED
         : DeviceModelId.IPHONE_DUO_UNFOLDED;
@@ -359,6 +184,14 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
     },
     [hinge, props, state.selectedDeviceId, state.orientation]
   );
+
+  const syncedPose = useRef(`${hinge.foldAngle}:${hinge.posture}`);
+  useEffect(() => {
+    const key = `${hinge.foldAngle}:${hinge.posture}`;
+    if (!isDuoFamily || syncedPose.current === key) return;
+    syncedPose.current = key;
+    syncDeviceForAngle(hinge.foldAngle);
+  }, [hinge.foldAngle, hinge.posture, isDuoFamily, syncDeviceForAngle]);
 
   // Toolbar "Rotate" on the unfolded Duo picks the matching posture.
   const lastOrientationRef = useRef(state.orientation);
@@ -483,11 +316,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
             onRegisterWebContentsId={props.onRegisterWebContentsId}
             onUpdateState={props.onUpdateState}
             onReload={props.onReload}
-            onToggleDuoFold={(): void => {
-              const nextDeg = hinge.foldAngle < 90 ? 180 : 0;
-              hinge.animateToAngle(nextDeg, nextDeg === 0 ? 'closed' : 'open');
-              syncDeviceForAngle(nextDeg);
-            }}
+            onToggleDuoFold={requestDuoFoldToggle}
             onGoHome={props.onGoHome}
             tintColor={props.tintColor}
             onPageReady={props.onPageReady}
@@ -600,11 +429,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
                 tintColor={props.tintColor}
                 onReload={props.onReload}
                 onGoHome={props.onGoHome}
-                onToggleDuoFold={(): void => {
-                  const nextDeg = hinge.foldAngle < 90 ? 180 : 0;
-                  hinge.animateToAngle(nextDeg, nextDeg === 0 ? 'closed' : 'open');
-                  syncDeviceForAngle(nextDeg);
-                }}
+                onToggleDuoFold={requestDuoFoldToggle}
               />
               <ScreenModalLayer />
             </div>
@@ -637,6 +462,11 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
       {isDuoFamily && (
         <DuoFoldMiniBar
           foldAngle={hinge.foldAngle}
+          targetAngle={hinge.targetAngle}
+          canResume={hinge.resumeAngle !== null}
+          onResume={hinge.resume}
+          onToggleFold={requestDuoFoldToggle}
+          onPause={hinge.pause}
           posture={hinge.posture}
           logicalWidth={eff.logicalWidth}
           logicalHeight={eff.logicalHeight}
@@ -644,16 +474,13 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
           hasCustomOrbit={hinge.orbitDeg !== 0 || hinge.pitchDeg !== 0}
           onScrubAngle={(deg: number): void => {
             hinge.scrubToAngle(deg);
-            syncDeviceForAngle(deg);
           }}
           onStepAngle={(deltaDeg: number): void => {
             const nextDeg = Math.max(0, Math.min(180, Math.round(hinge.foldAngle) + deltaDeg));
             hinge.scrubToAngle(nextDeg);
-            syncDeviceForAngle(nextDeg);
           }}
           onSelectPosture={(targetPosture: DuoPostureId): void => {
             hinge.selectPosture(targetPosture);
-            syncDeviceForAngle(POSTURE_TARGET_DEG[targetPosture], targetPosture);
           }}
           onToggleFinish={(): void => {
             hinge.setFinish((prev) => (prev === 'night' ? 'white' : 'night'));

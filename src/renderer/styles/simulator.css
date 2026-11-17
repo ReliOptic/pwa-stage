@@ -364,41 +364,37 @@ html, body, #root {
 
 .duo-bottom-minibar {
   -webkit-app-region: no-drag;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 5px;
-  min-height: 34px;
-  background: rgba(14, 14, 18, 0.92);
-  backdrop-filter: blur(28px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(620px, calc(100% - 8px));
+  padding: 8px;
+  background: rgba(24, 24, 27, 0.96);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 18px;
-  padding: 4px 8px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   z-index: 65;
-  max-width: calc(100% - 8px);
   box-sizing: border-box;
 }
 
-.duo-posture-strip {
-  display: inline-flex;
+.duo-scrub-deck, .duo-secondary-controls {
+  display: flex;
   align-items: center;
-  gap: 2px;
-  background: rgba(255, 255, 255, 0.04);
-  padding: 2px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 4px;
+  min-width: 0;
 }
-
+.duo-secondary-controls { justify-content: space-between; }
+.duo-posture-strip { display: flex; align-items: center; gap: 1px; }
 .shadcn-seg-item {
   -webkit-app-region: no-drag;
-  height: 22px;
-  padding: 0 6.5px;
+  height: 32px;
+  padding: 0 7px;
+  gap: 3px;
   border: none;
-  border-radius: 999px;
+  border-radius: 8px;
   background: transparent;
-  color: #a1a1aa;
+  color: #b8b8c0;
   font-size: 10px;
   font-weight: 600;
   display: inline-flex;
@@ -406,73 +402,57 @@ html, body, #root {
   justify-content: center;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.14s ease;
+  transition: background 120ms, color 120ms;
 }
-
-.shadcn-seg-item:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #f4f4f5;
-}
-
-.shadcn-seg-active {
-  background: #fafafa;
-  color: #09090b;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
-}
-
-.duo-scrub-deck {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.04);
-  padding: 2px 5px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.duo-frame-step-btn {
+.shadcn-seg-item:hover { background: rgba(255, 255, 255, 0.1); color: white; }
+.shadcn-seg-active { background: #f5f5f7; color: #18181b; }
+.shadcn-seg-active:hover { background: white; color: #18181b; }
+.duo-fold-toggle, .duo-pause-btn, .duo-frame-step-btn {
   -webkit-app-region: no-drag;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  white-space: nowrap;
+  gap: 6px;
   flex-shrink: 0;
-  height: 20px;
-  padding: 0 5px;
+  height: 36px;
+  padding: 0 8px;
   border: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  color: #d4d4d8;
-  font-family: 'SF Mono', Menlo, monospace;
-  font-size: 9.5px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e4e4e7;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
 }
-
-.duo-frame-step-btn:hover {
-  background: rgba(56, 189, 248, 0.22);
-  color: #38bdf8;
-}
-
-.duo-slider-track-wrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  width: 76px;
-  height: 20px;
-}
-
+.duo-fold-toggle { min-width: 78px; background: #f5f5f7; color: #18181b; }
+.duo-pause-btn { width: 32px; }
+.duo-frame-step-btn { padding: 0 5px; width: 32px; font-size: 10px; }
+.duo-frame-step-btn svg { display: none; }
+.duo-bottom-minibar button:hover { filter: brightness(1.12); }
+.duo-bottom-minibar button:disabled { opacity: 0.3; cursor: default; }
+.duo-bottom-minibar :focus-visible { outline: 2px solid #6cb5ff; outline-offset: 2px; }
+.duo-slider-track-wrap { position: relative; display: flex; align-items: center; flex: 1; min-width: 100px; height: 36px; }
 .duo-hinge-slider {
   -webkit-app-region: no-drag;
-  width: 76px;
-  height: 4px;
-  accent-color: #38bdf8;
-  cursor: pointer;
+  appearance: none;
+  width: 100%;
+  height: 36px;
+  background: transparent;
+  cursor: ew-resize;
+  touch-action: none;
   margin: 0;
   z-index: 2;
 }
+.duo-hinge-slider::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: #64646d; }
+.duo-hinge-slider::-webkit-slider-thumb {
+  appearance: none; width: 20px; height: 20px; margin-top: -8px;
+  border-radius: 50%; background: #f5f5f7; border: 1px solid #ddd;
+  box-shadow: 0 1px 5px #0006;
+}
+.duo-current-angle { width: 35px; flex-shrink: 0; text-align: right; color: #f5f5f7; font-size: 12px; font-variant-numeric: tabular-nums; }
+.duo-secondary-controls .duo-angle-readout, .duo-secondary-controls .duo-status-pill { display: none; }
+.duo-secondary-controls .duo-finish-dot { width: 28px; height: 28px; }
+.duo-secondary-controls .duo-reset-orbit-btn { height: 28px; width: 28px; padding: 0; }
 
 .duo-slider-ticks {
   position: absolute;
