@@ -53,6 +53,7 @@ const POSTURE_TARGET_DEG: Record<DuoPostureId, number> = {
 };
 
 interface DuoHingeController {
+  readonly isAnimating: boolean;
   readonly foldAngle: number;
   readonly posture: DuoPostureId;
   readonly finish: 'night' | 'white';
@@ -87,6 +88,7 @@ function useDuoHingeController(selectedDeviceId: DeviceModelId): DuoHingeControl
   const initialDeg = selectedDeviceId === DeviceModelId.IPHONE_DUO_FOLDED ? 0 : 180;
   const initialPosture: DuoPostureId = initialDeg === 0 ? 'closed' : 'open';
 
+  const [isAnimating, setIsAnimating] = useState(false);
   const [foldAngle, setFoldAngle] = useState<number>(initialDeg);
   const [posture, setPosture] = useState<DuoPostureId>(initialPosture);
   const [finish, setFinish] = useState<'night' | 'white'>('night');
@@ -100,6 +102,7 @@ function useDuoHingeController(selectedDeviceId: DeviceModelId): DuoHingeControl
   const internalSyncTargetRef = useRef<DeviceModelId | null>(null);
 
   const stopAnim = useCallback((): void => {
+    setIsAnimating(false);
     if (rafRef.current !== null) {
       window.cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
@@ -127,6 +130,7 @@ function useDuoHingeController(selectedDeviceId: DeviceModelId): DuoHingeControl
         return;
       }
 
+      setIsAnimating(true);
       const durationMs = computeFoldDriveDurationMs(startDeg, clampedTarget) * getFoldSlowFactor();
       const startTime = performance.now();
 
@@ -142,6 +146,7 @@ function useDuoHingeController(selectedDeviceId: DeviceModelId): DuoHingeControl
           angleRef.current = clampedTarget;
           setFoldAngle(clampedTarget);
           rafRef.current = null;
+          setIsAnimating(false);
         }
       };
       rafRef.current = window.requestAnimationFrame(step);
@@ -196,6 +201,7 @@ function useDuoHingeController(selectedDeviceId: DeviceModelId): DuoHingeControl
   );
 
   return {
+    isAnimating,
     foldAngle,
     posture,
     finish,
@@ -446,6 +452,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
       >
         {use3DDuoStage ? (
           <Duo3DStage
+            transitioning={hinge.isAnimating}
             preset={preset}
             metrics={eff}
             state={state}

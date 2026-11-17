@@ -45,6 +45,9 @@ export interface Duo3DFrameProjection {
     /** 0..1 blur/darken strength of the cover face and of the inner-left face. */
     readonly coverMotion: number;
     readonly innerMotion: number;
+    /** Projected hinge-to-edge samples, in flat-picture x coordinates. */
+    readonly coverGradientX: readonly number[];
+    readonly innerGradientX: readonly number[];
   };
   /** 0..1 backlight of the inner display (fades up as the device cracks open). */
   readonly innerBrightness: number;
@@ -55,6 +58,7 @@ export interface Duo3DFrameProjection {
 }
 
 export interface Duo3DRenderParams {
+  readonly transitioning: boolean;
   readonly stageWidth: number;
   readonly stageHeight: number;
   readonly foldAngleDeg: number;
@@ -91,7 +95,8 @@ export const COVER_HANDOFF_DEG = 2;
 export const RIGHT_LEAF_HIDDEN = 'hidden';
 /** The inner display fades up between the hand-off and this angle. */
 export const INNER_FULLY_LIT_DEG = 20;
-/** Peak blur (CSS px, in inner-display points) at the moving leaf's free edge. */
+/** Uncalibrated CSS Gaussian sigma in inner-display points.
+ * Recreation radii (72/144 source px) use different kernels; not interchangeable. */
 export const TRANSITION_MAX_BLUR_PX = 40;
 
 function clamp(val: number, min = 0, max = 1): number {
@@ -482,8 +487,7 @@ export class Duo3DHardwareEngine {
     const box = new T.Box3().setFromPoints(allBounds);
     const center = box.getCenter(new T.Vector3());
 
-    // One threshold for everything: DeviceHinge.Status leaves "closed" at 20°.
-    // Below it the cover display is the lit one, from it on the inner display.
+    // Layout hand-off is independent of the public DeviceHinge.Status threshold.
     const isOuterPrimary = isStanding || u < COVER_HANDOFF_DEG / 180;
 
     // Automatic 3D presentation tilt during intermediate fold angles so the 3D V-valley is vivid
@@ -554,22 +558,15 @@ export class Duo3DHardwareEngine {
       let target = center;
       let dist: number;
       if (frontView) {
-        // Frame the fixed half when closed and the whole panel when open, and
-        // glide between the two. The framing never reacts to the swinging
-        // leaf, so the fixed half (and the content anchored to it) only ever
-        // makes one slow, smooth move.
+        // The film keeps the held half stable while the other leaf swings.
+        // Fit the open plane once; do not add an angle-driven pan/zoom to it.
         const pf = (x: number, z: number): any => this.asset.point(x, 0.268, z, 25);
-        const closedPts = [pf(-0.2, -5.6), pf(8.0, -5.6), pf(8.0, 5.6), pf(-0.2, 5.6)];
         const openPts = [pf(-8.0, -5.6), pf(8.0, -5.6), pf(8.0, 5.6), pf(-8.0, 5.6)];
-        const centroid = (pts: any[]): any =>
-          pts.reduce((acc: any, pt: any) => acc.add(pt.clone()), new T.Vector3()).multiplyScalar(0.25);
-        const closedCenter = centroid(closedPts);
-        const openCenter = centroid(openPts);
-        const dClosed = fit(closedCenter, closedPts);
-        const dOpen = fit(openCenter, openPts);
-        const glide = u * u * (3 - 2 * u);
-        target = closedCenter.clone().lerp(openCenter, glide);
-        dist = dClosed + (dOpen - dClosed) * glide;
+        target = openPts.reduce((acc: any, pt: any) => acc.add(pt.clone()), new T.Vector3()).multiplyScalar(0.25);
+        // Fit a fixed swept envelope too: the raised leaf can approach the
+        // camera by one half-width. This prevents clipping without a camera
+        // move during folding; it is a simulator framing constraint.
+        dist = fit(target, [...openPts, ...openPts.map((pt: any) => pt.clone().addScaledVector(dir, 8))]);
       } else {
         dist = fit(center, allBounds);
       }
@@ -620,7 +617,7 @@ export class Duo3DHardwareEngine {
 
     // --- opening / closing transition ---------------------------------------
     const angleDeg = u * 180;
-    const transitionActive = frontView && angleDeg >= COVER_HANDOFF_DEG && angleDeg < 179;
+    const transitionActive = params.transitioning && frontView && angleDeg >= COVER_HANDOFF_DEG && angleDeg < 179;
     const flatCorners = projectQuad([
       this.asset.point(-7.87, 0.268, -5.49, 25),
       this.asset.point(7.87, 0.268, -5.49, 25),
@@ -674,7 +671,9 @@ export class Duo3DHardwareEngine {
         leftClip:
           transitionActive && leftFacing ? this.projectQuadOntoFlatPlane(quads3D.left) : null,
         coverMotion,
-        innerMotion
+        innerMotion,
+        coverGradientX: this.projectGradientX(quads3D.outer, false),
+        innerGradientX: this.projectGradientX(quads3D.left, true)
       },
       innerBrightness,
       outer: {
@@ -780,14 +779,28 @@ export class Duo3DHardwareEngine {
    * plane's local points (951×669). This is the "stencil": the region of the
    * anchored picture that is seen through that screen.
    */
+  private projectGradientX(quad: any[], inner: boolean): number[] {
+    const left = quad[0].clone().add(quad[3]).multiplyScalar(0.5);
+    const right = quad[1].clone().add(quad[2]).multiplyScalar(0.5);
+    const hinge = inner ? right : left;
+    const edge = inner ? left : right;
+    const samples = Array.from({ length: 21 }, (_, i) => hinge.clone().lerp(edge, i / 20));
+    return this.projectPointsOntoFlatPlane(samples)?.map((p) => p.x) ?? [];
+  }
+
   private projectQuadOntoFlatPlane(quad: any[]): string | null {
+    const pts = this.projectPointsOntoFlatPlane(quad);
+    return pts ? `polygon(${pts.map((p) => `${p.x.toFixed(1)}px ${p.y.toFixed(1)}px`).join(', ')})` : null;
+  }
+
+  private projectPointsOntoFlatPlane(quad: any[]): Point2D[] | null {
     const T = this.T;
     const origin = this.asset.point(-7.87, 0.268, -5.49, 25);
     const ex = this.asset.point(7.87, 0.268, -5.49, 25).clone().sub(origin);
     const ez = this.asset.point(-7.87, 0.268, 5.49, 25).clone().sub(origin);
     const normal = new T.Vector3().crossVectors(ex, ez);
     const cam = this.camera.position;
-    const pts: string[] = [];
+    const pts: Point2D[] = [];
     for (const corner of quad) {
       const dir = corner.clone().sub(cam);
       const denom = normal.dot(dir);
@@ -797,9 +810,9 @@ export class Duo3DHardwareEngine {
       const hit = cam.clone().addScaledVector(dir, t).sub(origin);
       const lx = (hit.dot(ex) / ex.lengthSq()) * 951;
       const ly = (hit.dot(ez) / ez.lengthSq()) * 669;
-      pts.push(`${lx.toFixed(1)}px ${ly.toFixed(1)}px`);
+      pts.push({ x: lx, y: ly });
     }
-    return `polygon(${pts.join(', ')})`;
+    return pts;
   }
 
   public dispose(): void {

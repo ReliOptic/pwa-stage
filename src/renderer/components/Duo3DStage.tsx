@@ -12,6 +12,7 @@ import {
   RIGHT_LEAF_HIDDEN,
   TRANSITION_MAX_BLUR_PX
 } from '../../utils/duo-3d-engine.util';
+import { TRANSITION_BLUR_BANDS as BLUR_BANDS, transitionDimAlpha, sampleTransitionGradient } from '../../utils/duo-transition.util';
 import { DuoPostureId } from '../../utils/duo-fold-math.util';
 import { ScreenSystemOverlay } from './BrowserShellOverlay';
 import { acquireGuestMirror, setGuestMirrorRate } from './GuestMirrorPane';
@@ -19,6 +20,7 @@ import { AppSurface, HomeScreen, LaunchSplash, ScreenModalLayer } from './Screen
 import { WebviewContainer } from './WebviewContainer';
 
 export interface Duo3DStageProps {
+  readonly transitioning: boolean;
   readonly preset: DevicePreset;
   readonly metrics: ComputedViewportMetrics;
   readonly state: SimulatorState;
@@ -79,16 +81,9 @@ function SystemOverlayLayer(props: SystemOverlayLayerProps): React.ReactElement 
 const INNER_W = 951;
 const INNER_H = 669;
 const HINGE_X = INNER_W / 2;
-/** Blur bands from the hinge (sharp) to the free edge (full blur). */
-const BLUR_BANDS: readonly { readonly from: number; readonly to: number; readonly strength: number }[] = [
-  { from: 0, to: 0, strength: 0.08 },
-  { from: 0.15, to: 0.35, strength: 0.4 },
-  { from: 0.4, to: 0.6, strength: 0.7 },
-  { from: 0.65, to: 0.85, strength: 1 }
-];
-
 interface AnchoredFaceProps {
   readonly side: 'cover' | 'innerLeft';
+  readonly gradientX: readonly number[];
   readonly matrix3d: string;
   readonly clip: string;
   readonly motion: number;
@@ -120,7 +115,7 @@ interface AnchoredFaceProps {
 function AnchoredFace(props: AnchoredFaceProps): React.ReactElement {
   const { side, motion } = props;
   // distance from the hinge (0) to the free edge (1), as a local x in points
-  const xAt = (e: number): number => (side === 'cover' ? HINGE_X * (1 + e) : HINGE_X * (1 - e));
+  const xAt = (e: number): number => sampleTransitionGradient(props.gradientX, e);
   const maskFor = (from: number, to: number): string | undefined => {
     if (to <= 0) return undefined;
     const a = xAt(from).toFixed(1);
@@ -131,8 +126,7 @@ function AnchoredFace(props: AnchoredFaceProps): React.ReactElement {
   };
   const bands = motion < 0.02 ? BLUR_BANDS.slice(0, 1) : BLUR_BANDS;
   const dimStops = [0, 0.2, 0.4, 0.6, 0.8, 1].map((e) => {
-    const g = Math.max(0, (e - 0.2) / 0.8);
-    const alpha = Math.min(0.9, 1.6 * motion * Math.pow(g, 1.35));
+    const alpha = transitionDimAlpha(e, motion);
     return { x: xAt(e), alpha };
   });
   if (side === 'innerLeft') dimStops.reverse();
@@ -206,6 +200,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     preset,
     state,
     foldAngle,
+    transitioning,
     posture,
     finish,
     orbitDeg,
@@ -242,6 +237,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
       stageWidth: STAGE_WIDTH,
       stageHeight: STAGE_HEIGHT,
       foldAngleDeg: foldAngle,
+      transitioning,
       posture,
       orbitDeg,
       pitchDeg,
@@ -249,7 +245,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
       finish
     });
     setProjection(nextProj);
-  }, [foldAngle, posture, orbitDeg, pitchDeg, finish]);
+  }, [foldAngle, transitioning, posture, orbitDeg, pitchDeg, finish]);
 
   const handleStagePointerDown = (e: React.PointerEvent<HTMLDivElement>): void => {
     const target = e.target as HTMLElement;
@@ -499,6 +495,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
           {transition.leftClip && (
             <AnchoredFace
               side="innerLeft"
+              gradientX={transition.innerGradientX}
               matrix3d={transition.flat.matrix3d}
               clip={transition.leftClip}
               motion={transition.innerMotion}
@@ -515,6 +512,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
           {transition.coverClip && (
             <AnchoredFace
               side="cover"
+              gradientX={transition.coverGradientX}
               matrix3d={transition.flat.matrix3d}
               clip={transition.coverClip}
               motion={transition.coverMotion}

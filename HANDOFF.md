@@ -6,6 +6,22 @@ This document captures the current architecture, verified state, exact remaining
 
 ## 0. Status update (2026-11-16)
 
+### Reference audit (2026-11-17; supersedes transition provenance below)
+
+Apple's US product film and Armand Sumo's opening excerpt were downloaded and
+inspected, including opening at ~75.6–77.3 s and closing at ~174.4–175.3 s in
+the product film. These are individual hand movements, not an OS timing spec.
+The transition now uses a sharp hinge layer, five progressive blur layers,
+DuoKit PR 2's explicitly eye-tuned dim curve, and hinge-to-edge gradients
+projected with the moving leaf. Front framing is fixed across the sweep.
+Only active animations use the effect; resting slider positions stay sharp.
+Peak CSS blur, easing, exact wake thresholds and crease remain uncalibrated;
+the film's soft black corner treatment is not fully reproduced.
+No Apple assets were added to the repository. Sources, angle-approximate
+opening/closing comparisons and verification are in the task scratchpad's
+`report-1.md`. Typecheck, 60 tests and build pass; Electron verification covers
+six postures and preserves one guest with one page load across folding.
+
 Done in this round (see README for user-facing behaviour):
 
 - **Security**: `src/services/security.ts` (guest webPreferences enforcement, navigation/popup guards, iOS-style permission prompts, trusted-sender IPC), validated state in `storage.ts`, hardened `reboot-server.ts`, shell CSP (`vite.config.ts`), Electron 33 (EOL) → 44.

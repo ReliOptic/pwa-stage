@@ -129,8 +129,8 @@ export function resolveDeviceHingeStatus(angleDeg: number): DeviceHingeStatus {
 }
 
 /**
- * Computes directional fold animation duration in ms (opening has magnetic latch resistance;
- * closing has faster magnetic snap-shut).
+ * Simulator playback defaults, not measured hardware timing.
+ * Real folding follows the hand; retain these defaults until an angle/time fit is available.
  */
 export function computeFoldDriveDurationMs(fromDeg: number, toDeg: number): number {
   const deltaNorm = Math.abs(toDeg - fromDeg) / 180;
@@ -140,7 +140,7 @@ export function computeFoldDriveDurationMs(fromDeg: number, toDeg: number): numb
 }
 
 /**
- * Quintic C2 smoothstep easing used by Apple / Campsite FoldDriver.
+ * Simulator quintic C2 smoothstep; no verified Apple easing specification.
  */
 export function evaluateFoldDriveEasing(tRaw: number): number {
   const t = clamp01(tRaw);
