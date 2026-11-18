@@ -30,6 +30,7 @@ jobs:
           ./node_modules/.bin/electron tests/electron/media.cjs
           ./node_modules/.bin/electron tests/electron/gestures.cjs
           ./node_modules/.bin/electron tests/electron/mobile-rendering.cjs
+          ./node_modules/.bin/electron tests/electron/web-apps.cjs
         timeout-minutes: 8
       - name: Verify in-device video and capture location on Windows
         if: runner.os == 'Windows'
@@ -39,7 +40,9 @@ jobs:
           node_modules/.bin/electron.cmd tests/electron/gestures.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node_modules/.bin/electron.cmd tests/electron/mobile-rendering.cjs
-        timeout-minutes: 3
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node_modules/.bin/electron.cmd tests/electron/web-apps.cjs
+        timeout-minutes: 4
       - name: Real Electron regression flows
         if: runner.os == 'Linux'
         run: xvfb-run -a -s "-screen 0 2560x1800x24" npm run test:electron

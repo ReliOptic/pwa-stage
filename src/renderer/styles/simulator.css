@@ -1262,3 +1262,19 @@ html, body, #root {
 .app-settings-title h2 { margin:0; }
 .home-tool-group select { max-width:55%;font:inherit;border-radius:8px;border:1px solid var(--utility-line);background:var(--utility-group);color:inherit;padding:5px; }
 .viewport-readings dd { font-variant-numeric:tabular-nums; }
+
+.catalog-intro { margin:4px 0 18px;max-width:32em;font-size:15px;color:var(--utility-secondary); }
+.catalog-heading { display:flex;align-items:center;justify-content:space-between;margin:0 8px; }
+.catalog-heading h3 { margin:0; }
+.catalog-heading button,.catalog-list button { min-height:44px;border:0;background:transparent;color:var(--catalog-accent,#1858b5);font-weight:650; }
+.catalog-heading button { padding:0 7px; }
+.catalog-list { margin:0;padding:0 14px;list-style:none;background:var(--utility-group);border-radius:17px; }
+.catalog-list li { display:flex;align-items:center;gap:12px;min-height:68px; }
+.catalog-list li + li { border-top:1px solid var(--utility-line); }
+.catalog-list img { flex:none;border-radius:23%; }
+.catalog-name { min-width:0;flex:1;font-weight:600; }
+.catalog-name small { display:block;font-size:12px;font-weight:400;color:var(--utility-secondary); }
+.catalog-list button { position:relative;isolation:isolate;min-width:64px;padding:0 12px; }
+.catalog-list button::before { content:'';position:absolute;inset:7px 0;z-index:-1;background:var(--catalog-pill,#e9eff9);border-radius:16px; }
+.home-utility-dark { --catalog-accent:#a1c8ff;--catalog-pill:#343f51; }
+.catalog-shortcut { margin-bottom:8px; }

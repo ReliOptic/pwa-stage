@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, House, RotateCw } from 'lucide-react';
 import { chooseTouchIcon } from '../../utils/home-icon.util';
+import { catalogIcon, matchesCatalogApp, webAppCatalog } from '../../config/web-app-catalog';
 import type { InstalledWebApp, PageViewport } from '../../types/pwa.types';
 import type { ScreenContextValue } from './ScreenLayers';
 
@@ -55,11 +56,32 @@ function AppDetails({app, screen, back}: {app: InstalledWebApp; screen: ScreenCo
   </>;
 }
 
+function WebApps({screen}: {screen: ScreenContextValue}) {
+  const rows = webAppCatalog.map(listing => ({listing, app: screen.installedApps.find(app => matchesCatalogApp(listing, app))}));
+  const available = rows.filter(row => !row.app).map(row => row.listing);
+  return <>
+    <p className="catalog-intro">Add websites to your Home Screen and open them as apps.</p>
+    <div className="catalog-heading">
+      <h3>Popular apps</h3>
+      {available.length > 0 && <button onClick={() => screen.installCatalogApps(available)}>Add all</button>}
+    </div>
+    <ul className="catalog-list">{rows.map(({listing, app}) =>
+      <li key={listing.id}>
+        <img src={catalogIcon(listing)} alt="" width={44} height={44}/>
+        <span className="catalog-name">{listing.name}<small>{new URL(listing.launchUrl).hostname.replace(/^www\./, '')}</small></span>
+        <button aria-label={(app ? 'Open ' : 'Add ') + listing.name}
+          onClick={() => app ? screen.launchApp(app, screen.launchOrigin) : screen.installCatalogApps([listing])}>
+          {app ? 'Open' : 'Add'}
+        </button>
+      </li>)}</ul>
+  </>;
+}
+
 export function HomeTools({screen}: {screen: ScreenContextValue}) {
   const kind=screen.sheet.kind;
   const [selected,setSelected]=useState<string | null>(null);
   const app=screen.installedApps.find(item=>item.id===selected);
-  const title=kind==='device-settings'?'Settings':kind==='manifest'?'Manifest':kind==='viewport'?'Viewport':'PWA Checks';
+  const title=kind==='device-settings'?'Settings':kind==='web-apps'?'Web Apps':kind==='manifest'?'Manifest':kind==='viewport'?'Viewport':'PWA Checks';
   const report=screen.report;
   const header=useRef<HTMLButtonElement>(null);
   const {openSheet} = screen;
@@ -77,18 +99,19 @@ export function HomeTools({screen}: {screen: ScreenContextValue}) {
       <button ref={header} aria-label={app?'Back to Settings':'Back to Home Screen'} onClick={()=>app?setSelected(null):screen.openSheet('none')}>
         {app?<ChevronLeft size={19}/>:<House size={16}/>} {app?'Settings':'Home'}
       </button>
-      {kind!=='device-settings' && <button disabled={screen.inspecting} onClick={screen.reinspect} aria-label="Refresh inspection"><RotateCw size={16}/></button>}
+      {kind!=='device-settings' && kind!=='web-apps' && <button disabled={screen.inspecting} onClick={screen.reinspect} aria-label="Refresh inspection"><RotateCw size={16}/></button>}
     </header>
     <div className="home-tool-scroll" key={app?.id ?? kind}>
       {app ? <AppDetails app={app} screen={screen} back={()=>setSelected(null)}/> : <>
         <h2>{title}</h2>
-        {kind==='device-settings' ? <>
+        {kind==='web-apps' ? <WebApps screen={screen}/> : kind==='device-settings' ? <>
           <h3>Appearance</h3>
           <div className="home-tool-group">
             <label>Dark appearance<input type="checkbox" checked={screen.darkMode} onChange={e=>screen.setAppearance(e.target.checked)}/></label>
             <label>Large Home Screen icons<input type="checkbox" checked={screen.largeIcons} onChange={e=>screen.setLargeIcons(e.target.checked)}/></label>
           </div>
           <h3>Installed web apps</h3>
+          <div className="home-tool-group catalog-shortcut"><button onClick={()=>screen.openSheet('web-apps')}>Browse web apps<ChevronRight size={16}/></button></div>
           <div className="home-tool-group">{screen.installedApps.length ? screen.installedApps.map(item=>
             <button className="home-tool-app" key={item.id} onClick={()=>setSelected(item.id)}>
               <AppBadge app={item} dpr={screen.iconDpr}/><span className="installed-app-name">{item.name}<small>{URL.parse(item.launchUrl)?.hostname ?? item.launchUrl}</small></span><ChevronRight size={16}/>

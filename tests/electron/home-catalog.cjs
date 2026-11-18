@@ -37,15 +37,20 @@ app.whenReady().then(async()=>{
         const angle=document.querySelector('.duo-hinge-slider')?.value;
         if(${duo} && angle!==${JSON.stringify(preset.id.endsWith('-unfolded')?'180':'0')})return null;
         const grid=h.querySelector('.home-grid'),icons=[...grid.querySelectorAll('button')],dock=h.querySelector('.home-dock');
-        if (icons.length!==4 || !h.closest('.stage-wrapper') || h.getBoundingClientRect().bottom>innerHeight+1) return null;
+        const expected=h.querySelector('[aria-label="Page 2"]')?4:7;
+        if (icons.length!==expected || !h.closest('.stage-wrapper') || h.getBoundingClientRect().bottom>innerHeight+1) return null;
         return {width:h.offsetWidth,height:h.offsetHeight,gridWidth:grid.offsetWidth,gridTop:grid.offsetTop,
           icons:icons.map(el=>({label:el.ariaLabel,left:el.parentElement.offsetLeft,top:el.parentElement.offsetTop,width:el.offsetWidth})),
           dockIcon:dock.querySelector('button').offsetWidth};
       })()`),preset.id+' '+orientation);
       const labels=result.icons.map(item=>item.label);
-      assert.deepEqual(labels,['Settings','Manifest','PWA Checks','Viewport']);
+      assert.deepEqual(labels,['Settings','Manifest','PWA Checks','Viewport','Web Apps','Instagram','X'].slice(0,labels.length));
       assert(result.gridWidth>=4*result.icons[0].width);
-      for(let i=1;i<result.icons.length;i++)assert(result.icons[i].left>=result.icons[i-1].left+result.icons[i-1].width);
+      for(let i=1;i<result.icons.length;i++){
+        const icon=result.icons[i], previous=result.icons[i-1];
+        if(i%4) assert(icon.left>=previous.left+previous.width);
+        else assert(icon.top>=previous.top+previous.width);
+      }
       // A marker round trip also lets the host finish its native resize.
       await js("(()=>{const m=document.createElement('i');m.id='home-paint';m.style.cssText='position:fixed;top:0;left:0;width:8px;height:8px;background:lime;z-index:2147483647';document.body.append(m)})()");
       const green=image=>{const {width}=image.getSize(),i=4*(2*width+2),p=image.toBitmap();return p[i+1]>245 && p[i+2]<8;};

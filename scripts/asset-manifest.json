@@ -37,6 +37,7 @@
   "public/licenses/duokit-MIT.txt": "d79d509cae60d20cd38a7ffcac92cc91620391eced6544bb51f70be5c12623e4",
   "public/licenses/electron-LICENSE": "5154e165bd6c2cc0cfbcd8916498c7abab0497923bafcd5cb07673fe8480087d",
   "public/licenses/electron-LICENSES.chromium.html": "3375e2a9bd7bc631738fde10be6548a76efe8cf5e4b8826b8140ba8b0c4d6353",
+  "public/licenses/fontawesome-free-brands.txt": "9b914eae88817d63b576eab5aafde7068c7a1abae125d7cdfb034f1da43a9afc",
   "public/licenses/js-tokens.txt": "2213d91c606205c71eb051a199478cdc2adde945893404d7f1421436dd6d5cc1",
   "public/licenses/loose-envify.txt": "4eb7543b08d955a6d23fcc224601d43ff566e775be918805e26210d7f6eb4893",
   "public/licenses/lucide-react.txt": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",
@@ -46,5 +47,11 @@
   "public/licenses/three-MIT.txt": "4c40a1ef62450b857c3b2aaf294936304cd552d965fbcd9d32d4c5bcf4ba4454",
   "public/start/index.html": "a285248254a236b31092fc483e5221c3e6e1ea11a42214b05e87572e1aea75e6",
   "public/start/start.js": "c3ddfd3fc7cb641333e6418a8ee79aa9e221176b7f08a59b379e4df4ee7eeca8",
+  "public/web-app-icons/instagram.png": "3da987ac19cc9ce59aabed8e768df60cfa975a618dc0192f44bc3ecb2f819ad1",
+  "public/web-app-icons/reddit.png": "68be67ccb61f0b174d4a09a6090935892064fcdd3e5c19cf92b208b3f3865180",
+  "public/web-app-icons/threads.png": "e0cd234fdeb999c6ef896beb246e5fb4e8ad24acbb0a20d7148fa3c4cef343d9",
+  "public/web-app-icons/tiktok.png": "2a6f5c9f2162a10c7ae35596a623051ee443f09c15d2ca7d1bc94bc11fbc1a74",
+  "public/web-app-icons/x.png": "f9fc86d40950f7824986c461953e30f297ccb91a1d01819e5face4730fac5013",
+  "public/web-app-icons/youtube.png": "d7bb7e883186eabf43c839342d54f1e43bc5678d73e9dbf014cfec0a2f6628c9",
   "src/vendor/three.module.js": "1af5bef9a9fd79fcb73fcfd3e4dd2ac0cea8720205bc7607d67369ce194a87fa"
 }

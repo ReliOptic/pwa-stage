@@ -36,3 +36,5 @@ No demo PWA, sample apps, fake widgets, playlists or calendar/weather data ships
 | Electron 44.11.3 / Chromium and dependencies | Locked Electron runtime; packaging downloads the target-platform runtime | `public/licenses/electron-LICENSE`, `public/licenses/electron-LICENSES.chromium.html`; preserve the target distribution's own notices too |
 
 Dependency notices remain under `public/licenses/`; their licences do not resolve ownership of the bundled model or hardware artwork.
+
+The six tiles under `public/web-app-icons/` use Font Awesome Free Brands 6.7.2 glyphs by Fonticons, Inc. (CC BY 4.0), scaled and coloured for the web app catalogue. The marks identify their respective services. See [upstream artwork](https://fontawesome.com/) and [bundled notice](public/licenses/fontawesome-free-brands.txt).

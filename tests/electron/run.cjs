@@ -7,7 +7,7 @@ const output = process.env.SIMULATOR_TEST_OUTPUT || fs.mkdtempSync(path.join(os.
 fs.mkdirSync(output, { recursive: true });
 const binary = process.env.SIMULATOR_ELECTRON_BINARY || require('electron');
 const results = [];
-for (const name of process.env.SIMULATOR_VISUAL_ONLY === '1' ? ['visual'] : ['runtime', 'mobile-rendering', 'home', 'duo', 'flows', 'motion', 'focus', 'media', 'gestures', 'home-catalog']) {
+for (const name of process.env.SIMULATOR_VISUAL_ONLY === '1' ? ['visual'] : ['runtime', 'mobile-rendering', 'web-apps', 'home', 'duo', 'flows', 'motion', 'focus', 'media', 'gestures', 'home-catalog']) {
   const args = ['--enable-unsafe-swiftshader'];
   if (process.platform === 'linux') {
     // CI hosts may expose an unusable Mesa/GL device. Select the software

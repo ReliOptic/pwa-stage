@@ -1,4 +1,5 @@
 import { getDevicePresetById } from '../config/device-presets.config';
+import { createCatalogApp, matchesCatalogApp, webAppCatalog, type WebAppListing } from '../config/web-app-catalog';
 import { exitGuestFullscreen } from './guest-fullscreen';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { updateLibrary } from './browser-preferences';
@@ -23,7 +24,10 @@ const TRANSITION_RECOVERY_MS = 2000;
 function loadInstalledApps(): InstalledWebApp[] {
   try {
     const raw = window.localStorage.getItem(INSTALLED_APPS_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    if (raw === null) {
+      return webAppCatalog.filter(app => app.starter).map(app => createCatalogApp(app, Date.now()));
+    }
+    const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter(
@@ -40,8 +44,9 @@ function loadInstalledApps(): InstalledWebApp[] {
   }
 }
 
-function saveInstalledApps(apps: readonly InstalledWebApp[]): void {
+function saveInstalledApps(apps: readonly InstalledWebApp[], initialize: boolean): void {
   try {
+    if (initialize && window.localStorage.getItem(INSTALLED_APPS_KEY) !== null) return;
     window.localStorage.setItem(INSTALLED_APPS_KEY, JSON.stringify(apps));
   } catch {
     // storage unavailable: the Home Screen just won't persist
@@ -74,6 +79,8 @@ export function useScreenController(
   const [launchOrigin, setLaunchOrigin] = useState<LaunchOrigin>({ x: 0.5, y: 0.92, width: 0.15, height: 0.075 });
   const [splash, setSplash] = useState<ScreenContextValue['splash']>(null);
   const [installedApps, setInstalledApps] = useState<InstalledWebApp[]>(() => loadInstalledApps());
+  const initialApps = useRef(installedApps);
+  useEffect(() => saveInstalledApps(installedApps, installedApps === initialApps.current), [installedApps]);
   const [largeIcons, setLargeIconPreference] = useState(() => window.localStorage.getItem('pwa-stage.large-icons') === 'true');
   const setLargeIcons = useCallback((enabled: boolean) => {
     window.localStorage.setItem('pwa-stage.large-icons', String(enabled));
@@ -240,11 +247,9 @@ export function useScreenController(
         id: `${identity.launchUrl}#${Date.now()}`,
         addedAt: Date.now()
       };
-      setInstalledApps((prev) => {
-        const next = [app, ...prev.filter((a) => a.launchUrl !== app.launchUrl)];
-        saveInstalledApps(next);
-        return next;
-      });
+      const listing = webAppCatalog.find(entry => matchesCatalogApp(entry, app));
+      setInstalledApps(prev => [app, ...prev.filter(existing =>
+        existing.launchUrl !== app.launchUrl && !(listing && matchesCatalogApp(listing, existing)))]);
       setHomeNavigation({ page: 0, searching: false, query: '' });
       setSheet({ kind: 'none' });
       setPhase('closing');
@@ -252,22 +257,23 @@ export function useScreenController(
     [report, state.currentUrl]
   );
 
+  const installCatalogApps = useCallback((listings: readonly WebAppListing[]) => {
+    const addedAt = Date.now();
+    setInstalledApps(previous => {
+      const additions = listings.filter(listing => !previous.some(app => matchesCatalogApp(listing, app)));
+      return additions.length ? [...additions.map(listing => createCatalogApp(listing, addedAt)), ...previous] : previous;
+    });
+    setHomeNavigation({page: 0, searching: false, query: ''});
+  }, []);
+
   const updateApp = useCallback((id: string, name: string, opensAsWebApp: boolean, browser: 'safari' | 'chrome') => {
     const label = name.trim().slice(0, 80);
     if (!label) return;
-    setInstalledApps(previous => {
-      const next = previous.map(app => app.id === id ? {...app, name:label, opensAsWebApp, browser} : app);
-      saveInstalledApps(next);
-      return next;
-    });
+    setInstalledApps(previous => previous.map(app => app.id === id ? {...app, name:label, opensAsWebApp, browser} : app));
   }, []);
 
   const removeApp = useCallback((id: string): void => {
-    setInstalledApps((prev) => {
-      const next = prev.filter((a) => a.id !== id);
-      saveInstalledApps(next);
-      return next;
-    });
+    setInstalledApps(prev => prev.filter(app => app.id !== id));
   }, []);
 
   const answerPermission = useCallback((granted: boolean): void => {
@@ -309,6 +315,7 @@ export function useScreenController(
       launchApp,
       openSheet,
       addToHome,
+      installCatalogApps,
       largeIcons, setLargeIcons, updateApp, removeApp,
       answerPermission,
       navigate,
@@ -333,6 +340,7 @@ export function useScreenController(
       goHome,
       launchApp,
       addToHome,
+      installCatalogApps,
       largeIcons, setLargeIcons, updateApp, removeApp,
       answerPermission,
       navigate,

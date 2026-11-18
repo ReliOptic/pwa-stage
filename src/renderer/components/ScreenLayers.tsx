@@ -1,4 +1,5 @@
 import { chooseTouchIcon } from '../../utils/home-icon.util';
+import type { WebAppListing } from '../../config/web-app-catalog';
 import { useHomePaging } from '../useHomePaging';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import {
@@ -7,6 +8,7 @@ import {
   PanelsTopLeft,
   Scan,
   FileJson2,
+  LayoutGrid,
   Info,
   SquarePlus,
   X,
@@ -41,14 +43,15 @@ const homeTools = [
   {kind:'device-settings', name:'Settings', icon:SettingsGlyph, background:'linear-gradient(150deg,#aeb2b9,#777e88 52%,#5e626b)'},
   {kind:'manifest', name:'Manifest', icon:FileJson2, background:'linear-gradient(150deg,#3c8283,#204a55)'},
   {kind:'app-checks', name:'PWA Checks', icon:PanelsTopLeft, background:'linear-gradient(145deg,#7167a4,#403658)'},
-  {kind:'viewport', name:'Viewport', icon:Scan, background:'linear-gradient(150deg,#317cb2,#204464)'}
+  {kind:'viewport', name:'Viewport', icon:Scan, background:'linear-gradient(150deg,#317cb2,#204464)'},
+  {kind:'web-apps', name:'Web Apps', icon:LayoutGrid, background:'linear-gradient(145deg,#2489d9,#2352ac)'}
 ] as const;
 export function isHomeTool(kind: ScreenSheetState['kind']): boolean {
   return homeTools.some(tool => tool.kind === kind);
 }
 
 export interface ScreenSheetState {
-  readonly kind: 'none' | 'browser-menu' | 'settings' | 'find' | 'bookmarks' | 'history' | 'share' | 'add-to-home' | 'device-settings' | 'manifest' | 'app-checks' | 'viewport';
+  readonly kind: 'none' | 'browser-menu' | 'settings' | 'find' | 'bookmarks' | 'history' | 'share' | 'add-to-home' | 'device-settings' | 'manifest' | 'app-checks' | 'viewport' | 'web-apps';
 }
 
 export interface PermissionPromptState {
@@ -83,6 +86,7 @@ export interface ScreenContextValue {
   readonly launchApp: (app: InstalledWebApp | 'safari' | 'chrome', origin: LaunchOrigin) => void;
   readonly openSheet: (kind: ScreenSheetState['kind']) => void;
   readonly addToHome: (name: string, opensAsWebApp: boolean) => void;
+  readonly installCatalogApps: (listings: readonly WebAppListing[]) => void;
   readonly largeIcons: boolean;
   readonly setLargeIcons: (enabled: boolean) => void;
   readonly updateApp: (id: string, name: string, opensAsWebApp: boolean, browser: 'safari' | 'chrome') => void;
@@ -117,6 +121,7 @@ export const ScreenContext = createContext<ScreenContextValue>({
   launchApp: noop,
   openSheet: noop,
   addToHome: noop,
+  installCatalogApps: noop,
   largeIcons:false, setLargeIcons:noop, updateApp:noop,
   removeApp: noop,
   answerPermission: noop,

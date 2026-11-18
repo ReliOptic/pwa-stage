@@ -26,6 +26,8 @@ On macOS, for the final pixel check use real WebKit: tray menu → **Open URL in
 
 ## Install the page on the simulated Home Screen
 
+Open **Web Apps** on the Home Screen to add Instagram, X, Threads, TikTok, YouTube or Reddit. **Add all** installs the remaining entries. Profiles with no saved app list start with Instagram and X. Each icon opens the official website in standalone mode. Manage or remove it in **Settings → Installed web apps**. Site access and sign-in depend on the service.
+
 Go Home and open Safari or Chrome from the dock. Enter the website in the device address field and press Enter. In Safari use **More → Share**. In Chrome use the share button beside the address. Choose **Add to Home Screen**, edit the name if desired, and press **Add**. The icon appears on the first Home page. With **Open as Web App** enabled it launches in standalone mode. Turning it off saves the current page as a browser shortcut.
 
 In Safari, open the page menu (AA) and choose Website Settings. In Chrome, open More and choose Settings. Page zoom is saved for each site in each browser. Dark appearance updates the emulated color scheme. Both menus include search within the current page, bookmarks, browsing history, and sharing.

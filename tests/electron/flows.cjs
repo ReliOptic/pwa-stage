@@ -140,7 +140,8 @@ server.listen(18771,'127.0.0.1',async()=>{
  await click('[aria-label="Share"]');await clickText('Add to Home Screen');
  await wait(()=>present('.ios-card-toggle input'));
  await click('.ios-switch');await clickText('Add');await wait(()=>present('.home-screen-home'));
- const installed=await js('JSON.parse(localStorage.getItem("pwa-stage.installed-web-apps.v1"))');
+ const readInstalled=async()=>(await js('JSON.parse(localStorage.getItem("pwa-stage.installed-web-apps.v1"))')).filter(app=>new URL(app.launchUrl).origin===site);
+ const installed=await readInstalled();
  assert.equal(installed.length,2);
  assert.equal(installed[0].launchUrl,site+'/chrome');
  assert.equal(installed[0].opensAsWebApp,false);
@@ -170,7 +171,6 @@ server.listen(18771,'127.0.0.1',async()=>{
  win.webContents.sendInputEvent({type:'keyUp',keyCode:'Return'});
  await wait(()=>js("document.querySelector('.home-utility select').value==='chrome'"));
  await clickText('Save changes');
- const readInstalled=()=>js('JSON.parse(localStorage.getItem("pwa-stage.installed-web-apps.v1"))');
  await wait(async()=> (await readInstalled()).some(a=>a.name==='Coast Maps' && !a.opensAsWebApp && a.browser==='chrome'));
  await capture('home-app-details');
  await clickText('Open app');await wait(()=>pageLoaded('safari'));
