@@ -148,7 +148,9 @@ server.listen(0, '127.0.0.1', async () => {
         await settled(destination);
         await sleep(450);
       } finally { shell.endFrameSubscription(); }
-      ordinary.push({ destination, paintedAtMs: distinct.map(frame => frame.ms) });
+      const paintedAtMs = distinct.map(frame => frame.ms);
+      ordinary.push({ destination, paintedAtMs });
+      console.log(`Normal fold to ${destination}° on ${process.platform}: ${distinct.length} distinct device images at ${paintedAtMs.join(', ')} ms`);
       assert(distinct.length >= 6, `Only ${distinct.length} distinct device images toward ${destination}° at normal speed`);
     }
     const frames=[];
