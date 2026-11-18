@@ -170,11 +170,13 @@ server.listen(0, '127.0.0.1', async () => {
       win.webContents.send('simulator:external-state', state);
       await sleep(1000); await wait(loaded); await snap(id + '-' + orientation);
     }
-    const postures = [['closed', 'Cover Display (5.4″ · 466×678pt)', 0], ['book', 'Book Mode Free-Stop (100°)', 100], ['table', 'Tabletop Mode (108° Split)', 108], ['stand', 'Tent / Stand Mode (70°)', 70], ['portrait', 'Inner Portrait (669×951pt)', 180]];
+    const postures = [['closed',0],['book',100],['tabletop',108],['standing',70],['portrait',180]];
     const guestId = guests()[0].id;
-    for (const [name, title, angle] of postures) {
-      await js('document.querySelector("button[aria-label=\'Posture and finish\']").click()');
-      await js('document.querySelector(' + JSON.stringify('button[title=' + JSON.stringify(title) + ']') + ').click()');
+    await js("document.querySelector('.duo-settings').click()");
+    for (const [posture, angle] of postures) {
+      const name=posture==='tabletop'?'table':posture==='standing'?'stand':posture;
+      await js(`(()=>{const el=document.querySelector('.duo-posture-picker select');el.value=${JSON.stringify(posture)};
+        el.dispatchEvent(new Event('change',{bubbles:true}))})()`);
       // Full-density software rendering of the skinned Book/Table rig can take
       // longer than loading a page. Keep watching while the hinge is advancing.
       let lastAngle = null, lastChange = Date.now();

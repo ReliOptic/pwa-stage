@@ -87,7 +87,10 @@ function isDuo(preset: DevicePreset): boolean {
   );
 }
 
-/** Row 1 — the window: close/minimise, device, zoom, collapse. */
+function deviceLabel(preset: DevicePreset): string {
+  return isDuo(preset) ? 'iPhone Duo' : preset.name;
+}
+
 function WindowIdentity(props: FloatingToolbarProps): React.ReactElement {
   const { state, presets, onUpdateState } = props;
 
@@ -114,7 +117,7 @@ function WindowIdentity(props: FloatingToolbarProps): React.ReactElement {
         </button>
       </div>
 
-      <div className="tool-device-picker"><Smartphone size={17} /><span>{props.activePreset.name}</span><ChevronDown size={12} />
+      <div className="tool-device-picker"><Smartphone size={17} /><span>{deviceLabel(props.activePreset)}</span><ChevronDown size={12} />
         <select
           className="shadcn-select shadcn-select-device"
           aria-label="Device Model"
@@ -428,7 +431,7 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
     <header className="preview-handle" aria-label="Preview controls">
       <GripHorizontal size={14} className="preview-grip" aria-hidden="true" />
       <button type="button" className="handle-expand" title={platformLabel("Show Toolbar (⌘B)")}
-        onClick={() => onUpdateState({hudCollapsed:false})}>{props.activePreset.name}<ChevronDown size={12}/></button>
+        onClick={() => onUpdateState({hudCollapsed:false})}>{deviceLabel(props.activePreset)}<ChevronDown size={12}/></button>
       {pin}
       <button type="button" className="tool-icon" title="Switch touch or mouse input" aria-label="Switch touch or mouse input"
         onClick={() => onUpdateState({touchCursorEnabled:!state.touchCursorEnabled})}>

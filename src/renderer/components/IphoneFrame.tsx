@@ -7,7 +7,7 @@ import {
   DuoPostureId
 } from '../../utils/duo-fold-math.util';
 import { getSimulatorBridge } from '../../utils/renderer-bridge.util';
-import { clampSimulatorScale, hasDuoSystemRail } from '../../utils/viewport-math.util';
+import { clampSimulatorScale, duoStageSize, hasDuoSystemRail } from '../../utils/viewport-math.util';
 import {
   ComputedViewportMetrics,
   DeviceFormFactor,
@@ -54,16 +54,19 @@ function resolveEffectiveMetrics(
     return metrics;
   }
   const isRestingPose = interp.angleDeg <= 2 || interp.angleDeg >= 178;
-  if (isRestingPose && (orientation === Orientation.LANDSCAPE || !isFramed)) {
+  if (isFramed && isRestingPose && orientation === Orientation.LANDSCAPE) {
     return metrics;
   }
   const inset = interp.bezelInset;
+  const sideways = !isFramed && orientation === Orientation.LANDSCAPE;
+  const width = sideways ? interp.logicalHeight : interp.logicalWidth;
+  const height = sideways ? interp.logicalWidth : interp.logicalHeight;
   return {
     ...metrics,
-    logicalWidth: interp.logicalWidth,
-    logicalHeight: interp.logicalHeight,
-    outerFrameWidth: isFramed ? interp.outerFrameWidth : interp.logicalWidth,
-    outerFrameHeight: isFramed ? interp.outerFrameHeight : interp.logicalHeight,
+    logicalWidth: width,
+    logicalHeight: height,
+    outerFrameWidth: isFramed ? interp.outerFrameWidth : width,
+    outerFrameHeight: isFramed ? interp.outerFrameHeight : height,
     bezelInsets: isFramed
       ? { top: inset, right: inset, bottom: inset, left: inset }
       : { top: 0, right: 0, bottom: 0, left: 0 },
@@ -103,7 +106,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
   const hinge = useDuoHingeController(state.selectedDeviceId);
   const [scrubbing, setScrubbing] = useState(false);
   const moving = hinge.isAnimating || scrubbing;
-  const focusHandoff = isDuoFamily && state.isFramed &&
+  const focusHandoff = isDuoFamily &&
     state.duoDisplayMode !== DuoDisplayMode.SPLIT_COMPARISON && hinge.orbitDeg === 0 && hinge.pitchDeg === 0 &&
     (hinge.posture === 'open' || hinge.posture === 'closed');
   const interp = computeDuoFoldMetrics(hinge.foldAngle);
@@ -116,8 +119,10 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
   );
   const sc = state.scale;
   const use3DDuoStage = isDuoFamily && state.isFramed;
-  const stageBaseW = use3DDuoStage ? 991 : eff.outerFrameWidth;
-  const stageBaseH = use3DDuoStage ? 718 : eff.outerFrameHeight;
+  const stage = isDuoFamily ? duoStageSize(state.isFramed, state.orientation) :
+    { width: eff.outerFrameWidth, height: eff.outerFrameHeight };
+  const stageBaseW = stage.width;
+  const stageBaseH = stage.height;
   const scaledW = Math.round(stageBaseW * sc);
   const scaledH = Math.round(stageBaseH * sc);
   const r = eff.cornerRadii;
@@ -247,7 +252,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
 
   return (
     <div
-      className="stage-wrapper"
+      className={isDuoFamily ? "stage-wrapper duo-workspace" : "stage-wrapper"}
       onContextMenu={(e): void => {
         e.preventDefault();
         void getSimulatorBridge().showTwoFingerActionMenu?.();
@@ -294,6 +299,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
             style={{
               width: `${eff.outerFrameWidth}px`,
               height: `${eff.outerFrameHeight}px`,
+              left: isDuoFamily ? (stageBaseW - eff.outerFrameWidth) * sc : undefined,
               borderRadius: chromeAsset ? undefined : outerRadiusCss,
               backgroundImage: chromeAsset && !slabSkin ? `url('${chromeAsset}')` : 'none',
               backgroundSize: '100% 100%',
@@ -437,8 +443,6 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
           onToggleFold={requestDuoFoldToggle}
           onPause={hinge.pause}
           posture={hinge.posture}
-          logicalWidth={eff.logicalWidth}
-          logicalHeight={eff.logicalHeight}
           finish={hinge.finish}
           hasCustomOrbit={hinge.orbitDeg !== 0 || hinge.pitchDeg !== 0}
           onScrubActiveChange={setScrubbing}

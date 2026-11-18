@@ -17,7 +17,7 @@ export interface ShellChromeHeights {
 const WIDE_TOOLBAR_HEIGHT = 54;
 const NARROW_TOOLBAR_HEIGHT = 88;
 const COLLAPSED_HUD_RESERVE_HEIGHT = 36;
-const DUO_BOTTOM_MINIBAR_RESERVE_HEIGHT = 64;
+const DUO_BOTTOM_MINIBAR_RESERVE_HEIGHT = 44;
 const FLOATING_WINDOW_PADDING = 16;
 
 export function clampSimulatorScale(scale: number): number {
@@ -187,6 +187,14 @@ export function computeShellChromeHeights(
   };
 }
 
+/** Stable space for the fold sweep, independent of the active display. */
+export function duoStageSize(framed: boolean, orientation: Orientation) {
+  if (framed) return { width: 991, height: 718 };
+  return orientation === Orientation.PORTRAIT
+    ? { width: 951, height: 678 }
+    : { width: 678, height: 951 };
+}
+
 export function computeViewportMetrics(
   preset: DevicePreset,
   orientation: Orientation,
@@ -212,19 +220,17 @@ export function computeViewportMetrics(
   const isDuoFamily =
     preset.formFactor === DeviceFormFactor.FOLDABLE_COVER ||
     preset.formFactor === DeviceFormFactor.FOLDABLE_DUAL;
-  const isDuoStage = isDuoFamily && isFramed;
-  const stageFrameWidth = isDuoStage ? 991 : outerFrameWidth;
-  const stageFrameHeight = isDuoStage ? 718 : outerFrameHeight;
+  const stage = isDuoFamily ? duoStageSize(isFramed, orientation) : { width: outerFrameWidth, height: outerFrameHeight };
   const bottomBarReserve = isDuoFamily ? DUO_BOTTOM_MINIBAR_RESERVE_HEIGHT : 0;
 
   const scaledOuterWidth = Math.max(
     hudCollapsed ? 260 : 360,
-    Math.ceil(stageFrameWidth * scale) + FLOATING_WINDOW_PADDING
+    Math.ceil(stage.width * scale) + FLOATING_WINDOW_PADDING
   );
   const hudReserve = hudCollapsed ? COLLAPSED_HUD_RESERVE_HEIGHT :
     scaledOuterWidth < 624 ? NARROW_TOOLBAR_HEIGHT : WIDE_TOOLBAR_HEIGHT;
   const scaledOuterHeight =
-    Math.ceil(stageFrameHeight * scale) +
+    Math.ceil(stage.height * scale) +
     hudReserve +
     bottomBarReserve +
     FLOATING_WINDOW_PADDING;

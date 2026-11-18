@@ -150,6 +150,7 @@ server.listen(0, '127.0.0.1', async () => {
       await until(() => evaluate(`document.querySelector('.duo-bottom-minibar').dataset.target==='paused' && document.querySelector('.duo-hinge-slider').value==='${opening?180:0}'`), 'resting endpoint');
     }
     const held = [];
+    await click('.duo-settings');
     const rect=await evaluate("document.querySelector('.duo-hinge-slider').getBoundingClientRect().toJSON()");
     const point = deg => ({x:Math.round(rect.x+10+(rect.width-20)*deg/180),y:Math.round(rect.y+rect.height/2)});
     shell.sendInputEvent({type:'mouseDown',...point(123),button:'left',clickCount:1});

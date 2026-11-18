@@ -1,22 +1,6 @@
-import React from 'react';
-import {
-  BookOpen,
-  SlidersHorizontal,
-  ChevronLeft,
-  ChevronRight,
-  Laptop,
-  Play,
-  Pause,
-  FolderClosed,
-  RotateCcw,
-  Smartphone,
-  Tent
-} from 'lucide-react';
-import {
-  DuoPostureId,
-  resolveDeviceHingeStatus,
-  sampleFoldCurve
-} from '../../utils/duo-fold-math.util';
+import React, { useRef, useState } from 'react';
+import { BookOpen, ChevronDown, FolderClosed, Pause, Play, SlidersHorizontal } from 'lucide-react';
+import { DuoPostureId } from '../../utils/duo-fold-math.util';
 import { POSTURE_TARGET_DEG } from '../useDuoHingeController';
 
 export interface DuoFoldMiniBarProps {
@@ -30,8 +14,6 @@ export interface DuoFoldMiniBarProps {
   readonly onToggleFold: (slow?: boolean) => void;
   readonly onPause: () => void;
   readonly posture: DuoPostureId;
-  readonly logicalWidth: number;
-  readonly logicalHeight: number;
   readonly finish: 'night' | 'white';
   readonly hasCustomOrbit: boolean;
   readonly onScrubActiveChange: (active: boolean) => void;
@@ -42,85 +24,20 @@ export interface DuoFoldMiniBarProps {
   readonly onResetOrbit: () => void;
 }
 
-const POSTURE_ITEMS: readonly {
-  readonly id: DuoPostureId;
-  readonly label: string;
-  readonly angleLabel: string;
-  readonly title: string;
-}[] = [
-  { id: 'closed', label: 'Closed', angleLabel: '0°', title: 'Cover Display (5.4″ · 466×678pt)' },
-  { id: 'standing', label: 'Stand', angleLabel: '70°', title: 'Tent / Stand Mode (70°)' },
-  { id: 'book', label: 'Book', angleLabel: '100°', title: 'Book Mode Free-Stop (100°)' },
-  { id: 'tabletop', label: 'Table', angleLabel: '108°', title: 'Tabletop Mode (108° Split)' },
-  { id: 'open', label: 'Open', angleLabel: '180°', title: 'Inner Wide Display (7.6″ · 951×669pt)' },
-  { id: 'portrait', label: 'Portrait', angleLabel: '180°', title: 'Inner Portrait (669×951pt)' }
+const POSTURES: ReadonlyArray<readonly [DuoPostureId, string]> = [
+  ['closed', 'Closed'], ['standing', 'Stand'], ['book', 'Book'],
+  ['tabletop', 'Table'], ['open', 'Open'], ['portrait', 'Portrait']
 ];
 
-const DETENT_TICKS: readonly number[] = [0, 70, 100, 108, 180];
-
 export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
-  const {
-    foldAngle,
-    targetAngle,
-    canResume,
-    motionReduced,
-    alwaysAnimate,
-    onMotionOverride,
-    onResume,
-    onToggleFold,
-    onPause,
-    posture,
-    logicalWidth,
-    logicalHeight,
-    finish,
-    hasCustomOrbit,
-    onScrubActiveChange,
-    onScrubAngle,
-    onStepAngle,
-    onSelectPosture,
-    onToggleFinish,
-    onResetOrbit
-  } = props;
-
-  const [showPostures, setShowPostures] = React.useState(false);
-  const barRef = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
-    if (!showPostures) return;
-    const outside = (event: PointerEvent): void => {
-      if (!barRef.current?.contains(event.target as Node)) setShowPostures(false);
-    };
-    const key = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        setShowPostures(false);
-        barRef.current?.querySelector<HTMLButtonElement>('.duo-settings')?.focus();
-      }
-    };
-    document.addEventListener('pointerdown',outside);
-    document.addEventListener('keydown',key);
-    return () => {document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',key);};
-  }, [showPostures]);
+  const { foldAngle, targetAngle, onScrubAngle, onScrubActiveChange } = props;
+  const [expanded, setExpanded] = useState(false);
+  const disclosure = useRef<HTMLButtonElement>(null);
   const roundedAngle = Math.round(foldAngle);
-  const phi = sampleFoldCurve(foldAngle / 180);
-  const status = resolveDeviceHingeStatus(foldAngle);
-  const statusBadgeText =
-    targetAngle !== null ? targetAngle > foldAngle ? 'Opening' : 'Closing' : 'Free-stop';
-
-  const renderPostureIcon = (id: DuoPostureId): React.ReactNode => {
-    switch (id) {
-      case 'closed':
-        return <Smartphone size={10} />;
-      case 'standing':
-        return <Tent size={10} />;
-      case 'book':
-        return <BookOpen size={10} />;
-      case 'tabletop':
-        return <Laptop size={10} />;
-      case 'open':
-        return <Play size={9} style={{ transform: 'rotate(-90deg)' }} />;
-      case 'portrait':
-        return <Smartphone size={10} />;
-    }
-  };
+  const opens = (targetAngle ?? foldAngle) < 90;
+  const activePosture = POSTURES.find(([id]) => POSTURE_TARGET_DEG[id] === roundedAngle &&
+    (id === props.posture || ((id === 'closed' || id === 'open') &&
+      (props.posture === 'closed' || props.posture === 'open'))))?.[0] ?? '';
 
   const scrubAtPointer = (event: React.PointerEvent<HTMLInputElement>): void => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -130,47 +47,37 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
   };
 
   return (
-    <div ref={barRef} className="duo-bottom-minibar" role="region" aria-label="iPhone Duo 3D Hinge Control" data-motion={motionReduced ? 'reduced' : 'full'} data-posture={posture} data-target={targetAngle ?? "paused"}>
-      <div className="duo-scrub-deck">
-        <button type="button" className="duo-fold-toggle"
-          onClick={e => onToggleFold(e.shiftKey)}
-          title={motionReduced ? "Open or close instantly. Reduced Motion is on." : "Open / close. Click again to reverse. Shift-click for slow motion."}
-          aria-label={(targetAngle ?? foldAngle) < 90 ? 'Open Duo' : 'Close Duo'}>
-          {(targetAngle ?? foldAngle) < 90 ? <BookOpen size={15} /> : <FolderClosed size={15} />}
-          <span>{(targetAngle ?? foldAngle) < 90 ? 'Open' : 'Close'}</span>
-        </button>
-        {motionReduced ? (
-          <button type="button" className="duo-enable-motion" onClick={() => onMotionOverride(true)}
-            title="Reduced Motion is on. Enable folding animation in this simulator.">
-            <Play size={12} /> Enable motion
-          </button>
-        ) : <button type="button" className="duo-pause-btn" onClick={canResume ? onResume : onPause}
-          disabled={targetAngle === null && !canResume}
-          aria-label={canResume ? 'Resume hinge motion' : 'Pause hinge motion'}
-          title={canResume ? 'Resume' : 'Pause (Escape)'}>
-          {canResume ? <Play size={15} /> : <Pause size={15} />}
-        </button>}
-        <button
-          type="button"
-          className="duo-frame-step-btn"
-          onClick={(e): void => onStepAngle(e.shiftKey ? -5 : -1)}
-          title="Fold 1° (Shift+Click: 5°)"
-          aria-label="Fold 1 degree"
-        >
-          <ChevronLeft size={11} />
-          <span>-1°</span>
-        </button>
-
-        <div className="duo-slider-track-wrap">
-          <div className="duo-slider-ticks" aria-hidden="true">
-            {DETENT_TICKS.map((deg) => (
-              <span
-                key={deg}
-                className={`duo-tick-dot ${Math.abs(roundedAngle - deg) <= 2 ? 'duo-tick-active' : ''}`}
-                style={{ left: `${(deg / 180) * 100}%` }}
-              />
-            ))}
-          </div>
+    <div className="duo-bottom-minibar" role="region" aria-label="iPhone Duo hinge controls"
+      data-motion={props.motionReduced ? 'reduced' : 'full'} data-posture={props.posture}
+      data-target={targetAngle ?? 'paused'} onKeyDown={e => {
+        if (e.key === 'Escape' && expanded && targetAngle === null) {
+          e.stopPropagation();
+          setExpanded(false);
+          disclosure.current?.focus();
+        }
+      }}>
+      <button type="button" className="duo-fold-toggle"
+        aria-label={opens ? 'Open Duo' : 'Close Duo'}
+        title="Open or close. Click again to reverse. Shift-click for slow motion."
+        onClick={e => props.onToggleFold(e.shiftKey)}>
+        {opens ? <BookOpen size={15}/> : <FolderClosed size={15}/>}
+        {opens ? 'Open' : 'Close'}
+      </button>
+      {props.motionReduced ? <button type="button" className="duo-enable-motion"
+        aria-label="Enable folding animation" title="Enable folding animation" onClick={() => props.onMotionOverride(true)}>
+        <Play size={14}/>
+      </button> : <button type="button" className="duo-pause-btn"
+        aria-label={props.canResume ? 'Resume hinge motion' : 'Pause hinge motion'}
+        title={props.canResume ? 'Resume' : 'Pause (Escape)'} disabled={targetAngle === null && !props.canResume}
+        onClick={props.canResume ? props.onResume : props.onPause}>
+        {props.canResume ? <Play size={14}/> : <Pause size={14}/>}
+      </button>}
+      <button type="button" className="duo-settings" ref={disclosure}
+        aria-label="Adjust hinge controls" aria-description={`${roundedAngle} degrees open`} aria-controls="duo-posture-options" aria-expanded={expanded}
+        title={expanded ? 'Hide hinge controls' : 'Adjust angle, posture and finish'} onClick={() => setExpanded(!expanded)}>
+        <span className="duo-current-angle">{roundedAngle}°</span><ChevronDown size={12}/>
+      </button>
+      <div className="duo-secondary-controls" id="duo-posture-options" hidden={!expanded}>
           <input
             type="range"
             min={0}
@@ -197,78 +104,32 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
             onLostPointerCapture={() => onScrubActiveChange(false)}
             onChange={(e): void => onScrubAngle(Number(e.target.value))}
           />
-        </div>
-
-        <button
-          type="button"
-          className="duo-frame-step-btn"
-          onClick={(e): void => onStepAngle(e.shiftKey ? 5 : 1)}
-          title="Unfold 1° (Shift+Click: 5°)"
-          aria-label="Unfold 1 degree"
-        >
-          <span>+1°</span>
-          <ChevronRight size={11} />
-        </button>
-        <button type="button" className="duo-settings" aria-label="Posture and finish" aria-controls="duo-posture-options" aria-expanded={showPostures} onClick={() => setShowPostures(!showPostures)}><SlidersHorizontal size={15} /></button>
-        <output className="duo-current-angle" aria-hidden="true">{roundedAngle}°</output>
-      </div>
-
-      <div id="duo-posture-options" className="duo-secondary-controls" hidden={!showPostures}>
-      <div className="duo-posture-strip" role="group" aria-label="Preview Posture">
-        {POSTURE_ITEMS.map((item) => {
-          const matchesView = posture === item.id ||
-            ((posture === 'closed' || posture === 'open') && (item.id === 'closed' || item.id === 'open'));
-          const isActive = matchesView && Math.abs(foldAngle - POSTURE_TARGET_DEG[item.id]) < 0.5;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              className={`shadcn-seg-item ${isActive ? 'shadcn-seg-active' : ''}`}
-              onClick={(): void => { onSelectPosture(item.id); setShowPostures(false); }}
-              title={item.title}
-              aria-pressed={isActive}
-            >
-              {renderPostureIcon(item.id)}
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      <label className="duo-motion-preference">
-        <span>Always animate folding</span>
-        <input type="checkbox" checked={alwaysAnimate} onChange={e => onMotionOverride(e.target.checked)} />
-      </label>
-      <div className="duo-telemetry-group">
-        <span className="duo-finish-label">{finish === 'night' ? 'Night Sky' : 'Star White'}</span>
-        <span className={`duo-status-pill duo-status-${status}`}>
-          {statusBadgeText}
-        </span>
-        <span
-          className="duo-angle-readout"
-          title={`Hinge ${roundedAngle}° · DeviceHinge.Status ${status} · FoldCurve φ=${phi.toFixed(2)} · lit display ${logicalWidth}×${logicalHeight} pt`}
-        >
-          {`${roundedAngle}° · ${logicalWidth}×${logicalHeight}`}
-        </span>
-        <button
-          type="button"
-          className={`duo-finish-dot duo-finish-${finish}`}
-          onClick={onToggleFinish}
-          title={finish === 'night' ? 'Night Sky finish (click for Star White)' : 'Star White finish (click for Night Sky)'}
-          aria-label="Toggle device finish"
-        />
-        {hasCustomOrbit && (
-          <button
-            type="button"
-            className="duo-reset-orbit-btn"
-            onClick={onResetOrbit}
-            title="Reset 3D camera view"
-            aria-label="Reset 3D camera view"
-          >
-            <RotateCcw size={10} />
-          </button>
-        )}
-      </div>
+        <label className="duo-posture-picker">
+          <span aria-hidden="true">{POSTURES.find(([id]) => id === activePosture)?.[1] ?? 'Posture'}</span><ChevronDown size={12}/>
+          <select aria-label="Preview posture" value={activePosture}
+            onChange={e => props.onSelectPosture(e.target.value as DuoPostureId)}>
+            <option value="" disabled>Free-stop</option>
+            {POSTURES.map(([id, name]) => <option key={id} value={id}>{name} · {POSTURE_TARGET_DEG[id]}°</option>)}
+          </select>
+        </label>
+        <label className="duo-more-picker" title="Fine adjustment, finish and motion">
+          <SlidersHorizontal size={15}/>
+          <select aria-label="More hinge options" value="" onChange={e => {
+            const action = e.target.value;
+            if (action.startsWith('step:')) props.onStepAngle(Number(action.slice(5)));
+            else if (action === 'finish') props.onToggleFinish();
+            else if (action === 'motion') props.onMotionOverride(!props.alwaysAnimate);
+            else if (action === 'reset') props.onResetOrbit();
+          }}>
+            <option value="" disabled>Hinge options</option>
+            <optgroup label="Adjust angle">
+              {[-5, -1, 1, 5].map(step => <option key={step} value={`step:${step}`}>{step > 0 ? '+' : '−'}{Math.abs(step)}°</option>)}
+            </optgroup>
+            <option value="finish">Switch to {props.finish === 'night' ? 'Star White' : 'Night Sky'}</option>
+            <option value="motion">{props.alwaysAnimate ? 'Use system motion setting' : 'Always animate folding'}</option>
+            <option value="reset" disabled={!props.hasCustomOrbit}>Reset camera view</option>
+          </select>
+        </label>
       </div>
     </div>
   );

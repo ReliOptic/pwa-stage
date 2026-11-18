@@ -151,6 +151,7 @@ server.listen(18771,'127.0.0.1',async()=>{
  await wait(async()=>js('!!document.querySelector(".duo-slice-primary webview")'));
  await wait(()=>pageLoaded('chrome'));
  const guest=guests()[0];const before={id:guest.id,token:await guest.executeJavaScript('window.probeToken')};
+ await click('.duo-settings');
  const scrub=async angle=>{
    await js(`(()=>{const el=document.querySelector('.duo-hinge-slider');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,${angle});el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
    await wait(()=>js(`document.querySelector('.duo-current-angle')?.textContent.trim()==='${angle}°'`));
@@ -193,10 +194,13 @@ server.listen(18771,'127.0.0.1',async()=>{
  await wait(()=>js("document.querySelector('.duo-hinge-slider').value==='180'"));
  await wait(()=>guest.executeJavaScript('screen.width===951'));
  await capture('duo-wide-after-cover');
- const selectEndpoint=async(title,angle)=>{
-   await click('button[aria-label="Posture and finish"]');
-   await wait(()=>js("document.querySelector('.duo-settings').ariaExpanded==='true'"));
-   await click('button[title="'+title+'"]');
+ const selectEndpoint=async angle=>{
+   // Native select type-ahead chooses a posture using the focused host control.
+   await js("document.querySelector('[aria-label=\"Preview posture\"]').focus()");
+   const keyCode=angle===0?'C':'O';
+   win.webContents.sendInputEvent({type:'keyDown',keyCode});
+   win.webContents.sendInputEvent({type:'char',keyCode:keyCode.toLowerCase()});
+   win.webContents.sendInputEvent({type:'keyUp',keyCode});
    // Software rendering may present frames slowly. Require a settled endpoint.
    const deadline=Date.now()+45000;
    while(Date.now()<deadline){
@@ -205,12 +209,12 @@ server.listen(18771,'127.0.0.1',async()=>{
    }
    throw Error('Posture did not settle at '+angle+'°');
  };
- await selectEndpoint('Cover Display (5.4″ · 466×678pt)',0);
+ await selectEndpoint(0);
  const closed={count:guests().length,id:guests()[0].id,token:await guests()[0].executeJavaScript('window.probeToken')};
- await selectEndpoint('Inner Wide Display (7.6″ · 951×669pt)',180);
+ await selectEndpoint(180);
  const open={count:guests().length,id:guests()[0].id,token:await guests()[0].executeJavaScript('window.probeToken')};
  win.webContents.send('simulator:shortcut',{key:'h',shift:true});await wait(()=>js('!!document.querySelector(".home-screen-home")'));
- await selectEndpoint('Cover Display (5.4″ · 466×678pt)',0);
+ await selectEndpoint(0);
  const homeStays=await js('!!document.querySelector(".home-screen-home")');
  const result={toolsChecked,overlapAngles,guestSettingsFromCover:true,standaloneRoutes:[site+'/safari',site+'/chrome'],installed,chromeBookmarkLaunch:chromeBookmarkLaunch.value.state.shellMode,before,closed,open,homeStays};
  assert.equal(installed[0].opensAsWebApp,false); assert.equal(result.chromeBookmarkLaunch,'ios-safari');

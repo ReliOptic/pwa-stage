@@ -28,7 +28,7 @@ Go Home and open Safari or Chrome from the dock. Enter the website in the device
 
 In Safari, open the page menu (AA) and choose Website Settings. In Chrome, open More and choose Settings. Page zoom is saved for each site in each browser. Dark appearance updates the emulated color scheme. Both menus include search within the current page, bookmarks, browsing history, and sharing.
 
-The Duo hinge bar supports dragging, keyboard arrows, pause, resume and reversal. Open **Posture and finish** for the pose presets. The compact bar above the preview expands to a device picker, browser and address field. **Device controls** opens zoom, pin, rotation and inspection. The bar stays in place while the device folds.
+The Duo dock keeps Open / Close, Pause and the hinge angle below the preview. Click the angle to reveal the scrubber, posture picker and fine adjustments in the same row. The compact bar above the preview expands to a device picker, browser and address field. **Device controls** opens zoom, pin, rotation and inspection. The bar stays in place while the device folds.
 
 ## Shortcuts (Xcode Simulator compatible)
 
@@ -132,6 +132,6 @@ The slab frame now uses the bundled hardware artwork, registered and rotated wit
 
 In the front Span view, the app hands off between the cover and inner displays at 70% open (126°). Between 108° and 144° the moving inner glass comes into focus. The held half stays sharp, and the angle slider previews the same effect while dragging. Releasing the slider restores sharp glass and keeps the selected display profile.
 
-Duo controls: click Open / Close again to reverse, Escape or Pause to stop, and Resume to continue. Drag the wider angle slider for direct control without changing the selected camera; Home / End and arrow keys work when it has focus. Shift-click Open / Close for 8× slow playback. See [interaction review](docs/fold-interaction-review.md) for the Apple reference, corrections and verification limits.
+Click Open / Close again to reverse. Escape or Pause stops the hinge, and Resume continues it. Click the angle to drag the slider or use its arrow, Home and End keys. The options menu includes 1° and 5° steps, the finish and camera reset.
 
-When the system has Reduce Motion enabled, Duo opens and closes immediately. Choose **Enable motion** next to Open to preview the fold animation. The setting is saved on this computer. Clear **Always animate folding** in the posture controls to follow the system again.
+When the system has Reduce Motion enabled, Duo opens and closes immediately. Choose the play button next to Open to preview the fold animation. The setting is saved on this computer. Choose **Use system motion setting** in the hinge options to follow the system again.

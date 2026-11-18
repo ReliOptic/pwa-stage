@@ -368,213 +368,40 @@ html, body, #root {
   );
 }
 
+/* Anchor playback to the stage. Revealing precision controls uses the same row. */
+.stage-wrapper.duo-workspace { gap: 6px; }
 .duo-bottom-minibar {
   -webkit-app-region: no-drag;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  position: relative;
-  width: min(458px, calc(100% - 8px));
-  padding: 3px 7px;
-  background: rgba(32, 32, 35, 0.87);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 18px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  z-index: 65;
-  box-sizing: border-box;
+  align-self: flex-start;
+  margin-inline-start: max(0px, calc((100% - 540px) / 2));
+  display: flex; align-items: center; gap: 2px; width: fit-content; max-width: min(540px, 100%);
+  height: 38px; padding: 2px 3px; border: 1px solid var(--shell-line); border-radius: 13px;
+  color: var(--shell-ink); background: var(--shell-surface); box-shadow: var(--shell-shadow);
+  font: 600 12px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
-
-.duo-scrub-deck, .duo-secondary-controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
+.duo-bottom-minibar button, .duo-posture-picker, .duo-more-picker {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  flex: none; height: 32px; border: 0; border-radius: 9px; background: transparent; color: inherit;
+  font: inherit; cursor: pointer;
 }
-.duo-secondary-controls {
-  position: absolute; bottom: calc(100% + 4px); right: 0; max-width: 100%; flex-wrap: wrap;
-  padding: 5px; background: #222226; border: 1px solid #ffffff28; border-radius: 12px;
+.duo-bottom-minibar :is(button, label):hover, .duo-settings[aria-expanded=true] { background: var(--shell-well); }
+.duo-bottom-minibar button:disabled { opacity: .35; cursor: default; }
+.duo-bottom-minibar :is(button,input):focus-visible, .duo-bottom-minibar label:focus-within {
+  outline: 2px solid var(--shell-accent); outline-offset: 1px;
 }
+.duo-bottom-minibar .duo-fold-toggle { width: 66px; background: var(--shell-selection); }
+.duo-pause-btn, .duo-enable-motion, .duo-more-picker { width: 32px; }
+.duo-settings { width: 58px; color: var(--shell-secondary); }
+.duo-current-angle { min-width: 30px; text-align: end; font-variant-numeric: tabular-nums; }
+.duo-settings[aria-expanded=true] svg { transform: rotate(180deg); }
+.duo-secondary-controls { display: flex; align-items: center; gap: 4px; width: 342px; min-width: 0; padding-inline-start: 6px; border-inline-start: 1px solid var(--shell-line); }
 .duo-secondary-controls[hidden] { display: none; }
-.duo-settings { display: grid; place-items: center; width: 32px; height: 36px; color: #ddd; background: none; border: 0; cursor: pointer; }
-.duo-posture-strip { flex-wrap: wrap; }
-.duo-bottom-minibar:not(:hover):not(:focus-within) { opacity: .75; }
-.duo-bottom-minibar[data-target="0"]:not(:hover):not(:focus-within),
-.duo-bottom-minibar[data-target="180"]:not(:hover):not(:focus-within) { opacity: .45; }
-.duo-posture-strip { display: flex; align-items: center; gap: 1px; }
-.shadcn-seg-item {
-  -webkit-app-region: no-drag;
-  height: 32px;
-  padding: 0 7px;
-  gap: 3px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: #b8b8c0;
-  font-size: 10px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 120ms, color 120ms;
-}
-.shadcn-seg-item:hover { background: rgba(255, 255, 255, 0.1); color: white; }
-.shadcn-seg-active { background: #f5f5f7; color: #18181b; }
-.shadcn-seg-active:hover { background: white; color: #18181b; }
-.duo-fold-toggle, .duo-pause-btn, .duo-frame-step-btn {
-  -webkit-app-region: no-drag;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex-shrink: 0;
-  height: 36px;
-  padding: 0 8px;
-  border: none;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #e4e4e7;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.duo-fold-toggle { min-width: 66px; background: #ffffff12; color: #f5f5f7; }
-.duo-pause-btn { width: 32px; }
-.duo-frame-step-btn { padding: 0 5px; width: 32px; font-size: 10px; }
-.duo-frame-step-btn svg { display: none; }
-.duo-bottom-minibar button:hover { filter: brightness(1.12); }
-.duo-bottom-minibar button:disabled { opacity: 0.3; cursor: default; }
-.duo-bottom-minibar :focus-visible { outline: 2px solid #6cb5ff; outline-offset: 2px; }
-.duo-slider-track-wrap { position: relative; display: flex; align-items: center; flex: 1; min-width: 100px; height: 36px; }
-.duo-hinge-slider {
-  -webkit-app-region: no-drag;
-  appearance: none;
-  width: 100%;
-  height: 36px;
-  background: transparent;
-  cursor: ew-resize;
-  touch-action: none;
-  margin: 0;
-  z-index: 2;
-}
-.duo-hinge-slider::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: #64646d; }
-.duo-hinge-slider::-webkit-slider-thumb {
-  appearance: none; width: 20px; height: 20px; margin-top: -8px;
-  border-radius: 50%; background: #f5f5f7; border: 1px solid #ddd;
-  box-shadow: 0 1px 5px #0006;
-}
-.duo-current-angle { width: 35px; flex-shrink: 0; text-align: right; color: #f5f5f7; font-size: 12px; font-variant-numeric: tabular-nums; }
-.duo-secondary-controls .duo-angle-readout, .duo-secondary-controls .duo-status-pill { display: none; }
-.duo-secondary-controls .duo-finish-dot { width: 28px; height: 28px; }
-.duo-secondary-controls .duo-reset-orbit-btn { height: 28px; width: 28px; padding: 0; }
-
-.duo-slider-ticks {
-  position: absolute;
-  left: 5px;
-  right: 5px;
-  bottom: 2px;
-  height: 3px;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.duo-tick-dot {
-  position: absolute;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
-  transform: translateX(-50%);
-}
-
-.duo-tick-active {
-  background: #38bdf8;
-}
-
-.duo-telemetry-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.duo-status-pill {
-  height: 19px;
-  padding: 0 6px;
-  border-radius: 999px;
-  font-size: 9.5px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  white-space: nowrap;
-}
-
-.duo-status-closed {
-  background: rgba(161, 161, 170, 0.16);
-  color: #d4d4d8;
-}
-
-.duo-status-partiallyOpen {
-  background: rgba(56, 189, 248, 0.18);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.34);
-}
-
-.duo-status-fullyOpen {
-  background: rgba(52, 211, 153, 0.16);
-  color: #34d399;
-}
-
-.duo-angle-readout {
-  font-family: 'SF Mono', Menlo, monospace;
-  font-size: 9.5px;
-  color: #d4d4d8;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.duo-finish-dot {
-  -webkit-app-region: no-drag;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.45);
-  cursor: pointer;
-  padding: 0;
-  transition: transform 0.14s ease, border-color 0.14s ease;
-}
-
-.duo-finish-dot:hover {
-  transform: scale(1.12);
-  border-color: #ffffff;
-}
-
-.duo-finish-night {
-  background: radial-gradient(circle at 35% 35%, #3a3f47 0%, #17191d 70%, #0b0c0e 100%);
-}
-
-.duo-finish-white {
-  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #dcdad5 70%, #a8a6a1 100%);
-}
-
-.duo-reset-orbit-btn {
-  -webkit-app-region: no-drag;
-  height: 19px;
-  padding: 0 5.5px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #a1a1aa;
-  font-size: 9px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.duo-reset-orbit-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fafafa;
-}
+.duo-hinge-slider { flex: 1; min-width: 24px; height: 32px; margin: 0; appearance: none; background: transparent; cursor: ew-resize; touch-action: none; }
+.duo-hinge-slider::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--shell-line); }
+.duo-hinge-slider::-webkit-slider-thumb { appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 50%; background: var(--shell-selection); border: 1px solid var(--shell-line); box-shadow: 0 1px 4px #0004; }
+.duo-posture-picker, .duo-more-picker { position: relative; background: var(--shell-well); }
+.duo-posture-picker { width: 76px; }
+.duo-posture-picker select, .duo-more-picker select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 
 .cutout-island-landscape {
   top: 50% !important; left: 11px !important; width: 36px !important; height: 122px !important;
@@ -1201,7 +1028,7 @@ html, body, #root {
     --shell-shadow: 0 5px 16px #09070c55, inset 0 1px 0 #fff2;
   }
 }
-.shadcn-toolbar, .duo-bottom-minibar, .duo-secondary-controls {
+.shadcn-toolbar {
   color: var(--shell-ink); background: var(--shell-surface); border-color: var(--shell-line);
   box-shadow: var(--shell-shadow); backdrop-filter: blur(24px) saturate(118%);
 }
@@ -1209,32 +1036,16 @@ html, body, #root {
 .shadcn-toolbar :is(.shadcn-select,.shadcn-input-group,.tb-seg,.scale-stepper,.shadcn-icon-btn) {
   color: var(--shell-ink); background: var(--shell-well); border-color: var(--shell-line);
 }
-.shadcn-toolbar :is(.shadcn-input,.scale-stepper button,.shadcn-input-submit,.shadcn-scale-val),
-.duo-bottom-minibar :is(.duo-current-angle,.duo-settings) { color: var(--shell-ink); }
+.shadcn-toolbar :is(.shadcn-input,.scale-stepper button,.shadcn-input-submit,.shadcn-scale-val) { color: var(--shell-ink); }
 .shadcn-toolbar :is(.tb-seg-btn,.tb-action,.shadcn-select-icon,.shadcn-input-icon,.shadcn-select-chevron) { color: var(--shell-secondary); }
-.shadcn-toolbar :is(.tb-seg-btn.seg-active,.tb-on), .duo-secondary-controls .shadcn-seg-active {
+.shadcn-toolbar :is(.tb-seg-btn.seg-active,.tb-on) {
   background: var(--shell-selection); color: var(--shell-ink); box-shadow: 0 1px 3px #201c2822;
 }
-.shadcn-toolbar :is(.tb-seg-btn,.tb-action,.shadcn-icon-btn):hover,
-.duo-bottom-minibar button:hover { color: var(--shell-ink); background-color: var(--shell-well); }
-.shadcn-toolbar :is(button,select,input):focus-visible, .duo-bottom-minibar :is(button,input):focus-visible {
+.shadcn-toolbar :is(.tb-seg-btn,.tb-action,.shadcn-icon-btn):hover { color: var(--shell-ink); background-color: var(--shell-well); }
+.shadcn-toolbar :is(button,select,input):focus-visible {
   outline: 2px solid var(--shell-accent); outline-offset: 1px;
 }
-.duo-bottom-minibar:not(:hover):not(:focus-within) { opacity: .9; }
-.duo-bottom-minibar :is(.duo-fold-toggle,.duo-frame-step-btn,.duo-pause-btn) { background: var(--shell-well); color: var(--shell-ink); }
-.duo-bottom-minibar .duo-fold-toggle { background: var(--shell-selection); box-shadow: 0 1px 3px #15121b20; }
-.duo-hinge-slider::-webkit-slider-runnable-track { background: var(--shell-line); }
-.duo-hinge-slider::-webkit-slider-thumb { background: var(--shell-selection); border-color: var(--shell-secondary); }
-.duo-secondary-controls { width: min(252px,100%); display: grid; gap: 8px; padding: 9px; }
-.duo-secondary-controls .duo-posture-strip { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 3px; }
-.duo-secondary-controls .shadcn-seg-item { justify-content: center; color: var(--shell-secondary); }
-.duo-secondary-controls .duo-telemetry-group { justify-content: flex-end; border-top: 1px solid var(--shell-line); padding-top: 6px; }
-.duo-enable-motion { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; min-height: 32px;
-  padding: 0 7px; border: 0; border-radius: 9px; cursor: pointer; color: var(--shell-ink); background: var(--shell-well); font: 11px system-ui; }
-.duo-motion-preference { display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  min-height: 32px; border-top: 1px solid var(--shell-line); color: var(--shell-ink); font: 12px system-ui; cursor: pointer; }
-.duo-motion-preference input { accent-color: var(--shell-ink); }
-.duo-secondary-controls .duo-finish-label { color: var(--shell-secondary); font: 11px system-ui; margin-right: auto; }
+
 
 /* System sheets sit within the device and always follow its own appearance. */
 .native-browser-sheet, .browser-find {

@@ -53,6 +53,7 @@ server.listen(0, '127.0.0.1', async () => {
         return !!r;
       }).catch(() => { throw Error('Control is not visible or is covered: ' + selector); });
       const event = {x:Math.round(r.x+r.width/2), y:Math.round(r.y+r.height/2),button:'left',clickCount:1,modifiers:slow?['shift']:[]};
+      shell.sendInputEvent({type:'mouseMove',x:event.x,y:event.y});
       shell.sendInputEvent({type:'mouseDown',...event}); shell.sendInputEvent({type:'mouseUp',...event});
     };
     const settled = angle => wait(async()=>{const s=await state();return s.angle===angle&&s.target==='paused'});
@@ -65,12 +66,25 @@ server.listen(0, '127.0.0.1', async () => {
     // Ordinary-speed playback must change the composited device itself. Sample
     // the device body, excluding the toolbar and the hinge controls. A single
     // scanline can miss a rotating bezel or a focus change above or below it.
+    const readDock = () => {
+      const rect = selector => document.querySelector(selector).getBoundingClientRect();
+      const button = rect('.duo-fold-toggle'), pause = rect('.duo-pause-btn'), angle = rect('.duo-settings');
+      const bar = rect('.duo-bottom-minibar'), stage = rect('.iphone-stage-scaler');
+      return { anchors:[button.x,button.y,pause.x,pause.y,angle.x,angle.y,stage.x,stage.y,rect('.preview-handle').x,rect('.preview-handle').width],
+        gap:bar.top-stage.bottom, right:bar.right, width:innerWidth };
+    };
+    const fixed = await shell.executeJavaScript('('+readDock.toString()+')()');
     const ordinary = [];
     for (const destination of [180, 0]) {
+      if (destination === 0) await click('.duo-settings');
+      const bounds = win.getBounds();
       await shell.executeJavaScript(`(() => {
+        const read = (${readDock.toString()});
+        window.dockPositions = [read()];
         const angle = document.querySelector('.duo-current-angle');
         window.sawHandoff = false;
         window.handoffObserver = new MutationObserver(() => {
+          window.dockPositions.push(read());
           if (angle.textContent === '126°') window.sawHandoff = true;
         });
         window.handoffObserver.observe(angle, {subtree:true, characterData:true, childList:true});
@@ -101,10 +115,17 @@ server.listen(0, '127.0.0.1', async () => {
       const paintedAtMs = distinct.map(frame => frame.ms);
       const sawHandoff = await shell.executeJavaScript('window.handoffObserver.disconnect(); window.sawHandoff');
       assert(sawHandoff, 'Ordinary playback skipped the 126° optical handoff');
-      ordinary.push({ destination, paintedAtMs, sawHandoff });
+      const positions = await shell.executeJavaScript('window.dockPositions');
+      for (const sample of positions) {
+        assert.deepEqual(sample.anchors, fixed.anchors, 'Hinge controls moved during travel');
+        assert(sample.gap >= 0 && sample.right <= sample.width, 'Hinge controls overlapped the stage or window edge');
+      }
+      assert.deepEqual(win.getBounds(),bounds,'Native window moved during travel');
+      ordinary.push({ destination, paintedAtMs, sawHandoff, checkedPositions:positions.length, gap:fixed.gap });
       console.log(`Normal fold to ${destination}° on ${process.platform}: ${distinct.length} distinct device images at ${paintedAtMs.join(', ')} ms`);
       assert(distinct.length >= 6, `Only ${distinct.length} distinct device images toward ${destination}° at normal speed`);
     }
+    await click('.duo-settings');
     const checkpoints = [];
     // A double activation before the next animation frame must reverse the
     // pending destination on either side of halfway, not restart the same trip.
@@ -144,6 +165,8 @@ server.listen(0, '127.0.0.1', async () => {
     })()`);
     await click('.duo-pause-btn');
     await wait(() => shell.executeJavaScript("window.observedResumeTarget === '0'"));
+    await click('.duo-settings');
+    await wait(()=>shell.executeJavaScript("document.querySelector('.duo-settings').ariaExpanded==='true'"));
     let s = await state(), r=s.rect;
     const scrubPosture=s.posture;
     const y=Math.round(r.y+r.height/2), x=value=>Math.round(r.x+10+(r.width-20)*value/180);
@@ -158,7 +181,9 @@ server.listen(0, '127.0.0.1', async () => {
       s=await state(); scrubbed.push(s);
       assert.equal(s.posture,scrubPosture); assert.equal(s.target,'paused');
       if(angle===16) {
-        await shell.executeJavaScript(`document.querySelector('button[title^="Show Toolbar"]').click()`);
+        await click('button[title^="Show Toolbar"]');
+        await wait(()=>shell.executeJavaScript("!!document.querySelector('.preview-toolbar')"));
+        await shell.capturePage();
         await click('button[aria-label="Device controls"]');
         await wait(()=>shell.executeJavaScript(`!!document.querySelector('.tb-action[aria-label="Unfold"]')`));
         await shell.executeJavaScript(`document.querySelector('button[aria-label="Hide toolbar"]').click()`);
@@ -229,10 +254,9 @@ server.listen(0, '127.0.0.1', async () => {
     if (!shell.debugger.isAttached()) shell.debugger.attach('1.3');
     await shell.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
     if (reducedBySystem) {
-      await click('.duo-settings');
-      await click('.duo-motion-preference');
-      await wait(() => shell.executeJavaScript("!document.querySelector('.duo-motion-preference input').checked"));
-      await click('.duo-settings');
+      await shell.executeJavaScript(`(() => {const m=document.querySelector('[aria-label="More hinge options"]');
+        m.value='motion';m.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+      await wait(() => shell.executeJavaScript("localStorage.getItem('duo-always-animate')==='false'"));
     }
     const motionMode = () => shell.executeJavaScript("document.querySelector('.duo-bottom-minibar').dataset.motion");
     await wait(async () => await motionMode() === 'reduced');
