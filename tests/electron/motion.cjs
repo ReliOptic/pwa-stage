@@ -1,5 +1,5 @@
 // Real pointer/keyboard input and compositor evidence for interruptible folding.
-const { app, BrowserWindow, webContents, screen } = require('electron');
+const { app, BrowserWindow, webContents } = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -22,17 +22,25 @@ const server = http.createServer((_req, res) => { res.setHeader('Content-Type', 
 const watchdog = setTimeout(() => app.exit(2), 220000);
 server.listen(0, '127.0.0.1', async () => {
   process.env.SIMULATOR_DEFAULT_URL = `http://127.0.0.1:${server.address().port}/`;
+  fs.writeFileSync(path.join(app.getPath('userData'), 'simulator-state-v2.json'), JSON.stringify({
+    selectedDeviceId: 'iphone-duo-folded', currentUrl: process.env.SIMULATOR_DEFAULT_URL,
+    scale: 0.7, hudCollapsed: true
+  }));
   require(path.resolve(__dirname, '../../dist-electron/index.js'));
   await app.whenReady();
   try {
     await wait(() => BrowserWindow.getAllWindows().length > 0);
     const win = BrowserWindow.getAllWindows()[0], shell = win.webContents;
     await wait(() => shell.executeJavaScript('!!window.simulatorBridge'));
-    const initial = await shell.executeJavaScript('window.simulatorBridge.getInitialPayload()');
-    const display = screen.getDisplayNearestPoint(win.getBounds());
-    const originalGetDisplay = screen.getDisplayNearestPoint;
-    screen.getDisplayNearestPoint = () => ({...display, workAreaSize:{width:2560,height:1800}});
-    win.webContents.send('simulator:external-state', {...initial.value.state, selectedDeviceId:'iphone-duo-folded', scale:0.7, hudCollapsed:true});
+    win.show();
+    win.focus();
+    const reducedBySystem = await shell.executeJavaScript("matchMedia('(prefers-reduced-motion: reduce)').matches");
+    console.log('Default desktop motion preference:', reducedBySystem ? 'reduced' : 'normal', 'window:', win.getBounds());
+    // Exercise ordinary and reduced mode independently of the runner's accessibility setting.
+    if (reducedBySystem) {
+      shell.debugger.attach('1.3');
+      await shell.debugger.sendCommand('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+    }
     const state = () => shell.executeJavaScript(`(() => {const bar=document.querySelector('.duo-bottom-minibar'),slider=document.querySelector('.duo-hinge-slider');return bar&&{angle:Number(slider.value),target:bar.dataset.target,posture:bar.dataset.posture,rect:slider.getBoundingClientRect().toJSON()}})()`);
     await wait(async () => (await state())?.angle === 0);
     await wait(() => webContents.getAllWebContents().some(w=>w.getType()==='webview' && w.getURL().startsWith(process.env.SIMULATOR_DEFAULT_URL) && !w.isLoading()));
@@ -45,6 +53,39 @@ server.listen(0, '127.0.0.1', async () => {
     };
     const settled = angle => wait(async()=>{const s=await state();return s.angle===angle&&s.target==='paused'});
     const toggle = async slow => { await click('.duo-fold-toggle', slow); await sleep(80); };
+    // Ordinary-speed playback must change the composited device itself. Sample
+    // the static fixture and rim at mid-height, excluding both control bars.
+    const ordinary = [];
+    for (const destination of [180, 0]) {
+      const distinct = [];
+      const started = Date.now();
+      shell.beginFrameSubscription(image => {
+        const { width, height } = image.getSize();
+        const strip = image.crop({ x: 0, y: Math.floor(height * 0.43), width, height: 2 })
+          .resize({ width: 160, height: 1 }).toBitmap();
+        const materiallyDifferent = previous => {
+          let changed = 0;
+          for (let x = 0; x < 160; x++) {
+            const i = x * 4;
+            if (Math.abs(strip[i + 3] - previous[i + 3]) > 45 ||
+                Math.abs(strip[i + 1] - previous[i + 1]) > 35) changed++;
+          }
+          return changed >= 3;
+        };
+        if (distinct.every(frame => materiallyDifferent(frame.pixels))) {
+          distinct.push({ ms: Date.now() - started, pixels: strip });
+        }
+      });
+      try {
+        await toggle(false);
+        await settled(destination);
+        await sleep(450);
+      } finally { shell.endFrameSubscription(); }
+      const paintedAtMs = distinct.map(frame => frame.ms);
+      ordinary.push({ destination, paintedAtMs });
+      console.log(`Normal fold to ${destination}° on ${process.platform}: ${distinct.length} distinct device images at ${paintedAtMs.join(', ')} ms`);
+      assert(distinct.length >= 6, `Only ${distinct.length} distinct device images toward ${destination}° at normal speed`);
+    }
     const checkpoints = [];
     // A double activation before the next animation frame must reverse the
     // pending destination on either side of halfway, not restart the same trip.
@@ -59,7 +100,16 @@ server.listen(0, '127.0.0.1', async () => {
     // throttled/headless CI renderers, without relying on an arbitrary sleep.
     await shell.executeJavaScript(`(() => {document.querySelector('.duo-fold-toggle').click();window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))})()`);
     await wait(async()=>(await state()).target==='paused');
-    const stopped = (await state()).angle; await sleep(200);
+    const stopped = (await state()).angle;
+    const pauseStatus = await shell.executeJavaScript(`(() => {
+      const b=document.querySelector('.duo-pause-btn'), r=b.getBoundingClientRect();
+      return { disabled:b.disabled, label:b.ariaLabel, x:r.x, y:r.y, width:innerWidth, height:innerHeight,
+        hit:b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)) };
+    })()`);
+    console.log('Pause before resume', stopped, pauseStatus);
+    assert.equal(pauseStatus.disabled,false,'Escape must leave a resumable trip');
+    assert.equal(pauseStatus.hit,true,'Resume must be visible and receive pointer input');
+    await sleep(200);
     assert.equal((await state()).angle, stopped, 'Escape must hold its angle');
     // On Core Animation the resumed sweep can finish before a round trip to
     // the main process. Observe the actual target change before sending input.
@@ -132,39 +182,6 @@ server.listen(0, '127.0.0.1', async () => {
       }
       return blank/total;
     };
-    // Ordinary-speed playback must change the composited device itself. Sample
-    // the static fixture and rim at mid-height, excluding both control bars.
-    const ordinary = [];
-    for (const destination of [0, 180]) {
-      const distinct = [];
-      const started = Date.now();
-      shell.beginFrameSubscription(image => {
-        const { width, height } = image.getSize();
-        const strip = image.crop({ x: 0, y: Math.floor(height * 0.43), width, height: 2 })
-          .resize({ width: 160, height: 1 }).toBitmap();
-        const materiallyDifferent = previous => {
-          let changed = 0;
-          for (let x = 0; x < 160; x++) {
-            const i = x * 4;
-            if (Math.abs(strip[i + 3] - previous[i + 3]) > 45 ||
-                Math.abs(strip[i + 1] - previous[i + 1]) > 35) changed++;
-          }
-          return changed >= 3;
-        };
-        if (distinct.every(frame => materiallyDifferent(frame.pixels))) {
-          distinct.push({ ms: Date.now() - started, pixels: strip });
-        }
-      });
-      try {
-        await toggle(false);
-        await settled(destination);
-        await sleep(450);
-      } finally { shell.endFrameSubscription(); }
-      const paintedAtMs = distinct.map(frame => frame.ms);
-      ordinary.push({ destination, paintedAtMs });
-      console.log(`Normal fold to ${destination}° on ${process.platform}: ${distinct.length} distinct device images at ${paintedAtMs.join(', ')} ms`);
-      assert(distinct.length >= 6, `Only ${distinct.length} distinct device images toward ${destination}° at normal speed`);
-    }
     const frames=[];
     if(process.env.SIMULATOR_RECORD_MOTION==='1') {
       fs.mkdirSync(path.join(out,'frames'),{recursive:true});
@@ -190,11 +207,10 @@ server.listen(0, '127.0.0.1', async () => {
     assert.equal(await guest.executeJavaScript('window.sessionToken'),token);
     assert.equal(await guest.executeJavaScript('document.querySelector("input").value'),'Kept through every fold');
     // OS reduced-motion preference uses an immediate, deterministic endpoint.
-    await shell.debugger.attach('1.3');
+    if (!shell.debugger.isAttached()) shell.debugger.attach('1.3');
     await shell.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
     await toggle(false); await settled(0); shell.debugger.detach();
     fs.writeFileSync(path.join(out,'motion.json'),JSON.stringify({checkpoints,scrubbed,sizes,guestId:guest.id,token,ordinary,frames,reducedMotion:true},null,2));
-    screen.getDisplayNearestPoint=originalGetDisplay;
     console.log('PASS motion: reverse, pause, drag, keyboard, guest continuity, reduced motion');
     clearTimeout(watchdog); app.exit(0);
   } catch(error) {const w=BrowserWindow.getAllWindows()[0];if(w){fs.writeFileSync(path.join(out,'failure.png'),(await w.webContents.capturePage()).toPNG());console.log('FAILED STATE',await w.webContents.executeJavaScript('({angle:document.querySelector(".duo-hinge-slider")?.value,target:document.querySelector(".duo-bottom-minibar")?.dataset.target,focus:document.activeElement?.tagName})'));}console.error(error);app.exit(1);}
