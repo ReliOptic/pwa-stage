@@ -14,8 +14,9 @@ export interface ShellChromeHeights {
 }
 
 // Toolbar (3 rows × 23 + 2 gaps × 5 + padding 12 + border 2 = 93) + 8 margin.
-const EXPANDED_HUD_RESERVE_HEIGHT = 101;
-const COLLAPSED_HUD_RESERVE_HEIGHT = 0;
+const WIDE_TOOLBAR_HEIGHT = 54;
+const NARROW_TOOLBAR_HEIGHT = 88;
+const COLLAPSED_HUD_RESERVE_HEIGHT = 36;
 const DUO_BOTTOM_MINIBAR_RESERVE_HEIGHT = 64;
 const FLOATING_WINDOW_PADDING = 16;
 
@@ -36,15 +37,17 @@ export function computeReasonableDesktopScale(
   workAreaWidth: number,
   workAreaHeight: number
 ): number {
-  const base = computeViewportMetrics(preset, orientation, 1.0, isFramed, hudCollapsed);
-  const overheadW = base.scaledOuterWidth - base.outerFrameWidth;
-  const overheadH = base.scaledOuterHeight - base.outerFrameHeight;
-  const targetMaxW = Math.max(320, workAreaWidth * 0.88 - overheadW);
-  const targetMaxH = Math.max(480, workAreaHeight * 0.78 - overheadH);
-  const maxByW = targetMaxW / Math.max(1, base.outerFrameWidth);
-  const maxByH = targetMaxH / Math.max(1, base.outerFrameHeight);
-  const maxReasonable = clampSimulatorScale(Math.min(maxByW, maxByH));
-  return Math.min(clampSimulatorScale(requestedScale), maxReasonable);
+  // Fit the actual window, including the responsive toolbar and the fixed
+  // Duo stage. Its closed and open presets share the same physical footprint.
+  const maxW = Math.max(320, workAreaWidth * 0.88);
+  const maxH = Math.max(480, workAreaHeight * 0.78);
+  const requested = Math.round(clampSimulatorScale(requestedScale) * 100);
+  for (let percent = requested; percent > 45; percent--) {
+    const scale = percent / 100;
+    const window = computeViewportMetrics(preset, orientation, scale, isFramed, hudCollapsed);
+    if (window.scaledOuterWidth <= maxW && window.scaledOuterHeight <= maxH) return scale;
+  }
+  return 0.45;
 }
 
 export function resolveSafeAreaInsets(
@@ -206,13 +209,9 @@ export function computeViewportMetrics(
   const outerFrameWidth = logicalWidth + bezelInsets.left + bezelInsets.right;
   const outerFrameHeight = logicalHeight + bezelInsets.top + bezelInsets.bottom;
 
-  let hudReserve = hudCollapsed
-    ? COLLAPSED_HUD_RESERVE_HEIGHT
-    : EXPANDED_HUD_RESERVE_HEIGHT;
   const isDuoFamily =
     preset.formFactor === DeviceFormFactor.FOLDABLE_COVER ||
     preset.formFactor === DeviceFormFactor.FOLDABLE_DUAL;
-  if (isDuoFamily && !hudCollapsed) hudReserve += 28; // Comparison URL row.
   const isDuoStage = isDuoFamily && isFramed;
   const stageFrameWidth = isDuoStage ? 991 : outerFrameWidth;
   const stageFrameHeight = isDuoStage ? 718 : outerFrameHeight;
@@ -222,6 +221,8 @@ export function computeViewportMetrics(
     hudCollapsed ? 260 : 360,
     Math.ceil(stageFrameWidth * scale) + FLOATING_WINDOW_PADDING
   );
+  const hudReserve = hudCollapsed ? COLLAPSED_HUD_RESERVE_HEIGHT :
+    scaledOuterWidth < 624 ? NARROW_TOOLBAR_HEIGHT : WIDE_TOOLBAR_HEIGHT;
   const scaledOuterHeight =
     Math.ceil(stageFrameHeight * scale) +
     hudReserve +

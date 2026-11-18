@@ -22,6 +22,12 @@ import {
 } from '../../src/utils/viewport-math.util';
 
 describe('viewport-math.util & logger.util', () => {
+  it('keeps both Duo displays at the same fitted scale on a small desktop', () => {
+    const fit = (id: DeviceModelId) => computeReasonableDesktopScale(
+      getDevicePresetById(id), Orientation.PORTRAIT, 1, true, false, 1024, 768
+    );
+    expect(fit(DeviceModelId.IPHONE_DUO_FOLDED)).toBe(fit(DeviceModelId.IPHONE_DUO_UNFOLDED));
+  });
   it('clamps simulator scale between 0.45 and 1.15 and computes reasonable desktop scale', () => {
     expect(clampSimulatorScale(0.2)).toBe(0.45);
     expect(clampSimulatorScale(2.0)).toBe(1.15);

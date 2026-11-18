@@ -14,9 +14,8 @@ import {
 } from './components/ScreenLayers';
 
 const INSTALLED_APPS_KEY = 'pwa-stage.installed-web-apps.v1';
-// Estimated simulator animation timings, not measured iOS 27.3 values.
-const CLOSE_MS = 320;
-const LAUNCH_MS = 420;
+// Recovery for a hidden window where the compositor suspends the animation.
+const TRANSITION_RECOVERY_MS = 2000;
 
 
 function loadInstalledApps(): InstalledWebApp[] {
@@ -69,7 +68,7 @@ export function useScreenController(
 ): ScreenController {
   const [phase, setPhase] = useState<ScreenPhase>('app');
   const [homeNavigation, setHomeNavigation] = useState<HomeNavigation>({ page: 0, searching: false, query: '' });
-  const [launchOrigin, setLaunchOrigin] = useState<LaunchOrigin>({ x: 0.5, y: 0.92 });
+  const [launchOrigin, setLaunchOrigin] = useState<LaunchOrigin>({ x: 0.5, y: 0.92, width: 0.15, height: 0.075 });
   const [splash, setSplash] = useState<ScreenContextValue['splash']>(null);
   const [installedApps, setInstalledApps] = useState<InstalledWebApp[]>(() => loadInstalledApps());
   const [sheet, setSheet] = useState<ScreenSheetState>({ kind: 'none' });
@@ -158,15 +157,14 @@ export function useScreenController(
     setPhase(p => p === 'home' ? 'launching' : p);
   }, [state.shellMode, state.currentUrl]);
 
-  // One cancellable phase timer, including rapid Home presses during launch.
+  const finishTransition = useCallback((completed: 'closing' | 'launching') => {
+    setPhase(current => current === completed ? (completed === 'closing' ? 'home' : 'app') : current);
+  }, []);
   useEffect(() => {
-    if (phase !== 'closing' && phase !== 'launching') return;
-    const timer = window.setTimeout(() => {
-      setSplash(null);
-      setPhase(phase === 'closing' ? 'home' : 'app');
-    }, phase === 'closing' ? CLOSE_MS : LAUNCH_MS);
+    if (phase !== 'closing' && phase !== 'launching') { setSplash(null); return; }
+    const timer = window.setTimeout(() => finishTransition(phase), TRANSITION_RECOVERY_MS);
     return () => window.clearTimeout(timer);
-  }, [phase]);
+  }, [phase, finishTransition]);
 
   // --- permission prompts from the main process ----------------------------
   useEffect((): (() => void) | void => {
@@ -269,6 +267,7 @@ export function useScreenController(
       setHomeNavigation,
       phase,
       launchOrigin,
+      finishTransition,
       splash,
       installedApps,
       report,
@@ -293,6 +292,7 @@ export function useScreenController(
       homeNavigation,
       phase,
       launchOrigin,
+      finishTransition,
       splash,
       installedApps,
       report,

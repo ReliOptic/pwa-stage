@@ -28,7 +28,7 @@ Go Home and open Safari or Chrome from the dock. Enter the website in the device
 
 In Safari, open the page menu (AA) and choose Website Settings. In Chrome, open More and choose Settings. Page zoom is saved for each site in each browser. Dark appearance updates the emulated color scheme. Both menus include search within the current page, bookmarks, browsing history, and sharing.
 
-The Duo hinge bar supports dragging, keyboard arrows, pause, resume and reversal. Open **Posture and finish** for the pose presets. The toolbar stays out of the device display while you inspect the page.
+The Duo hinge bar supports dragging, keyboard arrows, pause, resume and reversal. Open **Posture and finish** for the pose presets. The compact bar above the preview expands to a device picker, browser and address field. **Device controls** opens zoom, pin, rotation and inspection. The bar stays in place while the device folds.
 
 ## Shortcuts (Xcode Simulator compatible)
 

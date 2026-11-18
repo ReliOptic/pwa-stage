@@ -92,10 +92,10 @@ describe('screen geometry', () => {
     );
   });
 
-  it('window height fits the whole device under the 3-row toolbar', () => {
+  it('window reserves the compact two-row toolbar above a narrow device', () => {
     const m = computeViewportMetrics(pro, Orientation.PORTRAIT, 1, true, false);
-    // root padding 6 + toolbar 93 + margin 8 + device + bottom padding
-    expect(m.scaledOuterHeight).toBeGreaterThanOrEqual(6 + 93 + 8 + m.outerFrameHeight);
+    // Narrow toolbar and root gutters sit outside the device.
+    expect(m.scaledOuterHeight).toBe(88 + 16 + m.outerFrameHeight);
   });
 });
 

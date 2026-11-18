@@ -303,7 +303,7 @@ html, body, #root {
   height: 718px;
   pointer-events: none;
   z-index: 10;
-  filter: drop-shadow(0 28px 54px rgba(0, 0, 0, 0.65));
+  filter: drop-shadow(0 14px 16px rgba(0, 0, 0, 0.4));
 }
 
 .duo-interactive-slice {
@@ -917,13 +917,23 @@ html, body, #root {
 
 /* ===================== App surface launch / close transitions ===================== */
 .app-surface { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
-.app-surface-closing { z-index: 25; pointer-events: none; animation: sim-app-close 320ms cubic-bezier(0.32, 0.72, 0, 1) forwards; }
-.app-surface-launching { z-index: 25; animation: sim-app-open 420ms cubic-bezier(0.2, 0.9, 0.25, 1) both; }
-@keyframes sim-app-close { to { transform: scale(0.18); opacity: 0; border-radius: 60px; } }
-@keyframes sim-app-open { from { transform: scale(0.16); opacity: 0; border-radius: 60px; } to { transform: scale(1); opacity: 1; } }
+.browser-motion-layer { position:absolute; inset:0; pointer-events:none; }
+.app-surface, .browser-motion-layer { transform-origin: 0 0; }
+.app-surface-closing, .browser-motion-closing,
+.app-surface-launching, .browser-motion-launching { overflow:hidden; pointer-events:none; }
+.app-surface-closing, .app-surface-launching { z-index:25; }
+.app-surface-closing, .browser-motion-closing { animation: sim-app-close 340ms cubic-bezier(.4,0,.4,1) both; }
+.app-surface-launching, .browser-motion-launching { animation: sim-app-open 440ms cubic-bezier(.22,.64,.26,1) both; }
+@keyframes sim-app-close {
+  to { transform: translate(var(--icon-left),var(--icon-top)) scale(var(--icon-width),var(--icon-height)); border-radius:24%; opacity:.15; }
+}
+@keyframes sim-app-open {
+  from { transform: translate(var(--icon-left),var(--icon-top)) scale(var(--icon-width),var(--icon-height)); border-radius:24%; opacity:.4; }
+  to { transform:none; border-radius:0; opacity:1; }
+}
 .launch-splash {
   position: absolute; inset: 0; z-index: 26; display: flex; align-items: center; justify-content: center;
-  animation: sim-app-open 420ms cubic-bezier(0.2, 0.9, 0.25, 1) both; border-radius: inherit;
+  border-radius: inherit;
 }
 .launch-splash img { width: 96px; height: 96px; border-radius: 22px; }
 .screenshot-flash { position: absolute; inset: 0; z-index: 60; background: #fff; pointer-events: none; animation: sim-flash 420ms ease-out forwards; border-radius: inherit; }
@@ -966,7 +976,7 @@ html, body, #root {
 .ios-overlay-home .ios-duo-vertical-rail { background: transparent; border: 0; box-shadow: none; backdrop-filter: none; }
 .ios-overlay-home .ios-duo-v68-status { margin-top: 88px; }
 .ios-overlay-home .ios-v68-aux-line { display: none; }
-@media (prefers-reduced-motion: reduce) { .home-screen, .app-surface, .launch-splash { animation-duration: 1ms; } }
+@media (prefers-reduced-motion: reduce) { .home-screen, .app-surface, .browser-motion-layer { animation-duration: 1ms; } }
 
 /* ===================== iOS sheets, alerts ===================== */
 .ios-sheet-scrim {
@@ -1273,3 +1283,70 @@ html, body, #root {
 .ios-shell-aa { min-width:28px; min-height:34px; }
 
 .duo-3d-stage-root .duo-v68-cover-camera { visibility: hidden; }
+
+.duo-motion-hardware { position:absolute; z-index:10; pointer-events:none; inset:0; }
+
+/* Host navigation stays outside the simulated display at every window width. */
+.preview-toolbar, .preview-handle, .device-controls {
+  background: var(--shell-surface); color: var(--shell-ink);
+  border: 1px solid var(--shell-line); box-shadow: var(--shell-shadow);
+  font: 13px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+.preview-toolbar, .preview-handle { flex: none; position: relative; z-index: 90; -webkit-app-region: drag; }
+.preview-toolbar {
+  display: flex; align-items: center; gap: 10px; padding: 5px 9px; height: 44px;
+  width: min(100%, 840px); border-radius: 15px; margin: 0 0 10px;
+}
+.preview-toolbar :is(button,input,select), .preview-handle button, .device-controls { -webkit-app-region: no-drag; }
+.tool-device-picker, .tool-browser-picker { position: relative; display:flex; align-items:center; gap:5px; min-width:0; }
+.tool-device-picker { font-weight: 620; max-width: min(24vw,205px); }
+.tool-device-picker span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tool-device-picker svg, .tool-browser-picker svg { flex:none; color:var(--shell-secondary); }
+.tool-device-picker select, .tool-browser-picker select {
+  position:absolute; inset:0; width:100%; min-width:0; height:100%; opacity:0; cursor:pointer;
+}
+.tool-device-picker, .tool-browser-picker { height:30px; }
+.tool-location {
+  flex:1; min-width:0; height:32px; display:flex; align-items:center; padding:0 5px 0 10px;
+  border:1px solid var(--shell-line); background:var(--shell-well); border-radius:10px;
+}
+.tool-browser-picker { flex:none; font-size:12px; padding-right:9px; }
+.tool-location .shadcn-input-group { flex:1; height:22px; background:transparent; border:0; border-radius:0; border-left:1px solid var(--shell-line); padding-left:8px; box-shadow:none; }
+.tool-location .shadcn-input { color:var(--shell-ink); font-family:inherit; font-size:12px; }
+.tool-location .shadcn-input-submit, .tool-location .shadcn-select-compact { color:var(--shell-secondary); border:0; background:transparent; }
+.tool-shortcuts, .device-control-heading, .preview-handle { display:flex; align-items:center; gap:3px; }
+.tool-icon, .handle-expand { display:inline-flex; align-items:center; justify-content:center; gap:6px; background:transparent; border:0; color:inherit; cursor:pointer; }
+.tool-icon { width:30px; height:30px; border-radius:9px; }
+.tool-icon:is(:hover,[aria-expanded=true]), .handle-expand:hover {background:var(--shell-well);}
+.tool-icon[aria-pressed=true] {color:var(--shell-accent);background:var(--shell-well);}
+.preview-toolbar :is(button,input,select):focus-visible, .preview-handle button:focus-visible,
+.tool-device-picker:focus-within, .tool-browser-picker:focus-within {outline:2px solid var(--shell-accent);outline-offset:1px;}
+.device-controls {
+  position:absolute; right:0; top:calc(100% + 5px); width:min(312px,100%); padding:12px;
+  border-radius:18px; z-index:95; background-color:Canvas; -webkit-app-region:no-drag;
+}
+.device-control-heading { padding:0 0 9px; margin-bottom:6px; border-bottom:1px solid var(--shell-line); }
+.device-control-heading strong {flex:1; font-size:14px;}
+.device-controls .scale-stepper { background:var(--shell-well); border-color:var(--shell-line); }
+.device-controls .scale-stepper button, .device-controls .tb-action, .device-controls .tb-seg-btn {color:var(--shell-ink);}
+.device-controls .tb-actions {display:grid;grid-template-columns:1fr 1fr;height:auto;gap:4px;}
+.device-controls .tb-action {min-height:31px;justify-content:flex-start;border-radius:8px;padding:0 9px;gap:7px;}
+.device-controls .tb-action span {display:inline;font-size:12px;}
+.device-controls .tb-spacer {display:none;}
+.device-controls .tb-seg {height:30px;justify-self:start;background:var(--shell-well);border-color:var(--shell-line);}
+.device-controls .tb-seg-btn {font-size:11px;padding:0 7px;}
+.device-controls .seg-active, .device-controls .tb-on {background:var(--shell-selection) !important;color:var(--shell-accent) !important;border-color:var(--shell-line) !important;}
+.device-controls .tb-badge {position:static;margin-left:auto;background:var(--shell-well);color:var(--shell-secondary);}
+
+.device-controls .tb-action:hover {background:var(--shell-well);}
+.device-controls .tb-comparison {margin-top:8px;}
+.preview-handle { height:30px; margin:0 0 6px; border-radius:12px; padding:0 5px; gap:2px; }
+.preview-handle .tool-icon { width:26px;height:26px; }
+.preview-grip {margin:0 3px;color:var(--shell-secondary);}
+.handle-expand {font-weight:600;font-size:12px;padding:3px 6px;height:26px;border-radius:7px;}
+@media (max-width:623px) {
+  .preview-toolbar {display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:30px 32px;gap:4px 8px;height:78px;padding:5px 8px;}
+  .tool-device-picker {max-width:100%;}
+  .tool-location {grid-row:2;grid-column:1/-1;}
+  .tool-shortcuts {grid-row:1;grid-column:3;}
+}

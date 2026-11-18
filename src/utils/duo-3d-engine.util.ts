@@ -441,7 +441,7 @@ export class Duo3DHardwareEngine {
     return q;
   }
 
-  public renderFrame(params: Duo3DRenderParams): Duo3DFrameProjection {
+  public renderFrame(params: Duo3DRenderParams, paintHardware = true): Duo3DFrameProjection {
     const T = this.T;
     const W = Math.max(1, params.stageWidth);
     const H = Math.max(1, params.stageHeight);
@@ -593,7 +593,7 @@ export class Duo3DHardwareEngine {
       this.camera.updateMatrixWorld(true);
     }
 
-    if (!this.isSoftware && this.renderer) {
+    if (paintHardware && !this.isSoftware && this.renderer) {
       this.renderer.render(this.scene, this.camera);
     }
 

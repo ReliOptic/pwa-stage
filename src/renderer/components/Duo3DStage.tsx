@@ -5,6 +5,8 @@ import {
   HardwareCutoutType,
   Orientation
 } from '../../types/device.types';
+import motionApertures from '../../config/duo-motion-apertures.json';
+import motionCrops from '../../config/duo-motion-crops.json';
 import { ElectronWebviewElement } from '../../types/renderer.types';
 import { DuoDisplayMode, SimulatorState } from '../../types/simulator.types';
 import {
@@ -100,6 +102,17 @@ interface AnchoredFaceProps {
   readonly onGoHome?: () => void;
 }
 
+function leafGradient(side: AnchoredFaceProps['side'], motion: number, gradientX: readonly number[]): string {
+  const dimStops = [0, 0.2, 0.4, 0.6, 0.8, 1].map((e) => {
+    const alpha = transitionDimAlpha(e, motion);
+    return { x: sampleTransitionGradient(gradientX, e), alpha };
+  });
+  if (side === 'innerLeft') dimStops.reverse();
+  return `linear-gradient(to right, ${dimStops
+    .map((st) => `rgba(0,0,0,${st.alpha.toFixed(3)}) ${st.x.toFixed(1)}px`)
+    .join(', ')})`;
+}
+
 /**
  * One screen of the moving leaf during the opening / closing transition.
  *
@@ -128,14 +141,7 @@ function AnchoredFace(props: AnchoredFaceProps): React.ReactElement {
       : `linear-gradient(to right, #000 ${b}px, transparent ${a}px)`;
   };
   const bands = motion < 0.02 ? BLUR_BANDS.slice(0, 1) : BLUR_BANDS;
-  const dimStops = [0, 0.2, 0.4, 0.6, 0.8, 1].map((e) => {
-    const alpha = transitionDimAlpha(e, motion);
-    return { x: xAt(e), alpha };
-  });
-  if (side === 'innerLeft') dimStops.reverse();
-  const dim = `linear-gradient(to right, ${dimStops
-    .map((st) => `rgba(0,0,0,${st.alpha.toFixed(3)}) ${st.x.toFixed(1)}px`)
-    .join(', ')})`;
+  const dim = leafGradient(side, motion, props.gradientX);
 
   return (
     <div
@@ -210,6 +216,35 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const [coverDialog, setCoverDialog] = useState<{ center: number; width: number } | null>(null);
   const coverPaneRef = useRef<HTMLDivElement>(null);
   const [coverSelected, setCoverSelected] = useState(false);
+  const [atlas, setAtlas] = useState<{ finish: string; images: HTMLImageElement[] } | null>(null);
+  const motionCanvas = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    let active = true;
+    const images = motionCrops.map((_, group) => {
+      const img = new Image();
+      img.src = `./duo-3d/motion/${finish}-${group}.webp`;
+      return img;
+    });
+    Promise.all(images.map(img => img.decode())).then(() => {
+      if (active) setAtlas({finish, images});
+    }).catch(() => { if (active) setAtlas(null); });
+    return () => { active = false; };
+  }, [finish]);
+  const useMotionRig = transitioning && atlas?.finish === finish && orbitDeg === 0 && pitchDeg === 0 &&
+    (posture === 'open' || posture === 'closed');
+  const frame = Math.round(foldAngle / 3);
+  useLayoutEffect(() => {
+    if (!useMotionRig || !atlas) return;
+    const ctx = motionCanvas.current?.getContext('2d');
+    if (!ctx) return;
+    const group = Math.floor(frame / 9);
+    const [left, top, right, bottom] = motionCrops[group];
+    const width = right - left, height = bottom - top;
+    ctx.clearRect(0, 0, STAGE_WIDTH, STAGE_HEIGHT);
+    ctx.drawImage(atlas.images[group], frame % 3 * width, Math.floor(frame % 9 / 3) * height,
+      width, height, left, top, width, height);
+  }, [atlas, frame, useMotionRig]);
+  const projectedAngle = useMotionRig ? frame * 3 : foldAngle;
   const dragRef = useRef<{
     readonly startX: number;
     readonly startY: number;
@@ -236,16 +271,16 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     const nextProj = engineRef.current.renderFrame({
       stageWidth: STAGE_WIDTH,
       stageHeight: STAGE_HEIGHT,
-      foldAngleDeg: foldAngle,
+      foldAngleDeg: projectedAngle,
       transitioning,
       posture,
       orbitDeg,
       pitchDeg,
       zoom: 1.0,
       finish
-    });
+    }, !useMotionRig);
     setProjection(nextProj);
-  }, [foldAngle, transitioning, posture, orbitDeg, pitchDeg, finish]);
+  }, [projectedAngle, useMotionRig, transitioning, posture, orbitDeg, pitchDeg, finish]);
 
   const handleStagePointerDown = (e: React.PointerEvent<HTMLDivElement>): void => {
     const target = e.target as HTMLElement;
@@ -290,8 +325,10 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     : projection?.full.height ?? 669;
 
   const split = state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON;
-  const sliceInner = isBentInner || split;
-  const primarySlice = isOuterPrimary
+  const transition = projection?.transition;
+  const flatMotion = useMotionRig && !split && transition?.active;
+  const sliceInner = !flatMotion && (isBentInner || split);
+  const primarySlice = flatMotion ? transition.flat : isOuterPrimary
     ? projection?.outer
     : sliceInner
       ? projection?.right
@@ -300,7 +337,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const primaryShiftX = !isOuterPrimary && sliceInner && !isHorizontalSplit ? -475.5 : 0;
   const primaryShiftY = !isOuterPrimary && sliceInner && isHorizontalSplit ? -475.5 : 0;
 
-  const rawPrimaryClip = isBentInner ? projection?.rightVisibleClip ?? undefined : undefined;
+  const rawPrimaryClip = !flatMotion && isBentInner ? projection?.rightVisibleClip ?? undefined : undefined;
   const primaryHidden = rawPrimaryClip === RIGHT_LEAF_HIDDEN || !primarySlice?.active;
   const primaryClip = primaryHidden ? undefined : rawPrimaryClip;
   const mirrorLeft = !split;
@@ -310,10 +347,8 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     left: `${-primaryShiftX}px`, top: `${-primaryShiftY}px`
   } : undefined;
 
-  // One mirror stream for the whole stage. It idles at a low rate while the
-  // device rests (so a recent frame always exists when the transition starts)
-  // and runs live while the inner display is bent.
-  const transition = projection?.transition ?? null;
+  // The front-view sweep uses the actual guest through the mesh stencil.
+  // Capture the guest only for views which need a second projected surface.
   const inTransition = Boolean(transition?.active) && mirrorLeft;
   // Keep the cover on its own glass when scrubbing or pausing. Its visible
   // area depends on camera orientation, even at the same hinge angle.
@@ -367,16 +402,13 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     : defaultLeft;
   const innerBrightness = projection?.innerBrightness ?? 1;
   const innerFilter = innerBrightness >= 0.999 ? undefined : `brightness(${innerBrightness.toFixed(3)})`;
-  useEffect((): (() => void) | void => {
-    if ((!mirrorLeft && !showCoverMirror) || primaryGuestId === null) return;
-    return acquireGuestMirror(primaryGuestId);
-  }, [mirrorLeft, showCoverMirror, primaryGuestId]);
-  const mirrorLive = transitioning || isBentInner;
-  useEffect((): void => {
-    if (primaryGuestId !== null) {
-      setGuestMirrorRate(primaryGuestId, mirrorLive ? 30 : 4);
-    }
-  }, [mirrorLive, primaryGuestId]);
+  const needsMirror = showCoverMirror || (mirrorLeft && !useMotionRig && (inTransition || isBentInner));
+  useEffect(() => {
+    if (!needsMirror || primaryGuestId === null) return;
+    const release = acquireGuestMirror(primaryGuestId);
+    setGuestMirrorRate(primaryGuestId, 30);
+    return release;
+  }, [needsMirror, primaryGuestId]);
 
   const foldDepthIntensity = projection
     ? Math.sin(projection.phi * Math.PI)
@@ -385,6 +417,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   return (
     <div
       className="duo-3d-stage-root"
+      data-motion-frame={useMotionRig ? frame : undefined}
       data-dual-display={projection?.simultaneous || undefined}
       style={{
         width: `${STAGE_WIDTH}px`,
@@ -402,11 +435,14 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
       <canvas
         ref={canvasRef}
         className="duo-3d-webgl-canvas"
+        style={{visibility: useMotionRig ? 'hidden' : undefined}}
         width={STAGE_WIDTH}
         height={STAGE_HEIGHT}
         aria-hidden="true"
       />
 
+      <canvas ref={motionCanvas} className="duo-motion-hardware" aria-hidden="true"
+        width={STAGE_WIDTH} height={STAGE_HEIGHT} hidden={!useMotionRig} />
       {/* 2. Secondary Left / Upper Leaf Slice when in 3D Bent Posture (20°..177°) */}
       {projection && (split || (isBentInner && !inTransition && projection.left.active && projection.left.matrix3d)) && (
         <div
@@ -499,13 +535,14 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
           className="duo-interactive-slice duo-slice-primary"
           onPointerDownCapture={() => setCoverSelected(false)}
           style={{
-            width: `${primarySlice.width}px`,
-            height: `${primarySlice.height}px`,
-            transform: primarySlice.matrix3d,
+            width: flatMotion ? STAGE_WIDTH : primarySlice.width,
+            height: flatMotion ? STAGE_HEIGHT : primarySlice.height,
+            background: flatMotion ? props.tintColor || '#161619' : undefined,
+            transform: flatMotion ? undefined : primarySlice.matrix3d,
             opacity: primaryHidden ? 0.002 : primarySlice.opacity,
             pointerEvents: primaryHidden ? 'none' : undefined,
-            clipPath: primaryClip,
-            filter: isOuterPrimary ? undefined : innerFilter,
+            clipPath: flatMotion ? `path(evenodd, "${motionApertures[frame]}")` : primaryClip,
+            filter: flatMotion || isOuterPrimary ? undefined : innerFilter,
             zIndex: primarySlice.zIndex
           }}
         >
@@ -516,8 +553,10 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
               height: `${fullLogicalH}px`,
               left: `${primaryShiftX}px`,
               top: `${primaryShiftY}px`,
+              transform: flatMotion ? primarySlice.matrix3d : undefined,
+              transformOrigin: flatMotion ? '0 0' : undefined,
               maskImage: isOuterPrimary ? projection?.outer.lensMask : undefined,
-              clipPath: isOuterPrimary ? projection?.outer.apertureClip : projection?.full.apertureClip
+              clipPath: flatMotion ? undefined : isOuterPrimary ? projection?.outer.apertureClip : projection?.full.apertureClip
             }}
           >
             <AppSurface style={splitSurface}>
@@ -532,9 +571,9 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
                 onPageReady={props.onPageReady}
                 onNavigate={props.onNavigate}
               />
+              <LaunchSplash />
             </AppSurface>
             <HomeScreen width={fullLogicalW} height={fullLogicalH} safeTop={54} trailingInset={isOuterPrimary || !isHorizontalSplit ? 84 : 0} />
-            <LaunchSplash />
             <SystemOverlayLayer
               preset={preset}
               state={state}
@@ -547,6 +586,15 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
               onReload={props.onReload}
               onToggleDuoFold={props.onToggleDuoFold}
             />
+            {flatMotion && (transition.coverClip || transition.leftClip) && (
+              <div className="duo-anchored-dim" aria-hidden="true" style={{
+                clipPath: transition.coverClip || transition.leftClip || undefined,
+                backdropFilter: `blur(${((transition.coverClip ? transition.coverMotion : transition.innerMotion) * 1.8).toFixed(2)}px)`,
+                background: transition.coverClip
+                  ? leafGradient('cover', transition.coverMotion, transition.coverGradientX)
+                  : leafGradient('innerLeft', transition.innerMotion, transition.innerGradientX)
+              }} />
+            )}
             <div className="duo-modal-viewport" style={{ left: -primaryShiftX, top: -primaryShiftY, width: primarySlice.width, height: primarySlice.height }}>
               {!modalOnCover && <ScreenModalLayer />}
             </div>
@@ -567,7 +615,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
       {/* 4. Opening / closing transition: the moving leaf's two screens show the
           picture anchored to the unfolded plane, blurred and dimmed towards
           the free edge, like tracing paper lifting off the page. */}
-      {inTransition && transition && projection && transition.flat.matrix3d && (
+      {inTransition && !flatMotion && transition && projection && transition.flat.matrix3d && (
         <>
           {transition.leftClip && (
             <AnchoredFace

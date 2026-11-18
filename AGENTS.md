@@ -21,9 +21,9 @@ status, references) before changing anything.
   Playwright `page.screenshot()` shows stale/blank `<webview>` content — never judge from it.
 - Selectors: toolbar starts collapsed → `button[title^="Show Toolbar"]` (label is ⌘B on macOS, Ctrl+B elsewhere);
   device `select[aria-label="Device Model"]` (`iphone-duo-folded` / `iphone-duo-unfolded`);
-  URL `input[aria-label="Page URL"]`; browser radios `button[role="radio"]` (Safari / Chrome / Web App);
-  Duo fold `.tb-action:has-text("Unfold")` / `("Fold")` — Shift-click = 8× slow motion;
-  hinge readout `.duo-angle-readout`; posture chips `.duo-posture-strip button`.
+  URL `input[aria-label="Page URL"]`; browser picker `select[aria-label="Browser"]` (Safari / Chrome / Web App);
+  Duo fold `.duo-fold-toggle` — Shift-click = 8× slow motion;
+  hinge readout `.duo-current-angle`; open `.duo-settings` for posture chips.
 - Serve test pages from `127.0.0.1`. Product has only a URL-entry start page; fixtures live under `tests/electron`.
 - Software rendering (SwiftShader): judge geometry, blur and brightness, not frame rate.
 

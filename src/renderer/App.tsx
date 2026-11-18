@@ -208,7 +208,6 @@ export function App(): React.ReactElement {
     state.isFramed,
     state.hudCollapsed
   );
-  const scaledFrameWidth = Math.round(metrics.outerFrameWidth * state.scale);
   const screen = useScreenController(state, ctrl.handleUpdateState, ctrl.triggerReload);
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
   const { showToast } = screen;
@@ -262,7 +261,6 @@ export function App(): React.ReactElement {
           presets={ctrl.ctx.presets}
           bookmarks={ctrl.ctx.bookmarks}
           activePreset={activePreset}
-          targetWidthPx={Math.max(348, scaledFrameWidth)}
           onUpdateState={ctrl.handleUpdateState}
           onReload={ctrl.triggerReload}
           onOpenDevTools={ctrl.handleOpenDevTools}
@@ -285,7 +283,6 @@ export function App(): React.ReactElement {
           state={state}
           reloadTick={ctrl.reloadTick}
           onRegisterWebContentsId={ctrl.setActiveWebContentsId}
-          onExpandHud={(): void => ctrl.handleUpdateState({ hudCollapsed: false })}
           onUpdateState={ctrl.handleUpdateState}
           onReload={ctrl.triggerReload}
           onToggleDuoFold={ctrl.handleToggleDuoFold}

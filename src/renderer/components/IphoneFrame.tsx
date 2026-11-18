@@ -1,6 +1,5 @@
 import { platformLabel } from '../../utils/platform.util';
 import React, { useCallback, useEffect, useRef } from 'react';
-import { GripHorizontal, MousePointerClick, Pin, PinOff, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { IOS27_CHROME_ASSETS } from '../../config/ios27-assets.config';
 import {
   computeDuoFoldMetrics,
@@ -33,7 +32,6 @@ export interface IphoneFrameProps {
   readonly state: SimulatorState;
   readonly reloadTick: number;
   readonly onRegisterWebContentsId: (id: number) => void;
-  readonly onExpandHud: () => void;
   readonly onUpdateState: (patch: Partial<SimulatorState>) => void;
   readonly onReload: () => void;
   readonly onToggleDuoFold: () => void;
@@ -248,45 +246,6 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
         void getSimulatorBridge().showTwoFingerActionMenu?.();
       }}
     >
-      {state.hudCollapsed && (
-        <div className="bezel-mini-hud">
-          <span className="bezel-mini-drag" title="Drag to move window">
-            <GripHorizontal size={12} />
-          </span>
-          <button
-            type="button"
-            className={`bezel-mini-btn ${state.alwaysOnTop ? 'bezel-mini-pin-on' : ''}`}
-            aria-pressed={state.alwaysOnTop}
-            aria-label="Pin to current desktop"
-            title={platformLabel("Pin to current desktop (⌘T)")}
-            onClick={(): void => props.onUpdateState({ alwaysOnTop: !state.alwaysOnTop })}
-          >
-            {state.alwaysOnTop ? <Pin size={11} /> : <PinOff size={11} />}
-            <span>{state.alwaysOnTop ? 'Pinned' : 'Pin'}</span>
-          </button>
-          <button
-            type="button"
-            className={`bezel-mini-btn ${state.touchCursorEnabled ? 'bezel-mini-swipe-direct' : ''}`}
-            title="Switch input: Touch (drag to scroll) / Mouse (hover and select)"
-            onClick={(): void =>
-              props.onUpdateState({ touchCursorEnabled: !state.touchCursorEnabled })
-            }
-          >
-            {state.touchCursorEnabled ? <Sparkles size={11} /> : <MousePointerClick size={11} />}
-            <span>{state.touchCursorEnabled ? 'Mouse' : 'Touch'}</span>
-          </button>
-          <button
-            type="button"
-            className="bezel-mini-btn"
-            title={platformLabel("Show Toolbar (⌘B)")}
-            onClick={props.onExpandHud}
-          >
-            <SlidersHorizontal size={11} />
-            <span>Toolbar</span>
-          </button>
-        </div>
-      )}
-
       <div
         className="iphone-stage-scaler"
         style={{
@@ -406,6 +365,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
                   onPageReady={props.onPageReady}
                   onNavigate={(url): void => props.onUpdateState({ currentUrl: url })}
                 />
+                <LaunchSplash />
               </AppSurface>
               <HomeScreen
                 width={eff.logicalWidth} height={eff.logicalHeight} safeTop={eff.safeArea.top}
@@ -413,7 +373,6 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
                   hasDuoSystemRail(preset, state.orientation) ? eff.safeArea.right : 0
                 }
               />
-              <LaunchSplash />
               {isDuoFamily && interp.foldShadowOpacity > 0 && (
                 <div className="duo-book-fold-lighting" style={{ opacity: interp.foldShadowOpacity }} />
               )}

@@ -1,5 +1,5 @@
 import { platformLabel, hostPlatform } from '../../utils/platform.util';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   BookOpen,
   Camera,
@@ -7,9 +7,10 @@ import {
   ClipboardCheck,
   Columns2,
   CornerDownLeft,
-  EyeOff,
   FolderClosed,
-  Globe,
+  SlidersHorizontal,
+  PanelTopClose,
+  GripHorizontal,
   House,
   Minus,
   Moon,
@@ -46,7 +47,6 @@ export interface FloatingToolbarProps {
   readonly presets: readonly DevicePreset[];
   readonly bookmarks: readonly QuickUrlBookmark[];
   readonly activePreset: DevicePreset;
-  readonly targetWidthPx?: number;
   readonly onUpdateState: (patch: Partial<SimulatorState>) => void;
   readonly onReload: () => void;
   readonly onOpenDevTools: () => void;
@@ -88,13 +88,11 @@ function isDuo(preset: DevicePreset): boolean {
 }
 
 /** Row 1 — the window: close/minimise, device, zoom, collapse. */
-function WindowRow(props: FloatingToolbarProps): React.ReactElement {
+function WindowIdentity(props: FloatingToolbarProps): React.ReactElement {
   const { state, presets, onUpdateState } = props;
-  const stepScale = (delta: number): void => {
-    onUpdateState({ scale: clampSimulatorScale(state.scale + delta) });
-  };
+
   return (
-    <div className="tb-row">
+    <>
       <div className={hostPlatform() === 'win32' ? 'traffic-lights windows-controls' : 'traffic-lights'}>
         <button
           type="button"
@@ -116,8 +114,7 @@ function WindowRow(props: FloatingToolbarProps): React.ReactElement {
         </button>
       </div>
 
-      <div className="shadcn-select-wrap tb-device">
-        <Smartphone size={10.5} className="shadcn-select-icon" />
+      <div className="tool-device-picker"><Smartphone size={17} /><span>{props.activePreset.name}</span><ChevronDown size={12} />
         <select
           className="shadcn-select shadcn-select-device"
           aria-label="Device Model"
@@ -137,16 +134,22 @@ function WindowRow(props: FloatingToolbarProps): React.ReactElement {
             </optgroup>
           ))}
         </select>
-        <ChevronDown size={10} className="shadcn-select-chevron" />
       </div>
 
+    </>
+  );
+}
+
+function DisplayScale(props: FloatingToolbarProps): React.ReactElement {
+  const { state } = props;
+  return (
       <div className="scale-stepper" role="group" aria-label="Zoom">
         <button
           type="button"
           className="scale-step-btn"
           title={platformLabel("Zoom Out (⌘−)")}
           aria-label="Zoom out"
-          onClick={(): void => stepScale(-0.05)}
+          onClick={(): void => props.onUpdateState({scale: clampSimulatorScale(state.scale - 0.05)})}
         >
           <Minus size={9} />
         </button>
@@ -155,7 +158,7 @@ function WindowRow(props: FloatingToolbarProps): React.ReactElement {
           className="scale-readout-btn"
           title={platformLabel("Toggle 85% / 100% (⌘0). Drag a corner to resize.")}
           onClick={(): void =>
-            onUpdateState({ scale: Math.abs(state.scale - 0.85) < 0.02 ? 1.0 : 0.85 })
+            props.onUpdateState({ scale: Math.abs(state.scale - 0.85) < 0.02 ? 1.0 : 0.85 })
           }
         >
           {`${Math.round(state.scale * 100)}%`}
@@ -165,32 +168,12 @@ function WindowRow(props: FloatingToolbarProps): React.ReactElement {
           className="scale-step-btn"
           title={platformLabel("Zoom In (⌘+)")}
           aria-label="Zoom in"
-          onClick={(): void => stepScale(0.05)}
+          onClick={(): void => props.onUpdateState({scale: clampSimulatorScale(state.scale + 0.05)})}
         >
           <Plus size={9} />
         </button>
       </div>
 
-      <button
-        type="button"
-        className={`shadcn-icon-btn ${state.alwaysOnTop ? 'tb-on' : ''}`}
-        title={platformLabel("Pin to current desktop (⌘T)")}
-        aria-pressed={state.alwaysOnTop}
-        aria-label="Pin to current desktop"
-        onClick={(): void => onUpdateState({ alwaysOnTop: !state.alwaysOnTop })}
-      >
-        {state.alwaysOnTop ? <Pin size={11} /> : <PinOff size={11} />}
-      </button>
-      <button
-        type="button"
-        className="shadcn-icon-btn"
-        title={platformLabel("Hide toolbar (⌘B)")}
-        aria-label="Hide toolbar"
-        onClick={(): void => onUpdateState({ hudCollapsed: true })}
-      >
-        <EyeOff size={10.5} />
-      </button>
-    </div>
   );
 }
 
@@ -217,25 +200,15 @@ function BrowserRow(props: FloatingToolbarProps): React.ReactElement {
   };
 
   return (
-    <form className="tb-row" onSubmit={handleSubmit}>
-      <div className="tb-seg" role="radiogroup" aria-label="Browser">
-        {SHELL_SEGMENTS.map((seg) => (
-          <button
-            key={seg.mode}
-            type="button"
-            role="radio"
-            aria-checked={state.shellMode === seg.mode}
-            className={`tb-seg-btn ${state.shellMode === seg.mode ? 'seg-active' : ''}`}
-            title={seg.hint}
-            onClick={(): void => onUpdateState({ shellMode: seg.mode })}
-          >
-            {seg.label}
-          </button>
-        ))}
+    <form className="tool-location" onSubmit={handleSubmit}>
+      <div className="tool-browser-picker">
+        <span>{SHELL_SEGMENTS.find(segment => segment.mode === state.shellMode)?.label}</span><ChevronDown size={10} />
+        <select aria-label="Browser" value={state.shellMode}
+          onChange={event => onUpdateState({shellMode: event.target.value as BrowserShellMode})}>
+          {SHELL_SEGMENTS.map(segment => <option key={segment.mode} value={segment.mode}>{segment.label}</option>)}
+        </select>
       </div>
-
       <div className={`shadcn-input-group ${urlError ? 'tb-input-error' : ''}`} title={urlError ?? undefined}>
-        <Globe size={10} className="shadcn-input-icon" />
         <input
           type="text"
           className="shadcn-input"
@@ -315,7 +288,6 @@ function HardwareRow(props: FloatingToolbarProps): React.ReactElement {
 
   return (
     <div className="tb-row tb-actions">
-      <ActionButton icon={<House size={12} />} label="Home" title={platformLabel("Home (⇧⌘H)")} onClick={props.onGoHome} />
       <ActionButton
         icon={<RotateCw size={12} />}
         label="Rotate"
@@ -324,19 +296,20 @@ function HardwareRow(props: FloatingToolbarProps): React.ReactElement {
       />
       <ActionButton
         icon={state.darkMode ? <Moon size={12} /> : <Sun size={12} />}
-        label={state.darkMode ? 'Dark' : 'Light'}
+        label="Dark appearance"
+        active={state.darkMode}
         title={platformLabel("Appearance: prefers-color-scheme (⇧⌘A)")}
         onClick={(): void => onUpdateState({ darkMode: !state.darkMode })}
       />
       <ActionButton
         icon={<Camera size={12} />}
-        label="Shot"
+        label="Screenshot"
         title={platformLabel("Save screenshot to Desktop (⌘S)")}
         onClick={props.onScreenshot}
       />
       <ActionButton
         icon={<ClipboardCheck size={12} />}
-        label="Check"
+        label="PWA checks"
         title="iOS web app checks: manifest, icons, viewport, status bar, service worker"
         onClick={props.onToggleInspector}
         active={props.inspectorOpen}
@@ -344,7 +317,7 @@ function HardwareRow(props: FloatingToolbarProps): React.ReactElement {
       />
       <ActionButton
         icon={<Terminal size={12} />}
-        label="Inspect"
+        label="Web Inspector"
         title="Open Web Inspector (DevTools) for the page"
         onClick={props.onOpenDevTools}
       />
@@ -359,7 +332,7 @@ function HardwareRow(props: FloatingToolbarProps): React.ReactElement {
           title="Touch = click and drag (like a finger)"
           onClick={(): void => onUpdateState({ touchCursorEnabled: false })}
         >
-          <MousePointerClick size={10} />
+          Touch
         </button>
         <button
           type="button"
@@ -370,7 +343,7 @@ function HardwareRow(props: FloatingToolbarProps): React.ReactElement {
           title="Mouse = hover and select text; use wheel or trackpad to scroll"
           onClick={(): void => onUpdateState({ touchCursorEnabled: true })}
         >
-          <Sparkles size={10} />
+          Mouse
         </button>
       </div>
       {duo && (
@@ -427,18 +400,58 @@ function ComparisonUrlRow(props: FloatingToolbarProps): React.ReactElement {
 }
 
 export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement | null {
-  if (props.state.hudCollapsed) {
-    return null;
-  }
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const header = useRef<HTMLElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const { state, onUpdateState } = props;
+  useEffect(() => {
+    if (!toolsOpen) return;
+    const dismiss = (event: PointerEvent) => {
+      if (!header.current?.contains(event.target as Node)) setToolsOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { setToolsOpen(false); trigger.current?.focus(); }
+    };
+    document.addEventListener('pointerdown', dismiss, true);
+    window.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('pointerdown', dismiss, true);
+      window.removeEventListener('keydown', escape);
+    };
+  }, [toolsOpen]);
+  useEffect(() => { if (state.hudCollapsed) setToolsOpen(false); }, [state.hudCollapsed]);
+  const pin = <button type="button" className="tool-icon" title={platformLabel("Pin to current desktop (⌘T)")}
+    aria-label="Pin to current desktop" aria-pressed={state.alwaysOnTop}
+    onClick={() => onUpdateState({alwaysOnTop: !state.alwaysOnTop})}>
+    {state.alwaysOnTop ? <Pin size={15}/> : <PinOff size={15}/>}</button>;
+  if (state.hudCollapsed) return (
+    <header className="preview-handle" aria-label="Preview controls">
+      <GripHorizontal size={14} className="preview-grip" aria-hidden="true" />
+      <button type="button" className="handle-expand" title={platformLabel("Show Toolbar (⌘B)")}
+        onClick={() => onUpdateState({hudCollapsed:false})}>{props.activePreset.name}<ChevronDown size={12}/></button>
+      {pin}
+      <button type="button" className="tool-icon" title="Switch touch or mouse input" aria-label="Switch touch or mouse input"
+        onClick={() => onUpdateState({touchCursorEnabled:!state.touchCursorEnabled})}>
+        {state.touchCursorEnabled ? <Sparkles size={14}/> : <MousePointerClick size={14}/>}</button>
+    </header>
+  );
   return (
-    <header
-      className="shadcn-toolbar"
-      style={props.targetWidthPx ? { width: `${props.targetWidthPx}px` } : undefined}
-    >
-      <WindowRow {...props} />
-      <BrowserRow {...props} />
-      <HardwareRow {...props} />
-      {isDuo(props.activePreset) && props.state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON && <ComparisonUrlRow {...props} />}
+    <header ref={header} className="preview-toolbar" aria-label="Simulator toolbar">
+      <WindowIdentity {...props}/>
+      <BrowserRow {...props}/>
+      <div className="tool-shortcuts">
+        <button type="button" className="tool-icon" aria-label="Home" title={platformLabel("Home (⇧⌘H)")} onClick={props.onGoHome}><House size={16}/></button>
+        <button ref={trigger} type="button" className="tool-icon" aria-label="Device controls" title="Device controls"
+          aria-controls="device-controls" aria-expanded={toolsOpen} onClick={() => setToolsOpen(!toolsOpen)}>
+          <SlidersHorizontal size={16}/></button>
+        <button type="button" className="tool-icon" aria-label="Hide toolbar" title={platformLabel("Hide toolbar (⌘B)")}
+          onClick={() => onUpdateState({hudCollapsed:true})}><PanelTopClose size={16}/></button>
+      </div>
+      {toolsOpen && <section id="device-controls" className="device-controls" role="dialog" aria-label="Device controls">
+        <div className="device-control-heading"><strong>Device controls</strong>{pin}<DisplayScale {...props}/></div>
+        <HardwareRow {...props}/>
+        {isDuo(props.activePreset) && state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON && <ComparisonUrlRow {...props}/>}
+      </section>}
     </header>
   );
 }

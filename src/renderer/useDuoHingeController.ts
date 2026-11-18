@@ -56,9 +56,14 @@ export function useDuoHingeController(selectedDeviceId: DeviceModelId) {
       stop();
       return;
     }
-    const start = performance.now();
+    // Time spent waiting for the first paint or a stalled GPU must not
+    // consume the whole visible sweep. Keep native cadence on fast displays.
+    let previous = performance.now();
+    let elapsed = 0;
     const step = (now: number) => {
-      const next = sampleHingeMotion(from, initialVelocity, destination, now - start, duration);
+      elapsed += Math.min(68, Math.max(0, now - previous));
+      previous = now;
+      const next = sampleHingeMotion(from, initialVelocity, destination, elapsed, duration);
       angle.current = next.angle;
       velocity.current = next.velocity;
       setFoldAngle(next.angle);

@@ -6,6 +6,12 @@ This document captures the current architecture, verified state, exact remaining
 
 ## 0. Status update (2026-11-18)
 
+### Playback and preview controls in 1.0.6
+
+Ordinary Fold and Unfold advance through compositor frames even when a display update stalls. Front-view motion uses the bundled hardware rendered at three-degree intervals with a depth-tested aperture over the persistent live page. The free camera and stationary postures still render the mesh at the selected angle. Device controls open from a fixed toolbar above the preview. Launch and Home animate the page and browser bars to the chosen icon. The primary surface's animation completion drives the phase change.
+
+`tests/electron/motion.cjs` samples actual device pixels at ordinary speed in both directions. The optional eight-times-slower recording exercises separate inspection and interruption cases.
+
 ### Browser settings and resting cover build 1.0.5
 
 The resting Duo cover uses a projected, interactive mirror of the live page. The camera rim in the bundled mesh cuts through both the resting page and the animated stencil. The shell uses desktop light/dark materials and keeps website styling under the guest's control. Browser settings and installation regressions are in `tests/electron/flows.cjs`. See the [fold interaction review](docs/fold-interaction-review.md) for the viewing angles.

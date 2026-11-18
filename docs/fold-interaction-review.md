@@ -3,6 +3,12 @@
 The previous 1.0.2 compositor audit checked resting images. It did not establish
 that interrupted opening, closing or dragging felt correct.
 
+## Normal-speed playback in 1.0.6
+
+A desktop recording of 1.0.5 showed the hinge jumping from 0° to 97° to 175° while the previous slow-motion checks still passed. The reference film shows the held half staying legible as the cover swings through the middle of the frame. In 1.0.6 the standard front-view sweep uses pre-rendered hardware and a matching visible-glass stencil; the web page, Home Screen, and browser chrome are live. A bounded frame step prevents time spent on a delayed paint from consuming the entire sweep. The finite drive targets 680 ms to open and 610 ms to close; elapsed time can increase on a slow renderer. Pause, reversal, direct hinge dragging, and reduced motion still use one controller.
+
+The ordinary-click regression samples a strip across the composited device, excluding the toolbar and angle readout, in both directions. At least six materially different images must reach the compositor for each sweep. The separately recorded slow-motion case checks page continuity.
+
 ## Reference and direction
 
 - Audience: developers inspecting their own PWA in a folding device frame.
@@ -16,7 +22,7 @@ the held display remains legible. It supplies a visual reference, not an Apple
 spring constant, easing specification or simulator control layout. No newly
 downloaded reference media is bundled with the app.
 
-## Changes
+## Changes in 1.0.3
 
 The old angle slider was 76 px wide. Scrubbing inferred another posture at
 12°/168° and could switch the camera unexpectedly. Some fold buttons chose
@@ -37,7 +43,7 @@ The canvas and projected DOM apertures commit together before paint. Mirror
 capture switches to its active rate as soon as an animation starts. Display
 emulation changes at the actual handoff angle, retaining the existing guest.
 
-## Reproduction and limits
+## 1.0.3 verification and limits
 
 `npm run test:electron` includes `tests/electron/motion.cjs`: button activation plus real mouse and
 keyboard input for reversal on both sides of halfway, Escape, slider takeover,

@@ -28,7 +28,7 @@ import {
 } from '../../utils/viewport-math.util';
 import { DuoStatusRing } from './DuoStatusRing';
 import { prefersLightContent } from '../../utils/color.util';
-import { useScreen } from './ScreenLayers';
+import { appMotionStyle, useScreen } from './ScreenLayers';
 import { setSafariBarCollapsed, useKeyboardVisible, useSafariBarCollapsed } from '../sim-events';
 import { SoftwareKeyboard } from './SoftwareKeyboard';
 
@@ -559,17 +559,19 @@ export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.Reac
         darkMode={lightContent}
         onToggleDuoFold={props.onToggleDuoFold}
       />
-      <BrowserShellBarOverlay
-        shellMode={onHome ? BrowserShellMode.PWA_STANDALONE : props.state.shellMode}
-        currentUrl={props.state.currentUrl}
-        darkMode={props.state.darkMode}
-        onReload={props.onReload}
-        topBarHeight={chrome.topBarHeight}
-        bottomBarHeight={chrome.bottomBarHeight}
-        trailingInset={trailing}
-        tintColor={props.tintColor}
-        collapsed={safariCollapsed}
-      />
+      <div className={`browser-motion-layer browser-motion-${screen.phase}`} style={appMotionStyle(screen.launchOrigin)}>
+        <BrowserShellBarOverlay
+          shellMode={screen.phase === 'home' ? BrowserShellMode.PWA_STANDALONE : props.state.shellMode}
+          currentUrl={props.state.currentUrl}
+          darkMode={props.state.darkMode}
+          onReload={props.onReload}
+          topBarHeight={chrome.topBarHeight}
+          bottomBarHeight={chrome.bottomBarHeight}
+          trailingInset={trailing}
+          tintColor={props.tintColor}
+          collapsed={safariCollapsed}
+        />
+      </div>
       <SoftwareKeyboard
         visible={keyboardVisible && screen.phase === 'app'}
         height={resolveKeyboardHeight(lit, props.orientation)}

@@ -23,6 +23,8 @@ export interface LaunchOrigin {
   /** Icon centre in screen-relative fractions (0..1). */
   readonly x: number;
   readonly y: number;
+  readonly width: number;
+  readonly height: number;
 }
 
 export interface ScreenSheetState {
@@ -47,6 +49,7 @@ export interface ScreenContextValue {
   readonly setHomeNavigation: (next: HomeNavigation) => void;
   readonly phase: ScreenPhase;
   readonly launchOrigin: LaunchOrigin;
+  readonly finishTransition: (phase: 'closing' | 'launching') => void;
   readonly splash: { readonly background: string; readonly iconUrl: string | null } | null;
   readonly installedApps: readonly InstalledWebApp[];
   readonly report: PageInspectionReport | null;
@@ -75,7 +78,8 @@ export const ScreenContext = createContext<ScreenContextValue>({
   homeNavigation: { page: 0, searching: false, query: '' },
   setHomeNavigation: noop,
   phase: 'app',
-  launchOrigin: { x: 0.5, y: 0.5 },
+  launchOrigin: { x: 0.5, y: 0.92, width: 0.15, height: 0.075 },
+  finishTransition: noop,
   splash: null,
   installedApps: [],
   report: null,
@@ -104,14 +108,27 @@ export function useScreen(): ScreenContextValue {
 // App surface: wraps the live <webview> and plays launch / close transitions
 // ---------------------------------------------------------------------------
 
+export function appMotionStyle(origin: LaunchOrigin): React.CSSProperties {
+  return {
+    '--icon-left': `${(origin.x - origin.width / 2) * 100}%`,
+    '--icon-top': `${(origin.y - origin.height / 2) * 100}%`,
+    '--icon-width': origin.width,
+    '--icon-height': origin.height
+  } as React.CSSProperties;
+}
+
 export function AppSurface(props: { readonly children: React.ReactNode; readonly style?: React.CSSProperties }): React.ReactElement {
   const screen = useScreen();
-  const origin = `${(screen.launchOrigin.x * 100).toFixed(1)}% ${(screen.launchOrigin.y * 100).toFixed(1)}%`;
   const hidden = screen.phase === 'home';
   return (
     <div
       className={`app-surface app-surface-${screen.phase}`}
-      style={{ transformOrigin: origin, visibility: hidden ? 'hidden' : 'visible', ...props.style }}
+      style={{ ...appMotionStyle(screen.launchOrigin), visibility: hidden ? 'hidden' : 'visible', ...props.style }}
+      onAnimationEnd={event => {
+        if (event.target !== event.currentTarget || !event.currentTarget.querySelector('webview')) return;
+        if (event.animationName === 'sim-app-open') screen.finishTransition('launching');
+        if (event.animationName === 'sim-app-close') screen.finishTransition('closing');
+      }}
       aria-hidden={hidden}
     >
       {props.children}
@@ -129,7 +146,9 @@ function originFromEvent(e: React.MouseEvent<HTMLElement>): LaunchOrigin {
   const host = screenEl ? screenEl.getBoundingClientRect() : target;
   return {
     x: (target.left + target.width / 2 - host.left) / Math.max(1, host.width),
-    y: (target.top + target.height / 2 - host.top) / Math.max(1, host.height)
+    y: (target.top + target.height / 2 - host.top) / Math.max(1, host.height),
+    width: target.width / Math.max(1, host.width),
+    height: target.height / Math.max(1, host.height)
   };
 }
 
@@ -234,7 +253,7 @@ export function LaunchSplash(): React.ReactElement | null {
     return null;
   }
   return (
-    <div className="launch-splash" style={{ background: screen.splash.background, transformOrigin: `${screen.launchOrigin.x * 100}% ${screen.launchOrigin.y * 100}%` }} aria-hidden="true">
+    <div className="launch-splash" style={{ background: screen.splash.background }} aria-hidden="true">
       {screen.splash.iconUrl && <img src={screen.splash.iconUrl} alt="" draggable={false} />}
     </div>
   );

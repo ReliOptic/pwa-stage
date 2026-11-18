@@ -15,6 +15,8 @@ The following are restored byte-for-byte from commit `bcb4628`:
 
 `src/utils/duo-3d-engine.util.ts` restores the original glTF loader, materials and bone 24/25 screen projection. Later signature transition, film-grounded shading, posture camera rigs and guest mirroring remain. Dimensions and animation tuning not independently measured remain estimates.
 
+Front-view motion uses 61 hardware-only renders per finish derived from the bundled mesh. The matching display outlines come from a depth-tested display-material pass. The browser surface remains live. These derivatives carry the same internal-use restriction. To regenerate, run `electron scripts/render-duo-motion.cjs /tmp/duo-frames`, then `python3 scripts/pack-duo-motion.py /tmp/duo-frames` and `node scripts/audit-assets.cjs --write`. The packing step uses Pillow and OpenCV.
+
 ## Product content
 
 No demo PWA, sample apps, fake widgets, playlists or calendar/weather data ships. `public/start/` is a neutral URL-entry page. Home Screen renders working browsers and user-installed web apps; its CSS wallpaper and browser symbols are original UI artwork. Test fixtures and visual references stay outside shipped product content.

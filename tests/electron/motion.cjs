@@ -78,6 +78,7 @@ server.listen(0, '127.0.0.1', async () => {
       assert.equal(s.posture,scrubPosture); assert.equal(s.target,'paused');
       if(angle===16) {
         await shell.executeJavaScript(`document.querySelector('button[title^="Show Toolbar"]').click()`);
+        await click('button[aria-label="Device controls"]');
         await wait(()=>shell.executeJavaScript(`!!document.querySelector('.tb-action[aria-label="Unfold"]')`));
         await shell.executeJavaScript(`document.querySelector('button[aria-label="Hide toolbar"]').click()`);
         await wait(()=>shell.executeJavaScript(`!document.querySelector('.tb-action[aria-label="Unfold"]')`));
@@ -119,6 +120,37 @@ server.listen(0, '127.0.0.1', async () => {
       }
       return blank/total;
     };
+    // Ordinary-speed playback must change the composited device itself. Sample
+    // the static fixture and rim at mid-height, excluding both control bars.
+    const ordinary = [];
+    for (const destination of [0, 180]) {
+      const distinct = [];
+      const started = Date.now();
+      shell.beginFrameSubscription(image => {
+        const { width, height } = image.getSize();
+        const strip = image.crop({ x: 0, y: Math.floor(height * 0.43), width, height: 2 })
+          .resize({ width: 160, height: 1 }).toBitmap();
+        const materiallyDifferent = previous => {
+          let changed = 0;
+          for (let x = 0; x < 160; x++) {
+            const i = x * 4;
+            if (Math.abs(strip[i + 3] - previous[i + 3]) > 45 ||
+                Math.abs(strip[i + 1] - previous[i + 1]) > 35) changed++;
+          }
+          return changed >= 3;
+        };
+        if (distinct.every(frame => materiallyDifferent(frame.pixels))) {
+          distinct.push({ ms: Date.now() - started, pixels: strip });
+        }
+      });
+      try {
+        await toggle(false);
+        await settled(destination);
+        await sleep(450);
+      } finally { shell.endFrameSubscription(); }
+      ordinary.push({ destination, paintedAtMs: distinct.map(frame => frame.ms) });
+      assert(distinct.length >= 6, `Only ${distinct.length} distinct device images toward ${destination}° at normal speed`);
+    }
     const frames=[];
     if(process.env.SIMULATOR_RECORD_MOTION==='1') {
       fs.mkdirSync(path.join(out,'frames'),{recursive:true});
@@ -147,7 +179,7 @@ server.listen(0, '127.0.0.1', async () => {
     await shell.debugger.attach('1.3');
     await shell.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
     await toggle(false); await settled(0); shell.debugger.detach();
-    fs.writeFileSync(path.join(out,'motion.json'),JSON.stringify({checkpoints,scrubbed,sizes,guestId:guest.id,token,frames,reducedMotion:true},null,2));
+    fs.writeFileSync(path.join(out,'motion.json'),JSON.stringify({checkpoints,scrubbed,sizes,guestId:guest.id,token,ordinary,frames,reducedMotion:true},null,2));
     screen.getDisplayNearestPoint=originalGetDisplay;
     console.log('PASS motion: reverse, pause, drag, keyboard, guest continuity, reduced motion');
     clearTimeout(watchdog); app.exit(0);
