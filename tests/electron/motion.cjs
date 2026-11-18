@@ -42,7 +42,16 @@ server.listen(0, '127.0.0.1', async () => {
     const guests = () => webContents.getAllWebContents().filter(w=>w.getType()==='webview');
     const guest = guests()[0], token = await guest.executeJavaScript('window.sessionToken');
     const click = async (selector, slow=false) => {
-      const r = await shell.executeJavaScript(`document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().toJSON()`);
+      let r;
+      await wait(async () => {
+        r = await shell.executeJavaScript(`(() => {
+          const el = document.querySelector(${JSON.stringify(selector)});
+          if (!el || !el.checkVisibility()) return null;
+          const rect = el.getBoundingClientRect();
+          return el.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)) ? rect.toJSON() : null;
+        })()`);
+        return !!r;
+      }).catch(() => { throw Error('Control is not visible or is covered: ' + selector); });
       const event = {x:Math.round(r.x+r.width/2), y:Math.round(r.y+r.height/2),button:'left',clickCount:1,modifiers:slow?['shift']:[]};
       shell.sendInputEvent({type:'mouseDown',...event}); shell.sendInputEvent({type:'mouseUp',...event});
     };
@@ -211,7 +220,8 @@ server.listen(0, '127.0.0.1', async () => {
     await shell.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
     if (reducedBySystem) {
       await click('.duo-settings');
-      await click('.duo-motion-preference input');
+      await click('.duo-motion-preference');
+      await wait(() => shell.executeJavaScript("!document.querySelector('.duo-motion-preference input').checked"));
       await click('.duo-settings');
     }
     const motionMode = () => shell.executeJavaScript("document.querySelector('.duo-bottom-minibar').dataset.motion");
