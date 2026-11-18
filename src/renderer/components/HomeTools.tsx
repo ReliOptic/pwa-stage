@@ -95,7 +95,8 @@ export function HomeTools({screen}: {screen: ScreenContextValue}) {
             </button>) : <p>Add a website from the browser’s share menu to manage it here.</p>}</div>
         </> : <>
           <p className="home-tool-value">{screen.currentUrl}</p>
-          {!inspection || !report ? <p role="status">{screen.inspecting?'Reading website details…':'Open a website in Safari or Chrome to inspect it.'}</p> :
+          {kind==='viewport' && screen.inspecting ? <p role="status">Measuring this page…</p> :
+            !inspection || !report ? <p role="status">{screen.inspecting?'Reading website details…':'Open a website in Safari or Chrome to inspect it.'}</p> :
             kind==='viewport' ? <ViewportReadings viewport={inspection.viewport}/> : kind==='manifest' ? <>
               <h3>Web app manifest</h3>
               <div className="home-tool-group"><dl>

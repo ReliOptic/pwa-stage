@@ -1,6 +1,6 @@
 import { getDevicePresetById } from '../config/device-presets.config';
 import { exitGuestFullscreen } from './guest-fullscreen';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { updateLibrary } from './browser-preferences';
 import { PageInspectionReport } from '../types/ipc-coordinator.types';
 import { InstalledWebApp } from '../types/pwa.types';
@@ -152,8 +152,13 @@ export function useScreenController(
     if (lastGuestRef.current !== null) runInspection(lastGuestRef.current);
   }, [runInspection]);
 
-  useEffect(() => {
-    if (sheet.kind === 'viewport') reinspect();
+  useLayoutEffect(() => {
+    if (sheet.kind !== 'viewport') return;
+    // Safari's collapsing bars can resize the guest without changing the device or URL.
+    reinspect();
+    const observer = new ResizeObserver(reinspect);
+    document.querySelectorAll('webview').forEach(guest => observer.observe(guest));
+    return () => observer.disconnect();
   }, [sheet.kind, state.selectedDeviceId, state.orientation, reinspect]);
 
   // Picking a browser / URL in the toolbar while on the Home Screen
