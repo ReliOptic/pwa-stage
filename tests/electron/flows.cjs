@@ -151,7 +151,12 @@ server.listen(18771,'127.0.0.1',async()=>{
  await wait(async()=>js('!!document.querySelector(".duo-slice-primary webview")'));
  await wait(()=>pageLoaded('chrome'));
  const guest=guests()[0];const before={id:guest.id,token:await guest.executeJavaScript('window.probeToken')};
+ // Switching from the slab remounts the guest before the native Duo window is resized.
+ // Measure and click the disclosure after the whole stage fits the painted window.
+ await wait(()=>js("document.querySelector('.iphone-stage-scaler').getBoundingClientRect().width <= innerWidth"));
+ await capture('duo-before-controls');
  await click('.duo-settings');
+ await wait(()=>js("document.querySelector('.duo-settings').ariaExpanded==='true'"));
  const scrub=async angle=>{
    await js(`(()=>{const el=document.querySelector('.duo-hinge-slider');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,${angle});el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
    await wait(()=>js(`document.querySelector('.duo-current-angle')?.textContent.trim()==='${angle}°'`));
