@@ -169,13 +169,20 @@ server.listen(18771,'127.0.0.1',async()=>{
  await clickText('Website Settings');await capture('duo-70-browser-settings');
  await click(cover+'[aria-label="Done"]');
  // Project the actual guest button's normalized coordinates through the cover canvas.
- const target=await guest.executeJavaScript("(()=>{const r=document.querySelector('#site-settings').getBoundingClientRect();return [(r.x+r.width/2)/innerWidth,(r.y+r.height/2)/innerHeight]})()");
- const point=await js(`(()=>{const c=document.querySelector('.duo-cover-mirror canvas');const dot=document.createElement('i');dot.style.cssText='position:absolute;pointer-events:none;width:1px;height:1px;left:'+(c.offsetLeft+c.clientWidth*${target[0]})+'px;top:'+(c.offsetTop+c.clientHeight*${target[1]})+'px';c.parentElement.append(dot);const r=dot.getBoundingClientRect();dot.remove();return {x:Math.round(r.x),y:Math.round(r.y)}})()`);
- assert(await js(`document.elementFromPoint(${point.x},${point.y})?.matches('.duo-cover-mirror canvas')`));
- for(const type of ['mouseDown','mouseUp'])win.webContents.sendInputEvent({type,...point,button:'left',clickCount:1});
+ const tapOnCover=async selector=>{
+   const target=await guest.executeJavaScript("(()=>{const r=document.querySelector("+JSON.stringify(selector)+").getBoundingClientRect();return [(r.x+r.width/2)/innerWidth,(r.y+r.height/2)/innerHeight]})()");
+   const point=await js(`(()=>{const c=document.querySelector('.duo-cover-mirror canvas');const dot=document.createElement('i');dot.style.cssText='position:absolute;pointer-events:none;width:1px;height:1px;left:'+(c.offsetLeft+c.clientWidth*${target[0]})+'px;top:'+(c.offsetTop+c.clientHeight*${target[1]})+'px';c.parentElement.append(dot);const r=dot.getBoundingClientRect();dot.remove();return {x:Math.round(r.x),y:Math.round(r.y)}})()`);
+   assert(await js(`document.elementFromPoint(${point.x},${point.y})?.matches('.duo-cover-mirror canvas')`));
+   for(const type of ['mouseDown','mouseUp'])win.webContents.sendInputEvent({type,...point,button:'left',clickCount:1});
+ };
+ await tapOnCover('#site-settings');
  await wait(()=>guest.executeJavaScript("document.querySelector('dialog').open"));
  assert.equal(await guest.executeJavaScript('window.settingTapTrusted'),true);
- await guest.executeJavaScript("document.querySelector('dialog').close()");
+ await wait(()=>present('.duo-cover-source[data-framed-dialog]'));
+ await capture('pwa-settings-from-cover');
+ await tapOnCover('dialog button');
+ await wait(()=>guest.executeJavaScript("!document.querySelector('dialog').open"));
+ await wait(async()=>!await present('.duo-cover-source[data-framed-dialog]'));
  await scrub(180);
  await click('button[aria-label="Posture and finish"]');
  await click('button[title="Cover Display (5.4″ · 466×678pt)"]');

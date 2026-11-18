@@ -60,3 +60,5 @@ Apple’s opening sequence shows the lit outside face passing in front of an alr
 A 1° sweep with zero extra orbit and pitch gives simultaneous visibility at 33–89° in the Open rig, 26–44° in Book and 2–48° in Tabletop. Stand has its own cover-facing camera. These are readings of the supplied mesh and simulator camera. The film establishes the appearance of the overlap without supplying a calibrated physical ignition angle or iOS 27.3 timing.
 
 The hot page stays in one guest in Span mode. The outside view forwards mouse and scroll input to it, while browser menus open on the touched display. The lens aperture uses the bound cover camera rim. A broad warm key, cooler fill and muted reflections preserve the contrast of page content across viewing angles.
+
+When a page opens a modal dialog from the cover, the cover frames its bounding box within the visible page area. Both views retain the same document and the guest receives trusted input to open and dismiss the dialog.

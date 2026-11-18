@@ -5,6 +5,7 @@ import {
   HardwareCutoutType,
   Orientation
 } from '../../types/device.types';
+import { ElectronWebviewElement } from '../../types/renderer.types';
 import { DuoDisplayMode, SimulatorState } from '../../types/simulator.types';
 import {
   Duo3DFrameProjection,
@@ -206,6 +207,8 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const engineRef = useRef<Duo3DHardwareEngine | null>(null);
   const [projection, setProjection] = useState<Duo3DFrameProjection | null>(null);
   const [primaryGuestId, setPrimaryGuestId] = useState<number | null>(null);
+  const [coverDialog, setCoverDialog] = useState<{ center: number; width: number } | null>(null);
+  const coverPaneRef = useRef<HTMLDivElement>(null);
   const [coverSelected, setCoverSelected] = useState(false);
   const dragRef = useRef<{
     readonly startX: number;
@@ -320,6 +323,48 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const coverSourceWidth = split ? primarySlice?.width ?? fullLogicalW : fullLogicalW;
   const coverSourceHeight = split ? primarySlice?.height ?? fullLogicalH : fullLogicalH;
   const coverScale = cover ? Math.max(cover.width / coverSourceWidth, cover.height / coverSourceHeight) : 1;
+  // The cover normally shows the trailing portion of the live page. A web
+  // dialog can be centred in the unfolded viewport, outside that crop.
+  // Read its bounds only while the cover is in use. Never restyle the guest.
+  useEffect(() => {
+    if (!showCoverMirror || !coverSelected || !primaryGuestId) {
+      setCoverDialog(null);
+      return;
+    }
+    const guest = document.querySelector<ElectronWebviewElement>('.duo-slice-primary webview');
+    if (!guest) return;
+    let stopped = false;
+    let timer = 0;
+    const measure = async (): Promise<void> => {
+      let next: {center: number; width: number} | null = null;
+      try {
+        const bounds = await guest.executeJavaScript(`(() => {
+          const dialogs = document.querySelectorAll('dialog[open],[role="dialog"][aria-modal="true"],[role="alertdialog"]');
+          for (const dialog of Array.from(dialogs).reverse()) {
+            const r = dialog.getBoundingClientRect();
+            if (r.width && r.height && dialog.checkVisibility()) return [(r.x + r.width / 2) / innerWidth, r.width / innerWidth];
+          }
+          return null;
+        })()`);
+        if (Array.isArray(bounds) && bounds.length === 2 && bounds.every(Number.isFinite)) {
+          next = {center: bounds[0] * guest.clientWidth, width: bounds[1] * guest.clientWidth};
+        }
+      } catch { /* The guest may be between documents. */ }
+      if (stopped) return;
+      setCoverDialog(previous => previous?.center === next?.center && previous?.width === next?.width ? previous : next);
+      timer = window.setTimeout(() => { void measure(); }, 220);
+    };
+    void measure();
+    return () => { stopped = true; window.clearTimeout(timer); };
+  }, [showCoverMirror, coverSelected, primaryGuestId]);
+  const railWidth = coverPaneRef.current?.querySelector<HTMLElement>('.ios-duo-vertical-rail')?.offsetWidth ?? 0;
+  const coverPageWidth = (cover?.width ?? 466) - railWidth;
+  const contentScale = coverDialog && coverDialog.width > 0
+    ? Math.min(coverScale, (coverPageWidth - 16) / coverDialog.width) : coverScale;
+  const defaultLeft = (cover?.width ?? 466) - coverSourceWidth * coverScale;
+  const coverLeft = coverDialog
+    ? Math.min(0, Math.max(coverPageWidth - coverSourceWidth * contentScale, coverPageWidth / 2 - coverDialog.center * contentScale))
+    : defaultLeft;
   const innerBrightness = projection?.innerBrightness ?? 1;
   const innerFilter = innerBrightness >= 0.999 ? undefined : `brightness(${innerBrightness.toFixed(3)})`;
   useEffect((): (() => void) | void => {
@@ -427,11 +472,12 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
       )}
 
       {showCoverMirror && cover?.matrix3d && (
-        <div className="duo-interactive-slice duo-cover-mirror" aria-label="Cover display" onPointerDownCapture={() => setCoverSelected(true)}
+        <div className="duo-interactive-slice duo-cover-mirror" aria-label="Cover display" ref={coverPaneRef} onPointerDownCapture={() => setCoverSelected(true)}
           style={{width: cover.width, height: cover.height, transform: cover.matrix3d, zIndex: cover.zIndex}}>
           <div className="duo-slice-inner-viewport" style={{width: cover.width, height: cover.height, clipPath: cover.apertureClip, maskImage: cover.lensMask}}>
-            <div className="duo-cover-source" style={{width: coverSourceWidth, height: coverSourceHeight,
-              left: cover.width - coverSourceWidth * coverScale, transform: `scale(${coverScale})`}}>
+            <div className="duo-cover-source" data-framed-dialog={Boolean(coverDialog) || undefined}
+              style={{width: coverSourceWidth, height: coverSourceHeight, left: coverLeft,
+                top: (cover.height - coverSourceHeight * contentScale) / 2, transform: `scale(${contentScale})`}}>
               <AppSurface>
                 <WebviewContainer state={state} reloadTick={0} isDualUnfolded onRegisterWebContentsId={() => {}}
                   mirrorGuestId={primaryGuestId} reserveSystemRail={!split} />
