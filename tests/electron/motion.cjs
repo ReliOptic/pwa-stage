@@ -56,7 +56,18 @@ server.listen(0, '127.0.0.1', async () => {
       shell.sendInputEvent({type:'mouseMove',x:event.x,y:event.y});
       shell.sendInputEvent({type:'mouseDown',...event}); shell.sendInputEvent({type:'mouseUp',...event});
     };
-    const settled = angle => wait(async()=>{const s=await state();return s.angle===angle&&s.target==='paused'});
+    const settled = async angle => {
+      let lastAngle, lastChange=Date.now();
+      const deadline=Date.now()+60000;
+      while (Date.now()<deadline) {
+        const current=await state();
+        if (current.angle===angle && current.target==='paused') return;
+        if (current.angle!==lastAngle) { lastAngle=current.angle; lastChange=Date.now(); }
+        assert(Date.now()-lastChange<18000,'Hinge stopped advancing at '+current.angle+'°');
+        await sleep(50);
+      }
+      throw Error('Hinge did not settle at '+angle+'°');
+    };
     const toggle = async slow => { await click('.duo-fold-toggle', slow); await sleep(80); };
     if (reducedBySystem) {
       // Measure the same explicit override available to someone with Reduce Motion enabled.
