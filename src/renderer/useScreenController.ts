@@ -121,13 +121,10 @@ export function useScreenController(
         .inspectPage(guestId)
         .then((res): void => {
           if (sequence !== inspectionSequence.current) return;
-          if (res.ok) {
-            setReport(res.value);
-            const style = res.value.identity.statusBarStyle;
-            if (style !== state.pwaStatusBarStyle) {
-              updateState({ pwaStatusBarStyle: style });
-            }
-          }
+          if (!res.ok) { setReport(null); return; }
+          setReport(res.value);
+          const style = res.value.identity.statusBarStyle;
+          if (style !== state.pwaStatusBarStyle) updateState({ pwaStatusBarStyle: style });
         })
         .catch(() => { if (sequence === inspectionSequence.current) setReport(null); })
         .finally(() => { if (sequence === inspectionSequence.current) setInspecting(false); });

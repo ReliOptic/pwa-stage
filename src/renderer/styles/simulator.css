@@ -1226,3 +1226,9 @@ html, body, #root {
 .home-tool-check p { padding:3px 0 0;color:var(--utility-secondary);font-size:14px; }
 
 .iphone-screen > .ios-overlay-tool { z-index:69; }
+
+.settings-dial { position:relative;display:grid;place-items:center;width:84%;height:84%;border-radius:50%;background:linear-gradient(145deg,#e5e6e8,#8d939c 45%,#d2d5d9);box-shadow:0 1px 2px #282b32,inset 0 1px 1px #fff; }
+.settings-dial::before,.settings-dial i { content:'';position:absolute;border-radius:50%; }
+.settings-dial::before { inset:5%;background:repeating-conic-gradient(#d5d8dc 0deg 3deg,#575d66 4deg 9deg,#343a43 10deg 12deg); }
+.settings-dial i { inset:21%;background:repeating-conic-gradient(from 8deg,#777f89 0deg 7deg,#ccd0d6 8deg 10deg,#3f454e 11deg 20deg);border:2px solid #626973;box-shadow:0 0 0 1px #c2c6cb; }
+.settings-dial i::after { content:'';position:absolute;inset:27%;border-radius:50%;border:1px solid #c7cbd1;background:linear-gradient(155deg,#77808a,#434953); }

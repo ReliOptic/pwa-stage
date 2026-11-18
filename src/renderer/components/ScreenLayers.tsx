@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   PanelsTopLeft,
-  Settings,
   FileJson2,
   Info,
   SquarePlus,
@@ -31,8 +30,12 @@ export interface LaunchOrigin {
   readonly height: number;
 }
 
+function SettingsGlyph() {
+  return <span className="settings-dial" aria-hidden="true"><i/></span>;
+}
+
 const homeTools = [
-  {kind:'device-settings', name:'Settings', icon:Settings, background:'linear-gradient(155deg,#959daa,#444956)'},
+  {kind:'device-settings', name:'Settings', icon:SettingsGlyph, background:'linear-gradient(150deg,#aeb2b9,#777e88 52%,#5e626b)'},
   {kind:'manifest', name:'Manifest', icon:FileJson2, background:'linear-gradient(150deg,#3c8283,#204a55)'},
   {kind:'app-checks', name:'PWA Checks', icon:PanelsTopLeft, background:'linear-gradient(145deg,#7167a4,#403658)'}
 ] as const;
@@ -221,9 +224,11 @@ function BrowserIcon({ browser }: { readonly browser: 'safari' | 'chrome' }): Re
   return (
     <svg width="89%" height="89%" viewBox="0 0 64 64" aria-hidden="true">
       <circle cx="32" cy="32" r="30" fill="#078deb" />
-      <circle cx="32" cy="32" r="25.5" fill="none" stroke="#ddfbff" strokeWidth="4" strokeDasharray="1 3" />
+      <circle cx="32" cy="32" r="26" fill="none" stroke="#ddfbff" strokeWidth="4.5" strokeDasharray=".8 3.28" />
+      <circle cx="32" cy="32" r="23.5" fill="none" stroke="white" strokeWidth="2" strokeDasharray=".8 13.97" />
       <path d="m51 12-15 24-8-8Z" fill="#ff5348" />
       <path d="M13 52 28 28l8 8Z" fill="white" />
+      <path d="m51 12-19 20 4 4Z" fill="#d94141" /><path d="m13 52 19-20 4 4Z" fill="#c2dde8" />
     </svg>
   );
 }
