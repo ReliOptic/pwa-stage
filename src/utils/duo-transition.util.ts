@@ -21,7 +21,8 @@ export function sampleTransitionGradient(samples: readonly number[], distance: n
 }
 
 /** Fraction of the physical 0–180° opening, also used when reversing. */
-export const FOLD_FOCUS_HANDOFF = 0.7;
+const FOLD_FOCUS_HANDOFF = 0.7;
+export const FOLD_FOCUS_HANDOFF_DEG = Math.round(180 * FOLD_FOCUS_HANDOFF);
 const FOCUS_HALF_WIDTH = 0.1;
 
 function smoothRamp(start: number, end: number, value: number): number {

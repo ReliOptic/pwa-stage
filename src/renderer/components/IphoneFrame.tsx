@@ -17,7 +17,7 @@ import {
   Orientation
 } from '../../types/device.types';
 import { DuoDisplayMode, SimulatorState } from '../../types/simulator.types';
-import { FOLD_FOCUS_HANDOFF } from '../../utils/duo-transition.util';
+import { FOLD_FOCUS_HANDOFF_DEG } from '../../utils/duo-transition.util';
 import { COVER_HANDOFF_DEG } from '../../utils/duo-3d-engine.util';
 import { requestDuoFoldToggle } from '../sim-events';
 import { useDuoHingeController } from '../useDuoHingeController';
@@ -163,7 +163,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
     (deg: number, targetPosture?: DuoPostureId): void => {
       const posture = targetPosture ?? hinge.posture;
       // Stand / tent mode shows content on the *cover* display turned sideways.
-      const usesCover = posture === 'standing' || deg < (focusHandoff ? 180 * FOLD_FOCUS_HANDOFF : COVER_HANDOFF_DEG);
+      const usesCover = posture === 'standing' || deg < (focusHandoff ? FOLD_FOCUS_HANDOFF_DEG : COVER_HANDOFF_DEG);
       const targetId = usesCover
         ? DeviceModelId.IPHONE_DUO_FOLDED
         : DeviceModelId.IPHONE_DUO_UNFOLDED;

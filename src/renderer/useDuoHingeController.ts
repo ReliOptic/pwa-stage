@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { FOLD_FOCUS_HANDOFF_DEG } from '../utils/duo-transition.util';
 import { DeviceModelId } from '../types/device.types';
 import { computeFoldDriveDurationMs, DuoPostureId, sampleHingeMotion } from '../utils/duo-fold-math.util';
 import { DUO_FOLD_TOGGLE_EVENT, publishDuoFoldTarget, getFoldSlowFactor, setFoldSlowFactor } from './sim-events';
@@ -79,12 +80,18 @@ export function useDuoHingeController(selectedDeviceId: DeviceModelId) {
     let previous = performance.now();
     let elapsed = 0;
     const step = (now: number) => {
-      elapsed += Math.min(68, Math.max(0, now - previous));
+      // A stalled compositor still needs to present both sides of the handoff.
+      // On a normally refreshing display the drive follows the native clock.
+      elapsed += Math.min(45, Math.max(0, now - previous));
       previous = now;
       const next = sampleHingeMotion(from, initialVelocity, destination, elapsed, duration);
-      angle.current = next.angle;
+      const crossedHandoff = (angle.current < FOLD_FOCUS_HANDOFF_DEG && next.angle > FOLD_FOCUS_HANDOFF_DEG) ||
+        (angle.current > FOLD_FOCUS_HANDOFF_DEG && next.angle < FOLD_FOCUS_HANDOFF_DEG);
+      // Preserve the optical midpoint if a slow paint would skip it. The next
+      // tick continues on the same easing curve, including on reversal.
+      angle.current = crossedHandoff && !next.settled ? FOLD_FOCUS_HANDOFF_DEG : next.angle;
       velocity.current = next.velocity;
-      setFoldAngle(next.angle);
+      setFoldAngle(angle.current);
       if (next.settled) stop();
       else raf.current = requestAnimationFrame(step);
     };
@@ -135,7 +142,7 @@ export function useDuoHingeController(selectedDeviceId: DeviceModelId) {
     };
   }, [selectedDeviceId, toggle, pause]);
   // Toolbar and bottom controls must name the same next action after a scrub
-  // or pause too; the active display alone changes at 2°, not halfway.
+  // or pause too, independently of the active screen profile.
   const foldActionBase = targetAngle ?? (foldAngle < 90 ? 0 : 180);
   useEffect(() => {
     publishDuoFoldTarget(foldActionBase);

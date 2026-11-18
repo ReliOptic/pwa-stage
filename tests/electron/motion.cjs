@@ -63,26 +63,34 @@ server.listen(0, '127.0.0.1', async () => {
       await wait(() => shell.executeJavaScript("document.querySelector('.duo-bottom-minibar').dataset.motion === 'full'"));
     }
     // Ordinary-speed playback must change the composited device itself. Sample
-    // the static fixture and rim at mid-height, excluding both control bars.
+    // the device body, excluding the toolbar and the hinge controls. A single
+    // scanline can miss a rotating bezel or a focus change above or below it.
     const ordinary = [];
     for (const destination of [180, 0]) {
+      await shell.executeJavaScript(`(() => {
+        const angle = document.querySelector('.duo-current-angle');
+        window.sawHandoff = false;
+        window.handoffObserver = new MutationObserver(() => {
+          if (angle.textContent === '126°') window.sawHandoff = true;
+        });
+        window.handoffObserver.observe(angle, {subtree:true, characterData:true, childList:true});
+      })()`);
       const distinct = [];
       const started = Date.now();
       shell.beginFrameSubscription(image => {
         const { width, height } = image.getSize();
-        const strip = image.crop({ x: 0, y: Math.floor(height * 0.43), width, height: 2 })
-          .resize({ width: 160, height: 1 }).toBitmap();
+        const body = image.crop({ x: 0, y: Math.floor(height * 0.18), width, height: Math.floor(height * 0.62) })
+          .resize({ width: 120, height: 64 }).toBitmap();
         const materiallyDifferent = previous => {
           let changed = 0;
-          for (let x = 0; x < 160; x++) {
-            const i = x * 4;
-            if (Math.abs(strip[i + 3] - previous[i + 3]) > 45 ||
-                Math.abs(strip[i + 1] - previous[i + 1]) > 35) changed++;
+          for (let i = 0; i < body.length; i += 4) {
+            if (Math.abs(body[i + 3] - previous[i + 3]) > 45 ||
+                Math.abs(body[i + 1] - previous[i + 1]) > 35) changed++;
           }
-          return changed >= 3;
+          return changed >= 0.02 * (body.length / 4);
         };
         if (distinct.every(frame => materiallyDifferent(frame.pixels))) {
-          distinct.push({ ms: Date.now() - started, pixels: strip });
+          distinct.push({ ms: Date.now() - started, pixels: body });
         }
       });
       try {
@@ -91,7 +99,9 @@ server.listen(0, '127.0.0.1', async () => {
         await sleep(450);
       } finally { shell.endFrameSubscription(); }
       const paintedAtMs = distinct.map(frame => frame.ms);
-      ordinary.push({ destination, paintedAtMs });
+      const sawHandoff = await shell.executeJavaScript('window.handoffObserver.disconnect(); window.sawHandoff');
+      assert(sawHandoff, 'Ordinary playback skipped the 126° optical handoff');
+      ordinary.push({ destination, paintedAtMs, sawHandoff });
       console.log(`Normal fold to ${destination}° on ${process.platform}: ${distinct.length} distinct device images at ${paintedAtMs.join(', ')} ms`);
       assert(distinct.length >= 6, `Only ${distinct.length} distinct device images toward ${destination}° at normal speed`);
     }
