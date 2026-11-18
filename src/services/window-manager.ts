@@ -94,7 +94,7 @@ export function setFloatingPin(
   try {
     win.setAlwaysOnTop(pinned, pinned ? 'floating' : 'normal');
     if (process.platform !== 'win32') {
-      win.setVisibleOnAllWorkspaces(pinned, { visibleOnFullScreen: true });
+      win.setVisibleOnAllWorkspaces(!pinned, { visibleOnFullScreen: !pinned });
     }
 
     logStructured('info', 'window-manager.service', 'floating_pin_changed', {

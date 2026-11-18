@@ -76,7 +76,7 @@ describe('integration: simulator full device & shell switching flow', () => {
 
     const updated = handleUpdateSimulatorState(deps, duoState);
     expect(updated.ok).toBe(true);
-    expect(setSizeSpy).toHaveBeenLastCalledWith(1007, 846, false);
+    expect(setSizeSpy).toHaveBeenLastCalledWith(1007, 798, false);
 
     const emu = await handleApplyWebviewEmulation(deps, {
       webContentsId: 42,

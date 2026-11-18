@@ -18,8 +18,9 @@ const sleep = ms => new Promise(r=>setTimeout(r,ms));
 const evaluate = (wc, expression) => wc.debugger.sendCommand('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true}).then(r=>r.result.value);
 const probe = async wc => evaluate(wc, `({boot:window.boot,now:{ua:navigator.userAgent,standalone:navigator.standalone,vendor:navigator.vendor,dpr:devicePixelRatio,screen:screen.width},css:getComputedStyle(document.getElementById('status')).color,nested:getComputedStyle(document.getElementById('nested')).color,js:matchMedia('(display-mode:standalone)').matches})`);
 setTimeout(()=>{console.log('PROBE_TIMEOUT');app.exit(2)},25000);
-server.listen(18769,'127.0.0.1',async()=>{
-  process.env.SIMULATOR_DEFAULT_URL='http://127.0.0.1:18769/first';
+server.listen(0,'127.0.0.1',async()=>{
+  const site='http://127.0.0.1:'+server.address().port;
+  process.env.SIMULATOR_DEFAULT_URL=site+'/first';
   process.env.SIMULATOR_ALWAYS_ON_TOP='true';
   require(path.resolve(__dirname, '../../dist-electron/index.js'));
   await app.whenReady();
@@ -27,7 +28,7 @@ server.listen(18769,'127.0.0.1',async()=>{
     let guest;
     for(let i=0;i<100;i++){
       guest=webContents.getAllWebContents().find(w=>w.getType()==='webview');
-      if(guest && guest.debugger.isAttached() && guest.getURL().includes('18769')) break;
+      if(guest && guest.debugger.isAttached() && guest.getURL().startsWith(site+'/')) break;
       await sleep(100);
     }
     await sleep(1200);
@@ -60,15 +61,24 @@ server.listen(18769,'127.0.0.1',async()=>{
       await sleep(50);
       guest.sendInputEvent({type:'mouseDown',x:100,y:120,button:'left',clickCount:1});
       guest.sendInputEvent({type:'mouseUp',x:100,y:120,button:'left',clickCount:1});
-      await sleep(150);
+      for (let i=0; i<30; i++) {
+        if (await evaluate(guest, 'inputEvents.length > 0')) break;
+        await sleep(50);
+      }
     };
-    await click();
+    for (let attempt=0; attempt<3; attempt++) {
+      await click();
+      if (await evaluate(guest, 'inputEvents.length > 0')) break;
+    }
     output.touchEvents = await evaluate(guest, 'inputEvents');
     assert.ok(output.touchEvents.includes('touchstart'), JSON.stringify(output.touchEvents));
     win.webContents.send('simulator:external-state',{...state.value.state,touchCursorEnabled:true});
     await sleep(350);
     await evaluate(guest, 'window.inputEvents=[]');
-    await click();
+    for (let attempt=0; attempt<3; attempt++) {
+      await click();
+      if (await evaluate(guest, 'inputEvents.length > 0')) break;
+    }
     output.mouseEvents = await evaluate(guest, 'inputEvents');
     assert.deepEqual(output.mouseEvents, ['mouse']);
     console.log('REVIEW_RESULT '+JSON.stringify(output));

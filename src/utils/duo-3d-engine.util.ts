@@ -499,6 +499,8 @@ export class Duo3DHardwareEngine {
     // device swings between closed and open.
     const frontView =
       !isStanding && !isRotatedRig && (params.posture === 'open' || params.posture === 'closed');
+    // Longer front-view lens keeps the held display larger within the fixed sweep.
+    this.camera.fov = frontView ? 14 : 27.5;
     const foldBell = Math.sin(Math.PI * phi);
     const autoPitch = !isStanding && !isRotatedRig && !frontView ? foldBell * 15.5 : 0;
     const autoOrbit = !isStanding && !isRotatedRig && !frontView ? foldBell * -6.5 : 0;

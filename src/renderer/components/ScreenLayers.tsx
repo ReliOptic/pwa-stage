@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Info,
+  SquarePlus,
   X,
   XCircle
 } from 'lucide-react';
@@ -23,7 +24,7 @@ export interface LaunchOrigin {
 }
 
 export interface ScreenSheetState {
-  readonly kind: 'none' | 'safari-more' | 'share' | 'add-to-home';
+  readonly kind: 'none' | 'browser-menu' | 'share' | 'add-to-home';
 }
 
 export interface PermissionPromptState {
@@ -54,6 +55,10 @@ export interface ScreenContextValue {
   readonly addToHome: (name: string, opensAsWebApp: boolean) => void;
   readonly removeApp: (id: string) => void;
   readonly answerPermission: (granted: boolean) => void;
+  readonly openUrl: (url: string) => void;
+  readonly currentUrl: string;
+  readonly inspecting: boolean;
+  readonly reinspect: () => void;
   readonly navigate: (direction: 'back' | 'forward') => void;
   readonly reload: () => void;
 }
@@ -77,6 +82,10 @@ export const ScreenContext = createContext<ScreenContextValue>({
   addToHome: noop,
   removeApp: noop,
   answerPermission: noop,
+  currentUrl: '',
+  inspecting: false,
+  openUrl: noop,
+  reinspect: noop,
   navigate: noop,
   reload: noop
 });
@@ -163,9 +172,18 @@ function AppIcon(props: {
   );
 }
 
-/** Original neutral symbols, drawn here; no SF Symbols or Apple app artwork. */
-function HomeGlyph({ kind }: { readonly kind: number }): React.ReactElement {
-  return <svg width="72%" height="72%" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><circle cx="24" cy="24" r="18" />{kind === 9 ? <path d="m30 16-4 10-10 6 6-12Z" fill="#ed655d" /> : <><circle cx="24" cy="24" r="8" /><path d="M24 6h1l10 18M8 15l10 17m12-1-8 11" /></>}</svg>;
+function BrowserIcon({ browser }: { readonly browser: 'safari' | 'chrome' }): React.ReactElement {
+  if (browser === 'chrome') {
+    return <span className="home-chrome-wheel" aria-hidden="true"><i /></span>;
+  }
+  return (
+    <svg width="89%" height="89%" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="30" fill="#078deb" />
+      <circle cx="32" cy="32" r="25.5" fill="none" stroke="#ddfbff" strokeWidth="4" strokeDasharray="1 3" />
+      <path d="m51 12-15 24-8-8Z" fill="#ff5348" />
+      <path d="M13 52 28 28l8 8Z" fill="white" />
+    </svg>
+  );
 }
 
 export function HomeScreen(props: { readonly mirror?: boolean; readonly width: number; readonly height: number; readonly safeTop?: number; readonly trailingInset?: number }): React.ReactElement | null {
@@ -196,9 +214,8 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
       <button className="home-search-pill" aria-label="Search installed apps" onClick={() => updateNavigation({ searching: true })}><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="8" cy="8" r="5" /><path d="m12 12 5 5" /></svg>{!rail && <span>Search</span>}</button>
       {searching && <div className="home-search-field"><input autoFocus={!props.mirror} aria-label="Search installed apps" placeholder="Search installed apps" value={query} onChange={e => updateNavigation({ query: e.target.value, page: 0 })} /><button onClick={() => updateNavigation({ searching: false, query: '' })} aria-label="Close search">×</button></div>}
       <div className="home-dock" aria-label="Dock">
-        <AppIcon label="Safari" hideLabel size={layout.dockIcon} tone="linear-gradient(145deg,#60bbd1,#2675ae)" glyph={<HomeGlyph kind={9} />} onOpen={origin => screen.launchApp('safari', origin)} />
-        <AppIcon label="Chrome" hideLabel size={layout.dockIcon} tone="linear-gradient(145deg,#60b28e,#28765b)" glyph={<HomeGlyph kind={0} />} onOpen={origin => screen.launchApp('chrome', origin)} />
-        {screen.installedApps[0] ? <AppIcon label={screen.installedApps[0].name} hideLabel size={layout.dockIcon} iconUrl={screen.installedApps[0].iconUrl} onOpen={origin => screen.launchApp(screen.installedApps[0], origin)} /> : null}
+        <AppIcon label="Safari" hideLabel size={layout.dockIcon} tone="#fff" glyph={<BrowserIcon browser="safari" />} onOpen={origin => screen.launchApp('safari', origin)} />
+        <AppIcon label="Chrome" hideLabel size={layout.dockIcon} tone="#fff" glyph={<BrowserIcon browser="chrome" />} onOpen={origin => screen.launchApp('chrome', origin)} />
       </div>
     </div>
   );
@@ -221,7 +238,7 @@ export function LaunchSplash(): React.ReactElement | null {
 // Sheets & alerts
 // ---------------------------------------------------------------------------
 
-function SafariMoreSheet(): React.ReactElement {
+function BrowserMenuSheet(): React.ReactElement {
   const screen = useScreen();
   return (
     <div className="ios-sheet-scrim" onClick={(): void => screen.openSheet('none')}>
@@ -262,24 +279,27 @@ function SafariMoreSheet(): React.ReactElement {
   );
 }
 
-/** Shared system share entry; layout is an approximation, not the full activity sheet. */
 function ShareSheet(): React.ReactElement {
   const screen = useScreen();
+  const identity = screen.report?.identity;
+  const host = URL.canParse(screen.currentUrl) ? new URL(screen.currentUrl).host : screen.currentUrl;
+  const title = screen.report?.inspection.title || identity?.name || host;
   return (
-    <div className="ios-sheet-scrim" onClick={(): void => screen.openSheet('none')}>
-      <div className={`ios-action-sheet ${screen.darkMode ? 'ios-sheet-dark' : 'ios-sheet-light'}`}
-        role="dialog" aria-label="Share" onClick={(e): void => e.stopPropagation()}>
-        <div className="ios-action-group">
-          <button type="button" onClick={(): void => screen.openSheet('add-to-home')}>
-            Add to Home Screen
-          </button>
-        </div>
-        <div className="ios-action-group">
-          <button type="button" className="ios-action-cancel" onClick={(): void => screen.openSheet('none')}>
-            Cancel
-          </button>
-        </div>
-      </div>
+    <div className="ios-sheet-scrim" onClick={() => screen.openSheet('none')}>
+      <section className={`ios-share-sheet ${screen.darkMode ? 'ios-sheet-dark' : 'ios-sheet-light'}`}
+        role="dialog" aria-label="Share" onClick={e => e.stopPropagation()}>
+        <span className="ios-sheet-handle" aria-hidden="true" />
+        <header>
+          <div className="home-app-icon ios-share-icon">
+            {identity?.iconUrl ? <img src={identity.iconUrl} alt="" /> : title.charAt(0).toUpperCase()}
+          </div>
+          <div className="ios-share-title"><strong>{title}</strong><small>{host}</small></div>
+          <button type="button" className="ios-share-close" aria-label="Cancel" onClick={() => screen.openSheet('none')}><X size={18} /></button>
+        </header>
+        <button type="button" className="ios-share-action" onClick={() => screen.openSheet('add-to-home')}>
+          Add to Home Screen <SquarePlus size={20} />
+        </button>
+      </section>
     </div>
   );
 }
@@ -297,7 +317,12 @@ function AddToHomeSheet(): React.ReactElement | null {
     return (
       <div className="ios-sheet-scrim" onClick={(): void => screen.openSheet('none')}>
         <div className={`ios-card-sheet ${screen.darkMode ? 'ios-sheet-dark' : 'ios-sheet-light'}`}>
-          <p className="ios-card-empty">Waiting for the page to finish loading…</p>
+          <div className="ios-card-nav">
+            <button type="button" onClick={() => screen.openSheet('none')}>Cancel</button>
+            <strong>Add to Home Screen</strong>
+            <button type="button" disabled={screen.inspecting} onClick={e => { e.stopPropagation(); screen.reinspect(); }}>Retry</button>
+          </div>
+          <p className="ios-card-empty">{screen.inspecting ? 'Reading website details…' : 'Website details are not available yet.'}</p>
         </div>
       </div>
     );
@@ -393,7 +418,7 @@ export function ScreenModalLayer(): React.ReactElement | null {
   const screen = useScreen();
   return (
     <>
-      {screen.sheet.kind === 'safari-more' && <SafariMoreSheet />}
+      {screen.sheet.kind === 'browser-menu' && <BrowserMenuSheet />}
       {screen.sheet.kind === 'share' && <ShareSheet />}
       {screen.sheet.kind === 'add-to-home' && <AddToHomeSheet />}
       <PermissionAlert />

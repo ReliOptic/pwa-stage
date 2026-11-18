@@ -16,7 +16,7 @@ const INSTALLED_APPS_KEY = 'pwa-stage.installed-web-apps.v1';
 // Estimated simulator animation timings, not measured iOS 27.3 values.
 const CLOSE_MS = 320;
 const LAUNCH_MS = 420;
-const SPLASH_MIN_MS = 650;
+
 
 function loadInstalledApps(): InstalledWebApp[] {
   try {
@@ -32,8 +32,7 @@ function loadInstalledApps(): InstalledWebApp[] {
           typeof (a as InstalledWebApp).name === 'string' &&
           typeof (a as InstalledWebApp).launchUrl === 'string' &&
           /^https?:\/\//.test((a as InstalledWebApp).launchUrl)
-      )
-      .slice(0, 24);
+      );
   } catch {
     return [];
   }
@@ -74,7 +73,9 @@ export function useScreenController(
   const [installedApps, setInstalledApps] = useState<InstalledWebApp[]>(() => loadInstalledApps());
   const [sheet, setSheet] = useState<ScreenSheetState>({ kind: 'none' });
   const [permissionQueue, setPermissionQueue] = useState<PermissionPromptState[]>([]);
-  const [report, setReport] = useState<PageInspectionReport | null>(null);
+  const [inspectionResult, setReport] = useState<PageInspectionReport | null>(null);
+  const report = inspectionResult?.inspection.url === state.currentUrl ? inspectionResult : null;
+  const inspectionSequence = useRef(0);
   const [inspecting, setInspecting] = useState<boolean>(false);
   const [toast, setToast] = useState<string | null>(null);
   const lastGuestRef = useRef<number | null>(null);
@@ -104,10 +105,12 @@ export function useScreenController(
     (guestId: number): void => {
       const bridge = getSimulatorBridge();
       if (!bridge.inspectPage) return;
+      const sequence = ++inspectionSequence.current;
       setInspecting(true);
       void bridge
         .inspectPage(guestId)
         .then((res): void => {
+          if (sequence !== inspectionSequence.current) return;
           if (res.ok) {
             setReport(res.value);
             const style = res.value.identity.statusBarStyle;
@@ -116,13 +119,16 @@ export function useScreenController(
             }
           }
         })
-        .finally((): void => setInspecting(false));
+        .catch(() => { if (sequence === inspectionSequence.current) setReport(null); })
+        .finally(() => { if (sequence === inspectionSequence.current) setInspecting(false); });
     },
     [state.pwaStatusBarStyle, updateState]
   );
 
   const onPageReady = useCallback(
     (guestId: number): void => {
+      inspectionSequence.current++;
+      setSplash(null);
       lastGuestRef.current = guestId;
       if (inspectTimerRef.current !== null) {
         window.clearTimeout(inspectTimerRef.current);
@@ -143,9 +149,18 @@ export function useScreenController(
     const key = `${state.shellMode}|${state.currentUrl}`;
     if (key === lastTargetRef.current) return;
     lastTargetRef.current = key;
-    setPhase((p) => (p === 'home' ? 'launching' : p));
-    later(() => setPhase((p) => (p === 'launching' ? 'app' : p)), LAUNCH_MS);
-  }, [state.shellMode, state.currentUrl, later]);
+    setPhase(p => p === 'home' ? 'launching' : p);
+  }, [state.shellMode, state.currentUrl]);
+
+  // One cancellable phase timer, including rapid Home presses during launch.
+  useEffect(() => {
+    if (phase !== 'closing' && phase !== 'launching') return;
+    const timer = window.setTimeout(() => {
+      setSplash(null);
+      setPhase(phase === 'closing' ? 'home' : 'app');
+    }, phase === 'closing' ? CLOSE_MS : LAUNCH_MS);
+    return () => window.clearTimeout(timer);
+  }, [phase]);
 
   // --- permission prompts from the main process ----------------------------
   useEffect((): (() => void) | void => {
@@ -159,12 +174,9 @@ export function useScreenController(
   // --- springboard ------------------------------------------------------------
   const goHome = useCallback((): void => {
     setSheet({ kind: 'none' });
-    setPhase((current) => {
-      if (current !== 'app') return current;
-      later(() => setPhase('home'), CLOSE_MS);
-      return 'closing';
-    });
-  }, [later]);
+    setSplash(null);
+    setPhase(current => current === 'home' ? 'home' : 'closing');
+  }, []);
 
   const launchApp = useCallback(
     (app: InstalledWebApp | 'safari' | 'chrome', origin: LaunchOrigin): void => {
@@ -174,7 +186,6 @@ export function useScreenController(
         if (state.shellMode !== shellMode) updateState({ shellMode });
         setSplash(null);
         setPhase('launching');
-        later(() => setPhase('app'), LAUNCH_MS);
         return;
       }
       const shellMode = app.opensAsWebApp ? BrowserShellMode.PWA_STANDALONE : BrowserShellMode.IOS_SAFARI;
@@ -184,17 +195,15 @@ export function useScreenController(
         pwaStatusBarStyle: app.statusBarStyle
       });
       setSplash(
-        app.opensAsWebApp
+        app.opensAsWebApp && state.currentUrl !== app.launchUrl
           // iOS does not generate Android-style manifest icon/colour splashes.
           // White is an estimated fallback until startup images are supported.
           ? { background: '#ffffff', iconUrl: null }
           : null
       );
       setPhase('launching');
-      later(() => setPhase('app'), Math.max(LAUNCH_MS, app.opensAsWebApp ? SPLASH_MIN_MS : 0));
-      later(() => setSplash(null), SPLASH_MIN_MS + 200);
     },
-    [later, state.shellMode, updateState]
+    [state.currentUrl, state.shellMode, updateState]
   );
 
   const addToHome = useCallback(
@@ -203,21 +212,22 @@ export function useScreenController(
       if (!identity) return;
       const app: InstalledWebApp = {
         ...identity,
+        launchUrl: opensAsWebApp ? identity.launchUrl : state.currentUrl,
         name,
         opensAsWebApp,
         id: `${identity.launchUrl}#${Date.now()}`,
         addedAt: Date.now()
       };
       setInstalledApps((prev) => {
-        const next = [...prev.filter((a) => a.launchUrl !== app.launchUrl), app];
+        const next = [app, ...prev.filter((a) => a.launchUrl !== app.launchUrl)];
         saveInstalledApps(next);
         return next;
       });
+      setHomeNavigation({ page: 0, searching: false, query: '' });
       setSheet({ kind: 'none' });
       setPhase('closing');
-      later(() => setPhase('home'), CLOSE_MS);
     },
-    [later, report]
+    [report, state.currentUrl]
   );
 
   const removeApp = useCallback((id: string): void => {
@@ -235,6 +245,11 @@ export function useScreenController(
       return rest;
     });
   }, []);
+
+  const openUrl = useCallback((url: string): void => {
+    if (url === state.currentUrl) reload();
+    else updateState({ currentUrl: url });
+  }, [state.currentUrl, updateState, reload]);
 
   const navigate = useCallback((direction: 'back' | 'forward'): void => {
     window.dispatchEvent(new CustomEvent('sim:webview-nav', { detail: direction }));
@@ -259,6 +274,10 @@ export function useScreenController(
       removeApp,
       answerPermission,
       navigate,
+      openUrl,
+      reinspect,
+      inspecting,
+      currentUrl: state.currentUrl,
       reload
     }),
     [
@@ -277,6 +296,10 @@ export function useScreenController(
       removeApp,
       answerPermission,
       navigate,
+      openUrl,
+      reinspect,
+      inspecting,
+      state.currentUrl,
       reload
     ]
   );

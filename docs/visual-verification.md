@@ -46,15 +46,11 @@ Screenshots remain outside Git; CI does not publish them or installers.
 
 ## Scope
 
-Recorded run (2026-11-17): all 19 cases passed, 90,023 exterior boundary samples,
-zero colored page leaks, and every visible leaf painted. Typecheck/build, 107
-unit/integration tests, four real Electron flow scenarios and the 34-entry asset
-audit passed. Both packaged archives contain the exact compiled files tested here.
+The 1.0.4 suite covers all 15 slab entries in the device catalogue, each in portrait and landscape, plus the Duo cover, open wide, open portrait, book, tabletop and stand. It records 36 cases at 2× density. Every visible leaf must show the calibration field. The six Duo poses reuse the same guest.
 
-19 cases: 10 slab portrait viewport classes (17 Pro, 17 Pro Max, Air, 16, 16 Plus,
-14, 14 Plus, 13 mini, 11, SE), three slab landscapes (17 Pro, 11, SE), and six Duo
-postures (Open, Closed, Book, Tabletop, Stand, Portrait). Logical scale is 1 and
-output density is 2×. The six postures preserve the same live guest.
+The install test goes Home, opens each dock browser, enters a URL, shares the current website, edits the confirmation name, installs the icon and launches it. It checks both the URL and the standalone shell, plus bookmark behavior when Open as Web App is disabled. Each install stage is captured after the animation and compositor have settled. A separate motion test uses real mouse and keyboard input to grab, pause and reverse the hinge.
+
+The primary Home reference is the 490×1008 default Home Screen illustration in the [iOS 27 iPhone User Guide](https://support.apple.com/guide/iphone/open-apps-iphca3d8b4e3/ios). Its four-column grid, dock and warm-to-graphite backdrop informed the reconstruction. The earlier iOS 26 image supplies an additional grid measurement. The Duo reference is Apple's product film. The install paths follow the [Apple iPhone User Guide](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios) and [Chrome Help for iPhone](https://support.google.com/chrome/answer/9658361?hl=en&co=GENIE.Platform%3DiOS). The sources do not identify an exact iOS 27.3 build.
 
 The Linux Xvfb/SwiftShader verification checks geometry, artwork loading, clipping
 and guest painting. It does not establish native macOS/Windows execution, GPU frame

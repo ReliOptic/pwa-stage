@@ -1,11 +1,12 @@
 import { platformLabel } from '../../utils/platform.util';
 import React from 'react';
+import { validateHttpUrl } from '../../config/env.config';
 import {
   ChevronLeft,
   ChevronRight,
   Lock,
   MoreHorizontal,
-  Plus,
+  Search,
   RotateCw,
   Share
 } from 'lucide-react';
@@ -76,6 +77,7 @@ function StatusRightCluster(props: { readonly darkMode: boolean }): React.ReactE
 
 export function HardwareCutout(props: {
   readonly cutoutType: HardwareCutoutType;
+  readonly wideNotch?: boolean;
   readonly orientation: Orientation;
 }): React.ReactElement | null {
   const { cutoutType, orientation } = props;
@@ -98,7 +100,8 @@ export function HardwareCutout(props: {
   if (cutoutType === HardwareCutoutType.NOTCH) {
     return (
       <svg
-        width="176"
+        width={props.wideNotch ? 176 : 143}
+        preserveAspectRatio="none"
         height="34"
         viewBox="0 0 176 34"
         style={
@@ -122,7 +125,10 @@ export function HardwareCutout(props: {
               }
         }
       >
-        <path d={IOS27_NOTCH_03_SVG_PATH} fill="#000000" />
+        <path d={IOS27_NOTCH_03_SVG_PATH} fill="#030303" />
+        <rect x="70" y={props.wideNotch ? 12 : 3} width="36" height="3" rx="1.5" fill="#17181a" />
+        <circle cx={props.wideNotch ? 118 : 55} cy="15" r="3.4" fill="#111821" />
+        <circle cx={props.wideNotch ? 117 : 54} cy="14" r="0.9" fill="#38485b" />
       </svg>
     );
   }
@@ -286,9 +292,39 @@ export interface BrowserShellBarOverlayProps {
  * Bar geometry comes from props so the overlay and the <webview> inset are
  * computed from one source and can never drift apart by a pixel.
  */
+function AddressField(props: { readonly url: string; readonly chrome?: boolean; readonly inputRef: React.RefObject<HTMLInputElement> }): React.ReactElement {
+  const screen = useScreen();
+  const [draft, setDraft] = React.useState<string | null>(null);
+  const host = getHostnameForDisplay(props.url);
+  return (
+    <form className={`ios-shell-domain ios-address-form${props.chrome ? ' ios-chrome-domain' : ''}`} onSubmit={event => {
+      event.preventDefault();
+      const result = validateHttpUrl(draft ?? props.url, 'Address');
+      if (!result.ok) {
+        props.inputRef.current?.setCustomValidity(result.error.recoveryHint);
+        props.inputRef.current?.reportValidity();
+        return;
+      }
+      props.inputRef.current?.blur();
+      screen.openUrl(result.value);
+    }}>
+      {props.url.startsWith('https://') && draft === null && <Lock size={10} />}
+      <input ref={props.inputRef} type="text" inputMode="url" enterKeyHint="go" autoCapitalize="none"
+        autoComplete="off" spellCheck={false} aria-label="Website address" title={props.url}
+        value={draft ?? host} onFocus={e => {
+          const input = e.currentTarget;
+          setDraft(props.url);
+          requestAnimationFrame(() => { if (input === document.activeElement) input.select(); });
+        }} onBlur={() => setDraft(null)} onChange={e => { e.currentTarget.setCustomValidity(''); setDraft(e.target.value); }}
+        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); e.currentTarget.blur(); } }} />
+    </form>
+  );
+}
+
 export function BrowserShellBarOverlay(props: BrowserShellBarOverlayProps): React.ReactElement | null {
   const isHtmlFs = useHtmlFullscreenState();
   const screen = useScreen();
+  const addressRef = React.useRef<HTMLInputElement>(null);
   if (isHtmlFs || props.shellMode === BrowserShellMode.PWA_STANDALONE) {
     return null;
   }
@@ -341,13 +377,8 @@ export function BrowserShellBarOverlay(props: BrowserShellBarOverlayProps): Reac
             <ChevronLeft size={17} />
           </button>
           <div className={`ios-browser-shell-pill ios-safari-address-pill ${glassClass}`}>
-            <span className="ios-shell-aa" aria-hidden="true">
-              AA
-            </span>
-            <span className="ios-shell-domain" title={props.currentUrl}>
-              {isSecure && <Lock size={10} />}
-              <span className="ios-shell-domain-text">{host}</span>
-            </span>
+            <button type="button" className="ios-shell-aa" aria-label="Page menu" onClick={() => screen.openSheet('browser-menu')}>AA</button>
+            <AddressField url={props.currentUrl} inputRef={addressRef} />
             <button
               type="button"
               className="ios-shell-reload"
@@ -361,7 +392,7 @@ export function BrowserShellBarOverlay(props: BrowserShellBarOverlayProps): Reac
           <button
             type="button"
             className={`ios-safari-round-btn ${glassClass}`}
-            onClick={(): void => screen.openSheet('safari-more')}
+            onClick={(): void => screen.openSheet('browser-menu')}
             title="More (Share, Forward…)"
             aria-label="More"
           >
@@ -376,10 +407,7 @@ export function BrowserShellBarOverlay(props: BrowserShellBarOverlayProps): Reac
     <>
       <div className={`ios-chrome-top-dock ${chromeSurfaceClass}`} style={topStyle}>
         <div className={`ios-browser-shell-pill ios-chrome-omnibox ${glassClass}`}>
-          <span className="ios-shell-domain ios-chrome-domain" title={props.currentUrl}>
-            {isSecure && <Lock size={10} />}
-            <span className="ios-shell-domain-text">{host}</span>
-          </span>
+          <AddressField url={props.currentUrl} inputRef={addressRef} chrome />
           <button type="button" className="ios-shell-icon-btn"
             onClick={(): void => screen.openSheet('share')} title="Share" aria-label="Share">
             <Share size={16} />
@@ -414,13 +442,8 @@ export function BrowserShellBarOverlay(props: BrowserShellBarOverlayProps): Reac
         >
           <ChevronRight size={18} />
         </button>
-        <span className="ios-chrome-plus-btn" aria-hidden="true">
-          <Plus size={16} />
-        </span>
-        <span className="ios-chrome-tab-badge" aria-hidden="true">1</span>
-        <span className="ios-shell-icon-passive" aria-hidden="true">
-          <MoreHorizontal size={17} />
-        </span>
+        <button type="button" className="ios-shell-icon-btn" aria-label="Edit address" onClick={() => addressRef.current?.focus()}><Search size={18} /></button>
+        <button type="button" className="ios-shell-icon-btn" aria-label="More" onClick={() => screen.openSheet('browser-menu')}><MoreHorizontal size={17} /></button>
       </div>
     </>
   );
@@ -527,7 +550,7 @@ export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.Reac
           style={{ height: `${chrome.topBarHeight}px`, right: `${trailing}px`, background: pwaBand }}
         />
       )}
-      <HardwareCutout cutoutType={props.cutoutType} orientation={props.orientation} />
+      <HardwareCutout wideNotch={lit.id === DeviceModelId.IPHONE_11} cutoutType={props.cutoutType} orientation={props.orientation} />
       <IosStatusBar
         preset={{ ...lit, cutoutType: props.cutoutType }}
         orientation={props.orientation}

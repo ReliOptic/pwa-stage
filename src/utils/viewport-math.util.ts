@@ -16,7 +16,7 @@ export interface ShellChromeHeights {
 // Toolbar (3 rows × 23 + 2 gaps × 5 + padding 12 + border 2 = 93) + 8 margin.
 const EXPANDED_HUD_RESERVE_HEIGHT = 101;
 const COLLAPSED_HUD_RESERVE_HEIGHT = 0;
-const DUO_BOTTOM_MINIBAR_RESERVE_HEIGHT = 112;
+const DUO_BOTTOM_MINIBAR_RESERVE_HEIGHT = 64;
 const FLOATING_WINDOW_PADDING = 16;
 
 export function clampSimulatorScale(scale: number): number {

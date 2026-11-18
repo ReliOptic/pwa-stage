@@ -34,7 +34,7 @@ describe('platform service integration', () => {
     buildQuickActionMenu(ctx);
     const items = mocks.menu.mock.calls[0][0];
     expect(items[0].visible).toBe(platform === 'darwin');
-    expect(items[2].label).toContain(platform === 'darwin' ? 'Spaces' : 'Always on top');
+    expect(items[2].label).toBe('Pin to Current Desktop');
     openInXcodeSimulator('https://example.com');
     expect(mocks.exec.mock.calls.length).toBe(platform === 'darwin' ? 1 : 0);
     mocks.exec.mockClear();

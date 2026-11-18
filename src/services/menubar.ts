@@ -78,7 +78,7 @@ export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
     },
     { type: 'separator' },
     {
-      label: platformLabel(`Float on All Spaces (${state.alwaysOnTop ? 'ON' : 'OFF — This Space'})`),
+      label: 'Pin to Current Desktop',
       type: 'checkbox',
       checked: state.alwaysOnTop,
       accelerator: 'CommandOrControl+T',

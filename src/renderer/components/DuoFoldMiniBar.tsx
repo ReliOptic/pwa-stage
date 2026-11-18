@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   BookOpen,
+  SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
   Laptop,
@@ -73,6 +74,7 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
     onResetOrbit
   } = props;
 
+  const [showPostures, setShowPostures] = React.useState(false);
   const roundedAngle = Math.round(foldAngle);
   const phi = sampleFoldCurve(foldAngle / 180);
   const status = resolveDeviceHingeStatus(foldAngle);
@@ -94,6 +96,13 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
       case 'portrait':
         return <Smartphone size={10} />;
     }
+  };
+
+  const scrubAtPointer = (event: React.PointerEvent<HTMLInputElement>): void => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const thumbRadius = 10;
+    const fraction = (event.clientX - bounds.left - thumbRadius) / Math.max(1, bounds.width - 2 * thumbRadius);
+    onScrubAngle(Math.round(Math.max(0, Math.min(1, fraction)) * 180));
   };
 
   return (
@@ -142,7 +151,19 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
             aria-label="iPhone Duo Hinge Angle (0 to 180 degrees)"
             className="duo-hinge-slider"
             aria-valuetext={`${roundedAngle} degrees`}
-            onPointerDown={e => { e.currentTarget.focus(); onPause(); }}
+            onPointerDown={e => {
+              if (!e.isPrimary || e.button !== 0) return;
+              e.preventDefault();
+              e.currentTarget.focus();
+              e.currentTarget.setPointerCapture(e.pointerId);
+              scrubAtPointer(e);
+            }}
+            onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) scrubAtPointer(e); }}
+            onPointerUp={e => {
+              if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+              scrubAtPointer(e);
+              e.currentTarget.releasePointerCapture(e.pointerId);
+            }}
             onChange={(e): void => onScrubAngle(Number(e.target.value))}
           />
         </div>
@@ -157,10 +178,11 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
           <span>+1°</span>
           <ChevronRight size={11} />
         </button>
+        <button type="button" className="duo-settings" aria-label="Posture and finish" aria-controls="duo-posture-options" aria-expanded={showPostures} onClick={() => setShowPostures(!showPostures)}><SlidersHorizontal size={15} /></button>
         <output className="duo-current-angle" aria-hidden="true">{roundedAngle}°</output>
       </div>
 
-      <div className="duo-secondary-controls">
+      <div id="duo-posture-options" className="duo-secondary-controls" hidden={!showPostures}>
       <div className="duo-posture-strip" role="group" aria-label="Preview Posture">
         {POSTURE_ITEMS.map((item) => {
           const matchesView = posture === item.id ||
@@ -171,7 +193,7 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
               key={item.id}
               type="button"
               className={`shadcn-seg-item ${isActive ? 'shadcn-seg-active' : ''}`}
-              onClick={(): void => onSelectPosture(item.id)}
+              onClick={(): void => { onSelectPosture(item.id); setShowPostures(false); }}
               title={item.title}
               aria-pressed={isActive}
             >

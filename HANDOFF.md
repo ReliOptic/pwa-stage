@@ -4,7 +4,14 @@ This document captures the current architecture, verified state, exact remaining
 
 ---
 
-## 0. Status update (2026-11-17)
+## 0. Status update (2026-11-18)
+
+### Home and preview build 1.0.4 (2026-11-18)
+
+- Pin holds the current macOS Space at floating level. Unpin restores normal level and enables visibility across Spaces. Windows uses its current-desktop topmost flag.
+- The compact hinge bar keeps posture presets behind a disclosure. Direct pointer capture holds the scrub until release. The front-view camera uses a longer lens, and cached mirror frames paint without an opacity ramp.
+- Both device address bars navigate. The shared sheet previews the current website. Added sites appear on the first available row and can launch in standalone mode or as bookmarks. Home transitions share one cancellable phase timer.
+- Slab sensors distinguish the wider iPhone 11 notch from later notched presets. The all-model pixel suite enumerates the live preset catalogue. See [visual verification](docs/visual-verification.md).
 
 ### Interaction build 1.0.3 (2026-11-17)
 

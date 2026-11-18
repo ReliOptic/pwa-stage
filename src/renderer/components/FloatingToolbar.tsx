@@ -174,13 +174,9 @@ function WindowRow(props: FloatingToolbarProps): React.ReactElement {
       <button
         type="button"
         className={`shadcn-icon-btn ${state.alwaysOnTop ? 'tb-on' : ''}`}
-        title={
-          state.alwaysOnTop
-            ? platformLabel("Floating on all Spaces & full-screen apps (⌘T to keep on this Space)")
-            : platformLabel("On this Space only (⌘T to float on all Spaces)")
-        }
+        title={platformLabel("Pin to current desktop (⌘T)")}
         aria-pressed={state.alwaysOnTop}
-        aria-label={platformLabel("Float on all Spaces")}
+        aria-label="Pin to current desktop"
         onClick={(): void => onUpdateState({ alwaysOnTop: !state.alwaysOnTop })}
       >
         {state.alwaysOnTop ? <Pin size={11} /> : <PinOff size={11} />}

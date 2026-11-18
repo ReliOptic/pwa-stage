@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import { GuestInputMessage } from '../../types/ipc-coordinator.types';
 import { getSimulatorBridge } from '../../utils/renderer-bridge.util';
 
@@ -109,7 +109,7 @@ export function GuestMirrorPane(props: {
   const pressedRef = useRef<boolean>(false);
   const { guestId, coverFrameOffsetX } = props;
 
-  useEffect((): (() => void) | void => {
+  useLayoutEffect((): (() => void) | void => {
     if (guestId === null) return;
     let coverShown = false;
     let firstInnerAt = 0;

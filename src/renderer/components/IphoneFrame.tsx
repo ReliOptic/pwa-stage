@@ -256,15 +256,13 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
           <button
             type="button"
             className={`bezel-mini-btn ${state.alwaysOnTop ? 'bezel-mini-pin-on' : ''}`}
-            title={
-              state.alwaysOnTop
-                ? platformLabel("Floating on All Spaces (⌘T)")
-                : platformLabel("Stays on This Space only (⌘T)")
-            }
+            aria-pressed={state.alwaysOnTop}
+            aria-label="Pin to current desktop"
+            title={platformLabel("Pin to current desktop (⌘T)")}
             onClick={(): void => props.onUpdateState({ alwaysOnTop: !state.alwaysOnTop })}
           >
             {state.alwaysOnTop ? <Pin size={11} /> : <PinOff size={11} />}
-            <span>{platformLabel(state.alwaysOnTop ? 'All Spaces' : 'This Space')}</span>
+            <span>{state.alwaysOnTop ? 'Pinned' : 'Pin'}</span>
           </button>
           <button
             type="button"

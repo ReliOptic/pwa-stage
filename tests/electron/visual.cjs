@@ -112,7 +112,7 @@ const server = http.createServer((_req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.end(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><style>*{box-sizing:border-box}html,body{margin:0;background:var(--field,#fff);color:#14252f;font:16px system-ui}main{padding:100px 28px;min-height:100vh;background:repeating-linear-gradient(0deg,transparent 0 31px,#edf0f1 31px 32px),repeating-linear-gradient(90deg,transparent 0 31px,#edf0f1 31px 32px)}h1{font-size:32px;margin:0}aside{position:fixed;inset:0;border:1px solid #f000a0;pointer-events:none}</style><main><h1>Display alignment</h1><p>32 pt calibration grid<br>White field · 1 pt boundary</p></main><aside></aside>`);
 });
-setTimeout(() => app.exit(2), 240000);
+setTimeout(() => app.exit(2), 900000);
 server.listen(0, '127.0.0.1', async () => {
   const site = `http://127.0.0.1:${server.address().port}/`;
   process.env.SIMULATOR_DEFAULT_URL = site;
@@ -129,7 +129,8 @@ server.listen(0, '127.0.0.1', async () => {
     const guests = () => webContents.getAllWebContents().filter(w => w.getType() === 'webview');
     const loaded = () => guests().some(w => w.getURL() === site && !w.isLoading());
     await wait(loaded);
-    let state = (await js('window.simulatorBridge.getInitialPayload()')).value.state;
+    const { value: initial } = await js('window.simulatorBridge.getInitialPayload()');
+    let state = initial.state;
     const report = [];
     const capture = async () => { await sleep(350); return win.webContents.capturePage(); };
     const snap = async name => {
@@ -161,8 +162,8 @@ server.listen(0, '127.0.0.1', async () => {
       fs.writeFileSync(path.join(out, name + '.png'), white.toPNG());
       console.log('VISUAL_PASS ' + name + ' ' + JSON.stringify(pixels));
     };
-    const slabs = ['iphone-17-pro', 'iphone-17-pro-max', 'iphone-17-air', 'iphone-16', 'iphone-16-plus', 'iphone-14', 'iphone-14-plus', 'iphone-13-mini', 'iphone-11', 'iphone-se-3'];
-    const cases = [...slabs.map(id => [id, 'portrait']), ...['iphone-17-pro', 'iphone-11', 'iphone-se-3'].map(id => [id, 'landscape']), ['iphone-duo-unfolded', 'portrait']];
+    const slabs = initial.presets.filter(p => !p.hinge.enabled && !p.id.startsWith('iphone-duo')).map(p => p.id);
+    const cases = [...slabs.flatMap(id => ['portrait','landscape'].map(orientation => [id, orientation])), ['iphone-duo-unfolded', 'portrait']];
     for (const [id, orientation] of cases) {
       state = { ...state, selectedDeviceId: id, orientation, shellMode: 'pwa-standalone', pwaStatusBarStyle: 'black-translucent', currentUrl: site, scale: 1, hudCollapsed: true };
       await js('window.simulatorBridge.updateSimulatorState(' + JSON.stringify(state) + ')');
@@ -172,6 +173,7 @@ server.listen(0, '127.0.0.1', async () => {
     const postures = [['closed', 'Cover Display (5.4″ · 466×678pt)', 0], ['book', 'Book Mode Free-Stop (100°)', 100], ['table', 'Tabletop Mode (108° Split)', 108], ['stand', 'Tent / Stand Mode (70°)', 70], ['portrait', 'Inner Portrait (669×951pt)', 180]];
     const guestId = guests()[0].id;
     for (const [name, title, angle] of postures) {
+      await js('document.querySelector("button[aria-label=\'Posture and finish\']").click()');
       await js('document.querySelector(' + JSON.stringify('button[title=' + JSON.stringify(title) + ']') + ').click()');
       await wait(() => js('Number(document.querySelector(".duo-hinge-slider").value) === ' + angle));
       assert.equal(guests().length, 1); assert.equal(guests()[0].id, guestId);

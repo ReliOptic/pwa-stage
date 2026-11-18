@@ -476,7 +476,9 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
               onReload={props.onReload}
               onToggleDuoFold={props.onToggleDuoFold}
             />
-            <ScreenModalLayer />
+            <div className="duo-modal-viewport" style={{ left: -primaryShiftX, top: -primaryShiftY, width: primarySlice.width, height: primarySlice.height }}>
+              <ScreenModalLayer />
+            </div>
           </div>
           {isBentInner && !inTransition && (
             <div

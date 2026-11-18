@@ -80,7 +80,7 @@ describe('window-manager service', () => {
     const pinnedRes = setFloatingPin(win, true);
     expect(pinnedRes.ok).toBe(true);
     expect(win.setAlwaysOnTop).toHaveBeenCalledWith(true, 'floating');
-    expect(win.setVisibleOnAllWorkspaces).toHaveBeenCalledWith(true, { visibleOnFullScreen: true });
+    expect(win.setVisibleOnAllWorkspaces).toHaveBeenCalledWith(false, { visibleOnFullScreen: false });
 
     const unpinnedRes = setFloatingPin(win, false);
     expect(unpinnedRes.ok).toBe(true);
@@ -110,7 +110,7 @@ describe('host platform pinning', () => {
       expect(setFloatingPin(win, false).ok).toBe(true);
       expect(win.setAlwaysOnTop).toHaveBeenLastCalledWith(false, 'normal');
       if (platform === 'win32') expect(win.setVisibleOnAllWorkspaces).not.toHaveBeenCalled();
-      else expect(win.setVisibleOnAllWorkspaces).toHaveBeenLastCalledWith(false, { visibleOnFullScreen: true });
+      else expect(win.setVisibleOnAllWorkspaces).toHaveBeenLastCalledWith(true, { visibleOnFullScreen: true });
     } finally { mock.mockRestore(); }
   });
 });

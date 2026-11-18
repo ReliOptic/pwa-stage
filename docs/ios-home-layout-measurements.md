@@ -5,6 +5,10 @@ This is a geometry reconstruction with **original artwork**, not a certified iOS
 The small, labelled, default-colour icon appearance is the benchmark. User-edited
 Home layouts and large/tinted/clear icons are outside this implementation.
 
+## iOS 27 cross-check (2026-11-18)
+
+The [Open apps chapter of the iPhone User Guide](https://support.apple.com/guide/iphone/open-apps-iphca3d8b4e3/ios) identifies its edition as iOS 27. Its 490×1008 illustration shows four columns, a translucent bottom dock and search pill, and a warm neutral background shading into graphite. Version 1.0.4 uses an original layered gradient in that palette. The two reference widgets are omitted because this simulator has no installed widgets. The main grid therefore starts at the first available row. The guide does not identify a 27.3 build.
+
 ## Sources and method
 
 - **S1**: [Apple, iOS 26 announcement, 9 June 2025](https://www.apple.com/newsroom/2025/06/apple-elevates-the-iphone-experience-with-ios-26/),
@@ -67,14 +71,14 @@ counted structural fact. No numerical value below is an Apple API contract.
 | Duo search | Circle≈42px diameter at rail bottom | ~48pt diameter, bottom18; implemented48 | M, S2 |
 | Duo time/ring | Inner time baseline≈333; cover≈363 | Inner time top~108pt, cover~144pt; existing ring glyph retained | M positions, S2 |
 | Glass | Translucent dock and Search, light edge, background visible | CSS blur24px/saturate130%, fill #d8f3ef26, 1px rim; no optical refraction | L, original visual approximation of S1/S3 |
-| App open/close | No version-identifiable, frame-timed launch sample calibrated in this audit | Retain estimated420/320ms zoom; blank launch placeholder minimum650ms. Splash and Home zoom now share tapped-icon origin. Reduced-motion CSS uses1ms | L, simulator timing, **not measured** |
+| App open/close | No version-identifiable, frame-timed launch sample calibrated in this audit | Launch/close use estimated 420/320 ms transitions. A pending site change can display a placeholder until page readiness or the end of launch. Splash and Home zoom now share tapped-icon origin. Reduced-motion CSS uses1ms | L, simulator timing, **not measured** |
 
 ## Per-device adaptation
 
 Only the 402×874 and Duo classes have normalized imagery in this audit. All other
 rows are **low-confidence derived layouts**, not individually measured iPhones.
 The layout helper is `src/utils/home-layout.util.ts`; DPR does not multiply points.
-All slab classes have four columns and four rows below the two widgets.
+The reference has four icon columns below two widgets. In 1.0.4 the simulator fills the first available row under the status area and fits up to six rows. The widget dimensions below describe the reference layout.
 
 | Logical class | Icon | Side inset | Small widget | Widget top (preset safe top + offset) |
 | --- | ---: | ---: | ---: | ---: |
@@ -102,7 +106,7 @@ cover safe-area clearance and no label/dock overlap for every preset.
 
 - Original layered wallpaper and browser symbols remain. Sample weather, agenda,
   playlist and illustrative apps were removed per the personal-tool decision.
-  The measured grid/dock/search geometry is retained, leaving unused areas empty.
+  The first available row now holds installed sites. The Duo inner display retains its right-hand icon panel.
 - Installed sites retain their names and manifest/apple-touch-icon artwork.
   Overflow pages stay reachable.
   Search filters installed sites only. Page/search state is shared across Duo

@@ -22,6 +22,12 @@ Screen web app present it, on every iPhone viewport class, without opening Xcode
 
 On macOS, for the final pixel check use real WebKit: tray menu → **Open URL in Xcode iOS Simulator**.
 
+## Install the page on the simulated Home Screen
+
+Go Home and open Safari or Chrome from the dock. Enter the website in the device address field and press Enter. In Safari use **More → Share**. In Chrome use the share button beside the address. Choose **Add to Home Screen**, edit the name if desired, and press **Add**. The icon appears on the first Home page. With **Open as Web App** enabled it launches in standalone mode. Turning it off saves the current page as a browser shortcut.
+
+The Duo hinge bar supports dragging, keyboard arrows, pause, resume and reversal. Open **Posture and finish** for the pose presets. The toolbar stays out of the device display while you inspect the page.
+
 ## Shortcuts (Xcode Simulator compatible)
 
 | Keys | Action |
@@ -32,9 +38,11 @@ On macOS, for the final pixel check use real WebKit: tray menu → **Open URL in
 | ⇧⌘A | Toggle appearance (`prefers-color-scheme`) |
 | ⌘R | Reload page |
 | ⌘+ / ⌘− / ⌘0 | Zoom |
-| ⌘T | Float on all Spaces |
+| ⌘T | Pin to current desktop |
 | ⌘B | Show / hide toolbar |
 | ⇧⌘S | Hide to menu bar (global) |
+
+On macOS, pinning keeps the simulator above other windows on the current Space. Unpinning lets it follow Space changes at normal window level.
 
 On Windows, replace ⌘ with Ctrl and ⇧ with Shift. Ctrl+T toggles **Always on top**
 on the current virtual desktop. Ctrl+Shift+S hides/restores via the system tray.
@@ -116,7 +124,7 @@ npm run test:visual
 
 The Electron suite uses isolated user data and local fixtures under `tests/`; it emits JSON and actual compositor screenshots. In restricted Linux containers that cannot initialize Chromium's sandbox, use `SIMULATOR_TEST_NO_SANDBOX=1` for this test runner only. The shipped app's guests keep their sandbox and preload-free preferences. `SIMULATOR_TEST_OUTPUT` chooses the evidence directory.
 
-The slab frame now uses the bundled hardware artwork, registered and rotated with the display. Duo clips the page to the actual bundled glass mesh contour, including its moving transition stencil. The original assets are unchanged. `test:visual` checks 19 cases at 2× output density and waits for every guest/mirrored leaf to paint before recording evidence. See [visual verification](docs/visual-verification.md) for the measured scope and limits.
+The slab frame now uses the bundled hardware artwork, registered and rotated with the display. Duo clips the page to the actual bundled glass mesh contour, including its moving transition stencil. The original assets are unchanged. `test:visual` checks all 15 slab presets in portrait and landscape and six Duo poses at 2× output density and waits for every guest/mirrored leaf to paint before recording evidence. See [visual verification](docs/visual-verification.md) for the measured scope and limits.
 
 `display-mode` CSS emulation covers nested rules and dynamically added accessible stylesheets. Browser origin protections still apply to cross-origin CSS; validate those cases in real WebKit. This tool does not replace iOS device testing. Internal build 1.0.3 has been exercised on Linux Electron; macOS and Windows packages are cross-built and unsigned.
 

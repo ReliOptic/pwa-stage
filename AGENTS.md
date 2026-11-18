@@ -15,7 +15,7 @@ status, references) before changing anything.
   args `['<repo>', '--no-sandbox', '--enable-unsafe-swiftshader']`,
   under `xvfb-run -a -s "-screen 0 1920x1200x24"`, with an isolated `app.setPath('userData', ...)` per run. Do not overwrite `HOME`.
 - Alternatively, `npm run test:electron` uses `--ozone-platform=headless` when no display is available.
-- `npm run test:visual` checks 19 display/posture cases at 2× output density. Prefer Xvfb;
+- `npm run test:visual` checks every slab preset in both orientations plus six Duo postures at 2× output density. Prefer Xvfb;
   it fences captures with a green→white guest paint round trip, including each mirrored leaf.
 - Capture with `BrowserWindow.getAllWindows()[0].webContents.capturePage()` via `app.evaluate`.
   Playwright `page.screenshot()` shows stale/blank `<webview>` content — never judge from it.

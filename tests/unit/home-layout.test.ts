@@ -21,7 +21,7 @@ describe('Home Screen reference layout', () => {
     expect(inner.inner).toBe(true);
     expect(inner.left).toBeGreaterThan(66 + 338);
     expect(inner.dockIcon).toBe(48);
-    expect(inner.capacity).toBe(16);
+    expect(inner.gridTop).toBe(inner.top);
     expect(resolveHomeLayout(466, 678, 84, 24).inner).toBe(false);
   });
   it('fits rotated standard and portrait Duo displays', () => {

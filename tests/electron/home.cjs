@@ -24,7 +24,7 @@ server.listen(18770,'127.0.0.1',async()=>{
  await sleep(500);
  const state=await js('window.simulatorBridge.getInitialPayload()');
  const start={actual:guest.getURL(),stored:state.value.state.currentUrl};
- const apps=Array.from({length:17},(_,i)=>({id:'test-'+i,name:'App '+(i+1),launchUrl:'http://127.0.0.1:18770/'+i,opensAsWebApp:true,statusBarStyle:'default',iconUrl:null,addedAt:i}));
+ const apps=Array.from({length:29},(_,i)=>({id:'test-'+i,name:'App '+(i+1),launchUrl:'http://127.0.0.1:18770/'+i,opensAsWebApp:true,statusBarStyle:'default',iconUrl:null,addedAt:i}));
  await js('localStorage.setItem("pwa-stage.installed-web-apps.v1",'+JSON.stringify(JSON.stringify(apps))+')');
  win.reload();
  await wait(async()=>{try{return await js('!!document.querySelector("webview")')}catch{return false}});
