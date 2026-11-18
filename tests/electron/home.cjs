@@ -16,6 +16,7 @@ server.listen(18770,'127.0.0.1',async()=>{
  await app.whenReady();
  try{
  const win=await wait(()=>BrowserWindow.getAllWindows()[0]);
+ win.show();win.focus();
  const js=expr=>win.webContents.executeJavaScript(expr);
  let guest=await wait(()=>webContents.getAllWebContents().find(w=>w.getType()==='webview' && w.getURL().endsWith('/index.html') && !w.isLoading()));
  await sleep(500);
@@ -37,7 +38,7 @@ server.listen(18770,'127.0.0.1',async()=>{
  const r=layout.dot;
  win.webContents.sendInputEvent({type:'mouseDown',x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2),button:'left',clickCount:1});
  win.webContents.sendInputEvent({type:'mouseUp',x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2),button:'left',clickCount:1});
- await sleep(300);
+ await wait(()=>js('document.querySelector("[aria-current=page]")?.getAttribute("aria-label")==="Page 2"'));
  const afterClick=await js(`({page:document.querySelector('[aria-current="page"]')?.getAttribute('aria-label'),searchOpened:!!document.querySelector('.home-search-field')})`);
  assert.equal(start.actual, start.stored);
  assert.equal(afterClick.page, 'Page 2');

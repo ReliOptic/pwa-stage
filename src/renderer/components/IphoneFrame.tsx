@@ -38,6 +38,7 @@ export interface IphoneFrameProps {
   readonly onToggleDuoFold: () => void;
   readonly onSyncDuoDeviceByAngle: (targetId: DeviceModelId) => void;
   readonly onGoHome?: () => void;
+  readonly displayBackground?: string | null;
   readonly tintColor?: string | null;
   readonly onPageReady?: (webContentsId: number) => void;
 }
@@ -282,6 +283,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
             onReload={props.onReload}
             onToggleDuoFold={requestDuoFoldToggle}
             onGoHome={props.onGoHome}
+            displayBackground={props.displayBackground}
             tintColor={props.tintColor}
             onPageReady={props.onPageReady}
             onNavigate={(url): void => props.onUpdateState({ currentUrl: url })}

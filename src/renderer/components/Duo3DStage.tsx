@@ -40,6 +40,7 @@ export interface Duo3DStageProps {
   readonly onReload: () => void;
   readonly onToggleDuoFold: () => void;
   readonly onGoHome?: () => void;
+  readonly displayBackground?: string | null;
   readonly tintColor?: string | null;
   readonly onPageReady?: (webContentsId: number) => void;
   readonly onNavigate?: (url: string) => void;
@@ -468,6 +469,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   return (
     <div
       className="duo-3d-stage-root"
+      data-motion-ready={atlas?.finish === finish || undefined}
       data-motion-frame={useMotionRig ? frame : undefined}
       data-dual-display={projection?.simultaneous || undefined}
       style={{
@@ -588,7 +590,9 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
           style={{
             width: flatMotion ? STAGE_WIDTH : primarySlice.width,
             height: flatMotion ? STAGE_HEIGHT : primarySlice.height,
-            background: flatMotion ? props.tintColor || '#161619' : undefined,
+            backgroundColor: flatMotion ? (state.darkMode ? '#161619' : '#f4f4f6') : undefined,
+            backgroundImage: flatMotion && (props.displayBackground || props.tintColor)
+              ? `linear-gradient(${props.displayBackground || props.tintColor}, ${props.displayBackground || props.tintColor})` : undefined,
             transform: flatMotion ? undefined : primarySlice.matrix3d,
             opacity: primaryHidden ? 0.002 : primarySlice.opacity,
             pointerEvents: primaryHidden ? 'none' : undefined,

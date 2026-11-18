@@ -291,6 +291,7 @@ export function App(): React.ReactElement {
           }
           onGoHome={screen.value.goHome}
           tintColor={tintColor}
+          displayBackground={screen.report?.inspection.bodyBackground}
           onPageReady={screen.onPageReady}
         />
         )}

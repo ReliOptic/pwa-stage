@@ -68,7 +68,10 @@ server.listen(0, '127.0.0.1', async () => {
         if(!el.contains(document.elementFromPoint(x,y))) throw Error('Obscured control'); return {x,y}; })()`);
       for (const type of ['mouseDown','mouseUp']) shell.sendInputEvent({type,...point,button:'left',clickCount:1});
     };
-    if (await evaluate("!!document.querySelector('.duo-enable-motion')")) await click('.duo-enable-motion');
+    await until(() => evaluate("!!document.querySelector('.duo-3d-stage-root[data-motion-ready]') && document.querySelector('.duo-hinge-slider')?.value==='0'"), 'prepared cover');
+    if (await evaluate("document.querySelector('.duo-bottom-minibar').dataset.motion==='reduced'")) await click('.duo-enable-motion');
+    await until(() => evaluate("document.querySelector('.duo-bottom-minibar').dataset.motion==='full'"), 'full motion');
+
     await evaluate(`(() => {
       const stage=document.querySelector('.duo-3d-stage-root');
       const nativeRAF=window.requestAnimationFrame.bind(window);
@@ -159,5 +162,15 @@ server.listen(0, '127.0.0.1', async () => {
     fs.writeFileSync(path.join(output,'focus.json'), JSON.stringify(samples,null,2));
     console.log('PASS focus: painted cover, inner and held glass in both directions');
     app.exit(0);
-  } catch (e) { console.error(e); app.exit(1); }
+  } catch (e) {
+    console.error(e);
+    const w=BrowserWindow.getAllWindows()[0];
+    if(w) console.error('Focus inspection state', await w.webContents.executeJavaScript(`({
+      angle:document.querySelector('.duo-hinge-slider')?.value,
+      target:document.querySelector('.duo-bottom-minibar')?.dataset.target,
+      mode:document.querySelector('.duo-bottom-minibar')?.dataset.motion,
+      frame:document.querySelector('.duo-3d-stage-root')?.dataset.motionFrame
+    })`));
+    app.exit(1);
+  }
 });
