@@ -38,7 +38,7 @@ const html=(res,markup)=>{res.setHeader('Content-Type','text/html; charset=utf-8
   const wc=win.webContents, js=s=>wc.executeJavaScript(s);
   const guest=await until(()=>webContents.getAllWebContents().find(w=>w.getType()==='webview' && w.getURL()===site),'guest');
   const frame=await until(()=>guest.mainFrame.frames.find(f=>f.url===player),'cross-origin player');
-  await until(()=>frame.executeJavaScript("document.querySelector('video').videoWidth>0"),'playing media');
+  await until(()=>frame.executeJavaScript("document.querySelector('video')?.videoWidth>0"),'playing media');
   const bounds=win.getBounds(), id=guest.id;
   const geometry=()=>js(`(()=>{const box=s=>{const r=document.querySelector(s).getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}};
     return {screen:box('.iphone-screen'),guest:box('webview'),toolbar:box('.preview-handle'),bars:!!document.querySelector('.ios-address-form')}})()`);
