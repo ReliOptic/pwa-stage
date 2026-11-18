@@ -2,11 +2,15 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import {
   AlertTriangle,
   CheckCircle2,
+  PanelsTopLeft,
+  Settings,
+  FileJson2,
   Info,
   SquarePlus,
   X,
   XCircle
 } from 'lucide-react';
+import { HomeTools } from './HomeTools';
 import { BrowserTools } from './BrowserTools';
 import { BrowserShellMode } from '../../types/simulator.types';
 import { InstalledWebApp, PwaCheck } from '../../types/pwa.types';
@@ -27,8 +31,17 @@ export interface LaunchOrigin {
   readonly height: number;
 }
 
+const homeTools = [
+  {kind:'device-settings', name:'Settings', icon:Settings, background:'linear-gradient(155deg,#959daa,#444956)'},
+  {kind:'manifest', name:'Manifest', icon:FileJson2, background:'linear-gradient(150deg,#3c8283,#204a55)'},
+  {kind:'app-checks', name:'PWA Checks', icon:PanelsTopLeft, background:'linear-gradient(145deg,#7167a4,#403658)'}
+] as const;
+export function isHomeTool(kind: ScreenSheetState['kind']): boolean {
+  return homeTools.some(tool => tool.kind === kind);
+}
+
 export interface ScreenSheetState {
-  readonly kind: 'none' | 'browser-menu' | 'settings' | 'find' | 'bookmarks' | 'history' | 'share' | 'add-to-home';
+  readonly kind: 'none' | 'browser-menu' | 'settings' | 'find' | 'bookmarks' | 'history' | 'share' | 'add-to-home' | 'device-settings' | 'manifest' | 'app-checks';
 }
 
 export interface PermissionPromptState {
@@ -60,6 +73,9 @@ export interface ScreenContextValue {
   readonly launchApp: (app: InstalledWebApp | 'safari' | 'chrome', origin: LaunchOrigin) => void;
   readonly openSheet: (kind: ScreenSheetState['kind']) => void;
   readonly addToHome: (name: string, opensAsWebApp: boolean) => void;
+  readonly largeIcons: boolean;
+  readonly setLargeIcons: (enabled: boolean) => void;
+  readonly updateApp: (id: string, name: string, opensAsWebApp: boolean) => void;
   readonly removeApp: (id: string) => void;
   readonly answerPermission: (granted: boolean) => void;
   readonly openUrl: (url: string) => void;
@@ -90,6 +106,7 @@ export const ScreenContext = createContext<ScreenContextValue>({
   launchApp: noop,
   openSheet: noop,
   addToHome: noop,
+  largeIcons:false, setLargeIcons:noop, updateApp:noop,
   removeApp: noop,
   answerPermission: noop,
   currentUrl: '',
@@ -216,11 +233,16 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
   const { page: requestedPage, searching, query } = screen.homeNavigation;
   const updateNavigation = (patch: Partial<HomeNavigation>): void => screen.setHomeNavigation({ ...screen.homeNavigation, ...patch });
   const rail = props.trailingInset ?? 0;
-  const layout = resolveHomeLayout(props.width, props.height, rail, props.safeTop);
-  const apps = screen.installedApps.filter(app => app.name.toLowerCase().includes(query.toLowerCase()));
+  const layout = resolveHomeLayout(props.width, props.height, rail, props.safeTop, screen.largeIcons);
+  const apps = [
+    ...homeTools.map(tool => ({kind:'tool' as const, name:tool.name, tool})),
+    ...screen.installedApps.map(app => ({kind:'site' as const, name:app.name, app}))
+  ].filter(item => item.name.toLowerCase().includes(query.trim().toLowerCase()));
   const { pages, page } = resolveHomePage(apps.length, layout.capacity, requestedPage);
   if (screen.phase === 'app') return null;
   const style = {
+    '--home-label-width': `${layout.labelWidth}px`, '--home-label-size': `${layout.label}px`,
+    '--home-dock-radius': `${layout.dockRadius}px`,
     '--home-icon': `${layout.icon}px`, '--home-panel': `${layout.panelWidth}px`,
     '--home-left': `${layout.left}px`, '--home-top': `${layout.top}px`,
     '--home-widget': `${layout.widget}px`, '--home-grid-top': `${layout.gridTop}px`,
@@ -230,10 +252,15 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
   } as React.CSSProperties;
   const visible = apps.slice(page * layout.capacity, (page + 1) * layout.capacity);
   return (
-    <div className={`home-screen home-screen-${screen.phase} ${rail ? 'home-with-rail' : ''} ${layout.landscape ? 'home-landscape' : ''}`} style={style} ref={el => { if (el) el.inert = Boolean(props.mirror); }} aria-hidden={props.mirror || undefined}>
+    <div className={`home-screen home-screen-${screen.phase} ${rail ? 'home-with-rail' : ''} ${layout.landscape ? 'home-landscape' : ''}`} style={style} ref={el => { if (el) el.inert = Boolean(props.mirror || isHomeTool(screen.sheet.kind)); }} aria-hidden={props.mirror || undefined}>
       <div className="home-wallpaper" aria-hidden="true"><i /><i /><i /></div>
       <div className="home-grid" aria-label="Home Screen apps">
-        {visible.map(app => <AppIcon key={app.id} label={app.name} iconUrl={app.iconUrl} size={layout.icon} onOpen={origin => screen.launchApp(app, origin)} onRemove={() => screen.removeApp(app.id)} />)}
+         {visible.map(item => item.kind === 'tool'
+          ? <AppIcon key={item.tool.kind} label={item.name} size={layout.icon} hideLabel={screen.largeIcons}
+              tone={item.tool.background} glyph={<item.tool.icon size="61%" strokeWidth={1.65} aria-hidden="true"/>}
+              onOpen={() => screen.openSheet(item.tool.kind)} />
+          : <AppIcon key={item.app.id} label={item.name} iconUrl={item.app.iconUrl} size={layout.icon} hideLabel={screen.largeIcons}
+              onOpen={origin => screen.launchApp(item.app, origin)} onRemove={() => screen.removeApp(item.app.id)} />)}
       </div>
       {(rail > 0 || pages > 1) && <div className="home-page-dots" aria-label="Home Screen pages">{Array.from({length: pages}, (_, i) => <button key={i} aria-label={`Page ${i + 1}`} aria-current={page === i ? 'page' : undefined} onClick={() => updateNavigation({ page: i })} />)}</div>}
       <button className="home-search-pill" aria-label="Search installed apps" onClick={() => updateNavigation({ searching: true })}><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="8" cy="8" r="5" /><path d="m12 12 5 5" /></svg>{!rail && <span>Search</span>}</button>
@@ -403,6 +430,7 @@ export function ScreenModalLayer(): React.ReactElement | null {
   return (
     <>
       {['browser-menu','settings','find','bookmarks','history'].includes(screen.sheet.kind) && <BrowserTools key={screen.browserMode + screen.currentUrl} screen={screen} />}
+      {isHomeTool(screen.sheet.kind) && <HomeTools key={screen.sheet.kind} screen={screen}/>}
       {screen.sheet.kind === 'share' && <ShareSheet />}
       {screen.sheet.kind === 'add-to-home' && <AddToHomeSheet />}
       <PermissionAlert />

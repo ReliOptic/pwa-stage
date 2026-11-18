@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
 import { getDevicePresetById } from '../../config/device-presets.config';
 import { getSimulatorBridge, isElectronRuntime } from '../../utils/renderer-bridge.util';
 import {
@@ -7,6 +7,7 @@ import {
   resolveSafeAreaInsets
 } from '../../utils/viewport-math.util';
 import { setKeyboardVisible, setSafariBarCollapsed, useSafariBarCollapsed } from '../sim-events';
+import { FullscreenPane, setGuestFullscreen, useGuestFullscreen } from '../guest-fullscreen';
 import { readPageZoom, ZOOM_CHANGED } from '../browser-preferences';
 import { GuestMirrorPane } from './GuestMirrorPane';
 import { ElectronWebviewElement } from '../../types/renderer.types';
@@ -44,6 +45,7 @@ function useWebviewEffects(
   iframeRef: React.RefObject<HTMLIFrameElement | null>,
   props: SingleViewportPaneProps
 ): void {
+  const pane = useContext(FullscreenPane);
   const latest = useRef(props);
   latest.current = props;
   const ready = useRef(false);
@@ -114,10 +116,10 @@ function useWebviewEffects(
       else if (message === '__sim:keyboard:show') setKeyboardVisible(true);
       else if (message === '__sim:keyboard:hide') setKeyboardVisible(false);
     };
-    const enterFs = (): void => { window.dispatchEvent(new CustomEvent('sim:html-fullscreen', { detail: true })); };
-    const leaveFs = (): void => { window.dispatchEvent(new CustomEvent('sim:html-fullscreen', { detail: false })); };
+    const enterFs = (): void => setGuestFullscreen(pane, el, true);
+    const leaveFs = (): void => setGuestFullscreen(pane, el, false);
     const listeners: [string, EventListener][] = [
-      ['dom-ready', onDomReady], ['did-navigate', onNavigate],
+      ['dom-ready', onDomReady], ['did-navigate', onNavigate], ['did-navigate', leaveFs], ['render-process-gone', leaveFs],
       ['did-navigate-in-page', onInPage], ['did-finish-load', notifyReady],
       ['console-message', onConsole], ['enter-html-full-screen', enterFs], ['leave-html-full-screen', leaveFs]
     ];
@@ -126,11 +128,12 @@ function useWebviewEffects(
     return () => {
       window.removeEventListener(ZOOM_CHANGED, applyZoom);
       disposed = true;
+      leaveFs();
       ready.current = false;
       synchronize.current = null;
       listeners.forEach(([name, listener]) => el.removeEventListener(name, listener));
     };
-  }, [electronMode]);
+  }, [electronMode, pane]);
 
   useEffect(() => {
     synchronize.current?.();
@@ -199,15 +202,7 @@ function SingleViewportPane(props: SingleViewportPaneProps): React.ReactElement 
 
 export function WebviewContainer(props: WebviewContainerProps): React.ReactElement {
   const { state, reloadTick, onRegisterWebContentsId, onPageReady } = props;
-  const [isHtmlFullscreen, setIsHtmlFullscreen] = useState<boolean>(false);
-
-  useEffect((): (() => void) => {
-    const onFs = (evt: Event): void => {
-      setIsHtmlFullscreen(Boolean((evt as CustomEvent<boolean>).detail));
-    };
-    window.addEventListener('sim:html-fullscreen', onFs);
-    return (): void => window.removeEventListener('sim:html-fullscreen', onFs);
-  }, []);
+  const isHtmlFullscreen = useGuestFullscreen();
 
   const preset = getDevicePresetById(state.selectedDeviceId);
   const safeArea = resolveSafeAreaInsets(preset, state.orientation);

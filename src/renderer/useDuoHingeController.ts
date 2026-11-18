@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FOLD_FOCUS_HANDOFF_DEG } from '../utils/duo-transition.util';
+import { COVER_GLINT_DEG, FOLD_FOCUS_HANDOFF_DEG } from '../utils/duo-transition.util';
 import { DeviceModelId } from '../types/device.types';
 import { computeFoldDriveDurationMs, DuoPostureId, sampleHingeMotion } from '../utils/duo-fold-math.util';
 import { DUO_FOLD_TOGGLE_EVENT, publishDuoFoldTarget, getFoldSlowFactor, setFoldSlowFactor } from './sim-events';
@@ -85,11 +85,12 @@ export function useDuoHingeController(selectedDeviceId: DeviceModelId) {
       elapsed += Math.min(45, Math.max(0, now - previous));
       previous = now;
       const next = sampleHingeMotion(from, initialVelocity, destination, elapsed, duration);
-      const crossedHandoff = (angle.current < FOLD_FOCUS_HANDOFF_DEG && next.angle > FOLD_FOCUS_HANDOFF_DEG) ||
-        (angle.current > FOLD_FOCUS_HANDOFF_DEG && next.angle < FOLD_FOCUS_HANDOFF_DEG);
-      // Preserve the optical midpoint if a slow paint would skip it. The next
-      // tick continues on the same easing curve, including on reversal.
-      angle.current = crossedHandoff && !next.settled ? FOLD_FOCUS_HANDOFF_DEG : next.angle;
+      // Preserve each optical key angle during a slow paint. Pick the first
+      // crossed in the current direction, including immediately after reversal.
+      const opening = next.angle > angle.current;
+      const keys = opening ? [COVER_GLINT_DEG, FOLD_FOCUS_HANDOFF_DEG] : [FOLD_FOCUS_HANDOFF_DEG, COVER_GLINT_DEG];
+      const crossed = keys.find(key => opening ? angle.current < key && key < next.angle : next.angle < key && key < angle.current);
+      angle.current = next.settled ? next.angle : crossed ?? next.angle;
       velocity.current = next.velocity;
       setFoldAngle(angle.current);
       if (next.settled) stop();

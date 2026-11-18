@@ -2,8 +2,7 @@
 
 This is a geometry reconstruction with **original artwork**, not a certified iOS
 27.3 rendering. No reference artwork, Apple font or SF Symbols file is included.
-The small, labelled, default-colour icon appearance is the benchmark. User-edited
-Home layouts and large/tinted/clear icons are outside this implementation.
+The small, labelled, default-colour icon appearance is the benchmark. Settings also offers a larger icon treatment with hidden grid labels. Its dimensions are simulator estimates.
 
 ## iOS 27 cross-check (2026-11-18)
 
@@ -75,6 +74,8 @@ counted structural fact. No numerical value below is an Apple API contract.
 
 ## Per-device adaptation
 
+In 1.0.9 default slab icons follow the short side at 64/402, rounded to a whole logical point and clamped to 58–68pt. For example, 375pt uses 60pt, 390pt uses 62pt, 402pt uses 64pt and 430pt uses 68pt. Rotating preserves the model's base size. Large icons add 8pt and hide grid labels. Duo retains 60pt grid icons and a 48pt rail dock in its standard configuration. Label width comes from the horizontal cell pitch. The table below records the earlier geometry from the original audit.
+
 Only the 402×874 and Duo classes have normalized imagery in this audit. All other
 rows are **low-confidence derived layouts**, not individually measured iPhones.
 The layout helper is `src/utils/home-layout.util.ts`; DPR does not multiply points.
@@ -109,7 +110,7 @@ cover safe-area clearance and no label/dock overlap for every preset.
   The first available row now holds installed sites. The Duo inner display retains its right-hand icon panel.
 - Installed sites retain their names and manifest/apple-touch-icon artwork.
   Overflow pages stay reachable.
-  Search filters installed sites only. Page/search state is shared across Duo
+  Search includes installed sites and built-in tools. Page/search state is shared across Duo
   surface copies. Animated copies are inert; bent resting surfaces remain sharp.
 - Both cover and inner have a true vertical dock; Home makes the existing system
   rail background transparent without changing its status glyph assets.

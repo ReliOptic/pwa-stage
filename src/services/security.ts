@@ -278,6 +278,7 @@ export function installNavigationGuards(
   shell.setWindowOpenHandler(() => ({ action: 'deny' }));
 
   shell.on('will-attach-webview', (event, webPreferences, params) => {
+    webPreferences.disableHtmlFullscreenWindowResize = true;
     const verdict = enforceGuestWebPreferences(webPreferences, params as unknown as Record<string, string>);
     if (!verdict.allow) {
       event.preventDefault();

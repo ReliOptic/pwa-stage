@@ -71,6 +71,11 @@ export function useScreenController(
   const [launchOrigin, setLaunchOrigin] = useState<LaunchOrigin>({ x: 0.5, y: 0.92, width: 0.15, height: 0.075 });
   const [splash, setSplash] = useState<ScreenContextValue['splash']>(null);
   const [installedApps, setInstalledApps] = useState<InstalledWebApp[]>(() => loadInstalledApps());
+  const [largeIcons, setLargeIconPreference] = useState(() => window.localStorage.getItem('pwa-stage.large-icons') === 'true');
+  const setLargeIcons = useCallback((enabled: boolean) => {
+    window.localStorage.setItem('pwa-stage.large-icons', String(enabled));
+    setLargeIconPreference(enabled);
+  }, []);
   const [sheet, setSheet] = useState<ScreenSheetState>({ kind: 'none' });
   const [permissionQueue, setPermissionQueue] = useState<PermissionPromptState[]>([]);
   const [inspectionResult, setReport] = useState<PageInspectionReport | null>(null);
@@ -154,6 +159,7 @@ export function useScreenController(
     const key = `${state.shellMode}|${state.currentUrl}`;
     if (key === lastTargetRef.current) return;
     lastTargetRef.current = key;
+    setSheet({ kind: 'none' });
     setPhase(p => p === 'home' ? 'launching' : p);
   }, [state.shellMode, state.currentUrl]);
 
@@ -184,6 +190,7 @@ export function useScreenController(
 
   const launchApp = useCallback(
     (app: InstalledWebApp | 'safari' | 'chrome', origin: LaunchOrigin): void => {
+      setSheet({ kind: 'none' });
       setLaunchOrigin(origin);
       if (app === 'safari' || app === 'chrome') {
         const shellMode = app === 'safari' ? BrowserShellMode.IOS_SAFARI : BrowserShellMode.IOS_CHROME;
@@ -234,6 +241,16 @@ export function useScreenController(
     [report, state.currentUrl]
   );
 
+  const updateApp = useCallback((id: string, name: string, opensAsWebApp: boolean) => {
+    const label = name.trim().slice(0, 80);
+    if (!label) return;
+    setInstalledApps(previous => {
+      const next = previous.map(app => app.id === id ? {...app, name:label, opensAsWebApp} : app);
+      saveInstalledApps(next);
+      return next;
+    });
+  }, []);
+
   const removeApp = useCallback((id: string): void => {
     setInstalledApps((prev) => {
       const next = prev.filter((a) => a.id !== id);
@@ -259,6 +276,8 @@ export function useScreenController(
     window.dispatchEvent(new CustomEvent('sim:webview-nav', { detail: direction }));
   }, []);
 
+  const openSheet = useCallback((kind: ScreenSheetState['kind']) => setSheet({kind}), []);
+
   const value = useMemo<ScreenContextValue>(
     () => ({
       browserMode: state.shellMode,
@@ -276,9 +295,9 @@ export function useScreenController(
       darkMode: state.darkMode,
       goHome,
       launchApp,
-      openSheet: (kind): void => setSheet({ kind }),
+      openSheet,
       addToHome,
-      removeApp,
+      largeIcons, setLargeIcons, updateApp, removeApp,
       answerPermission,
       navigate,
       openUrl,
@@ -288,7 +307,7 @@ export function useScreenController(
       reload
     }),
     [
-      state.shellMode, updateState,
+      state.shellMode, updateState, openSheet,
       homeNavigation,
       phase,
       launchOrigin,
@@ -302,7 +321,7 @@ export function useScreenController(
       goHome,
       launchApp,
       addToHome,
-      removeApp,
+      largeIcons, setLargeIcons, updateApp, removeApp,
       answerPermission,
       navigate,
       openUrl,

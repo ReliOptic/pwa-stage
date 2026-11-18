@@ -106,9 +106,10 @@ server.listen(0, '127.0.0.1', async () => {
         const read = (${readDock.toString()});
         window.dockPositions = [read()];
         const angle = document.querySelector('.duo-current-angle');
-        window.sawHandoff = false;
+        window.sawHandoff = false; window.sawGlint = false;
         window.handoffObserver = new MutationObserver(() => {
           window.dockPositions.push(read());
+          if (angle.textContent === '70°') window.sawGlint = true;
           if (angle.textContent === '126°') window.sawHandoff = true;
         });
         window.handoffObserver.observe(angle, {subtree:true, characterData:true, childList:true});
@@ -138,6 +139,7 @@ server.listen(0, '127.0.0.1', async () => {
       } finally { shell.endFrameSubscription(); }
       const paintedAtMs = distinct.map(frame => frame.ms);
       const sawHandoff = await shell.executeJavaScript('window.handoffObserver.disconnect(); window.sawHandoff');
+      assert(await shell.executeJavaScript('window.sawGlint'), 'Ordinary playback skipped 70 degrees');
       assert(sawHandoff, 'Ordinary playback skipped the 126° optical handoff');
       const positions = await shell.executeJavaScript('window.dockPositions');
       for (const sample of positions) {

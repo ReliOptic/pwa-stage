@@ -49,6 +49,8 @@ export interface SimulatorBridgeApi {
   readonly onGuestFrame?: (listener: (frame: GuestFrameMessage) => void) => () => void;
   readonly sendGuestInput?: (webContentsId: number, event: GuestInputMessage) => Promise<unknown>;
   readonly inspectPage?: (webContentsId: number) => Promise<Result<PageInspectionReport, SimulatorError>>;
+  readonly getScreenshotDirectory?: () => Promise<string>;
+  readonly openScreenshotLocation?: (latest: boolean) => Promise<boolean>;
   readonly captureScreenshot?: (
     rect: { x: number; y: number; width: number; height: number },
     deviceName: string

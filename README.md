@@ -98,14 +98,16 @@ These internal builds are unsigned. Do not publish the repository or installers.
 
 Settings use Electron's host `userData` directory (on Windows, under `%APPDATA%`).
 Screenshots use the OS Desktop path, including a redirected Desktop, with Windows-safe
-filenames. Xcode handoff is available only on macOS. Rendering/emulation is shared
+filenames. Open **Device controls → Screenshots** to see the actual path or reveal the latest file. The same panel is available on the compact handle. Xcode handoff is available only on macOS. Rendering/emulation is shared
 across platforms and uses Chromium, not WebKit.
 
 ## License
 
 **Personal / internal tool — not for public distribution. Do not publish the repository or installers.** Application source is covered by [MIT](LICENSE); this does not license the bundled hardware artwork/model, whose provenance and redistribution rights are unknown. See [ASSETS.md](ASSETS.md). This project is not affiliated with Apple; projected device geometry and animation tuning are estimates.
 
-The default start page asks for a website URL. Home Screen contains Safari, Chrome, and only web apps you add through the browser's Add to Home Screen flow.
+The default start page asks for a website URL. Home Screen contains Safari, Chrome and the sites added through Share → Add to Home Screen. Open **Settings** to rename, launch or remove a saved app, choose whether it opens standalone, and switch between standard labelled icons and large icons. The **Manifest** and **PWA Checks** apps read the currently loaded website and keep it open while you inspect its manifest, service worker and install diagnostics.
+
+Video and HTML fullscreen stay within the selected simulated display. Escape restores the browser chrome and the previous viewport.
 
 See [`HANDOFF.md`](HANDOFF.md) for architecture notes and the roadmap.
 
@@ -130,7 +132,7 @@ The slab frame now uses the bundled hardware artwork, registered and rotated wit
 
 `display-mode` CSS emulation covers nested rules and dynamically added accessible stylesheets. Browser origin protections still apply to cross-origin CSS; validate those cases in real WebKit. This tool does not replace iOS device testing. Internal build 1.0.3 has been exercised on Linux Electron; macOS and Windows packages are cross-built and unsigned.
 
-In the front Span view, the app hands off between the cover and inner displays at 70% open (126°). Between 108° and 144° the moving inner glass comes into focus. The held half stays sharp, and the angle slider previews the same effect while dragging. Releasing the slider restores sharp glass and keeps the selected display profile.
+A moving reflection on the cover peaks at a physical hinge angle of 70°. Its gradient follows the projected glass when opening, closing or holding the angle. In the front Span view, the app hands off between the cover and inner displays at 70% open (126°). Between 108° and 144° the moving inner glass comes into focus. The held half stays sharp, and the angle slider previews the same effect while dragging. Releasing the slider restores sharp glass and keeps the selected display profile.
 
 Click Open / Close again to reverse. Escape or Pause stops the hinge, and Resume continues it. Click the angle to drag the slider or use its arrow, Home and End keys. The options menu includes 1° and 5° steps, the finish and camera reset.
 

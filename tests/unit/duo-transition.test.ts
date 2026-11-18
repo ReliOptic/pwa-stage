@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { transitionDimAlpha, sampleFoldFocus, sampleTransitionGradient } from '../../src/utils/duo-transition.util';
+import { transitionDimAlpha, sampleCoverGlint, sampleFoldFocus, sampleTransitionGradient } from '../../src/utils/duo-transition.util';
 
 describe('Duo moving-leaf shading', () => {
   it('follows the projected moving edge instead of the full unfolded half-width', () => {
@@ -24,6 +24,13 @@ describe('Duo moving-leaf shading', () => {
     for (let i = 1; i <= 100; i++) {
       expect(transitionDimAlpha(i / 100, 1)).toBeGreaterThan(transitionDimAlpha((i - 1) / 100, 1));
     }
+  });
+  it('peaks on the cover glass at 70 physical degrees in either direction', () => {
+    const values = [48,55,70,85,88].map(angle=>sampleCoverGlint(angle));
+    expect(values.map(v=>v.strength)).toEqual([0,expect.any(Number),1,expect.any(Number),0]);
+    expect(values[1].strength).toBeGreaterThan(0);
+    expect(values[3].strength).toBeLessThan(values[2].strength);
+    expect(values.map(v=>v.center)).toEqual(values.map(v=>v.center).sort((a,b)=>a-b));
   });
   it('leaves the cover sharp when closed and resolves the inner glass around 70% open', () => {
     expect(sampleFoldFocus(0)).toEqual({ coverMotion: 0, innerMotion: 1 });

@@ -1,14 +1,18 @@
 /** Reference-normalized estimates, NOT UIKit metrics. See docs/ios-home-layout-measurements.md. */
-export function resolveHomeLayout(width: number, height: number, rail = 0, safeTop = 62) {
+export function resolveHomeLayout(width: number, height: number, rail = 0, safeTop = 62, largeIcons = false) {
   const inner = rail > 0 && width > 700;
   const compact = height < 740;
   const landscape = rail === 0 && width > height;
-  const icon = rail ? 60 : width < 400 ? 60 : 64;
+  // The 402pt reference has a 64pt icon. Preserve its proportions between
+  // supported viewport classes, using the portrait short side in landscape.
+  const shortSide = Math.min(width, height);
+  const standard = rail || shortSide > 600 ? 60 : Math.round(Math.max(58, Math.min(68, 64 * shortSide / 402)));
+  const icon = standard + (largeIcons ? 8 : 0);
   const panelWidth = rail ? (inner ? 340 : width - rail - 50) : Math.min(width - 56, 390);
   const left = rail ? (inner ? width - rail - 405 : 28) : (width - panelWidth) / 2;
   const top = rail ? 54 : landscape ? 24 : safeTop + (compact ? 18 : 28);
   const widget = (panelWidth - 22) / 2;
-  const dockHeight = rail ? 266 : 100;
+  const dockHeight = rail ? 266 : standard + (compact ? 26 : 36);
   const dockBottom = rail ? (height - dockHeight) / 2 - (inner ? 16 : 40) : compact ? 8 : 18;
   // No widgets are installed. Use the first available row below the status area.
   const gridTop = top;
@@ -20,7 +24,10 @@ export function resolveHomeLayout(width: number, height: number, rail = 0, safeT
   const pitch = rows > 1 ? Math.min(100, (gridBottom - gridTop - icon - 19) / (rows - 1)) : icon + 19;
   return { inner, landscape, icon, panelWidth, left, top, widget, gridTop, rows,
     pitch: Math.max(icon + 16, pitch), capacity: rows * 4, dockHeight, dockBottom, searchTop, pageDotsTop,
-    dockIcon: rail ? 48 : icon, label: 12 };
+    dockIcon: rail ? (largeIcons ? 54 : 48) : icon,
+    dockRadius: rail ? 28 : Math.round(dockHeight * .38),
+    labelWidth: Math.floor((panelWidth - icon) / 3) - 4,
+    label: shortSide <= 375 ? 11.5 : 12 };
 }
 
 /** Page count never drops to zero; clamp after removing the last app on a page. */

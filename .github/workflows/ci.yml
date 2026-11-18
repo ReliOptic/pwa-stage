@@ -22,12 +22,17 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - name: Verify normal-speed folding in macOS Electron
+      - name: Verify fold optics and in-device video in macOS Electron
         if: runner.os == 'macOS'
         run: |
           ./node_modules/.bin/electron tests/electron/motion.cjs
           ./node_modules/.bin/electron tests/electron/focus.cjs
-        timeout-minutes: 5
+          ./node_modules/.bin/electron tests/electron/media.cjs
+        timeout-minutes: 8
+      - name: Verify in-device video and capture location on Windows
+        if: runner.os == 'Windows'
+        run: node_modules/.bin/electron.cmd tests/electron/media.cjs
+        timeout-minutes: 3
       - name: Real Electron regression flows
         if: runner.os == 'Linux'
         run: xvfb-run -a -s "-screen 0 2560x1800x24" npm run test:electron
@@ -50,4 +55,16 @@ jobs:
         with:
           name: windows-installer-internal
           path: dist_dmg/*.exe
+          retention-days: 7
+
+      - name: Package internal Apple Silicon app
+        if: runner.os == 'macOS' && github.event.repository.private == true
+        run: npx electron-builder --mac zip --arm64 --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS' && github.event.repository.private == true
+        with:
+          name: mac-arm64-internal
+          path: dist_dmg/*.zip
           retention-days: 7

@@ -8,6 +8,7 @@ import {
   ipcMain,
   screen,
   session,
+  shell,
   Tray,
   webContents
 } from 'electron';
@@ -231,6 +232,14 @@ function registerIpcHandlers(ctx: MenuControllerContext): void {
     }
     return inspectGuestPage(id);
   });
+  handleTrusted('simulator:screenshot-directory', () => app.getPath('desktop'));
+  handleTrusted('simulator:open-screenshot-location', async (_event, latest) => {
+    if (latest === true && lastScreenshot && fs.existsSync(lastScreenshot)) {
+      shell.showItemInFolder(lastScreenshot);
+      return true;
+    }
+    return (await shell.openPath(app.getPath('desktop'))) === '';
+  });
   handleTrusted('simulator:capture-screenshot', async (_event, rawRect, rawName) => {
     return captureScreenScreenshot(rawRect, rawName);
   });
@@ -312,6 +321,8 @@ function sanitizeFileToken(raw: unknown): string {
   return (typeof raw === 'string' ? raw : 'iPhone').replace(/[^A-Za-z0-9 ._()-]/g, '').slice(0, 60) || 'iPhone';
 }
 
+let lastScreenshot: string | null = null;
+
 /** Xcode-style "Simulator Screenshot - <device> - <date> at <time>.png" on the Desktop. */
 async function captureScreenScreenshot(rawRect: unknown, rawName: unknown): Promise<unknown> {
   const win = mainFloatingWindow;
@@ -331,11 +342,22 @@ async function captureScreenScreenshot(rawRect: unknown, rawName: unknown): Prom
   const now = new Date();
   const pad = (n: number): string => String(n).padStart(2, '0');
   const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} at ${pad(now.getHours())}.${pad(now.getMinutes())}.${pad(now.getSeconds())}`;
-  const fileName = `Simulator Screenshot - ${sanitizeFileToken(rawName)} - ${stamp}.png`;
-  const target = path.join(app.getPath('desktop'), fileName);
-  fs.writeFileSync(target, image.toPNG());
-  logStructured('info', 'main.entry', 'screenshot_saved', { target });
-  return { ok: true, value: fileName };
+  const directory = app.getPath('desktop');
+  const stem = `Simulator Screenshot - ${sanitizeFileToken(rawName)} - ${stamp}`;
+  const png = image.toPNG();
+  await fs.promises.mkdir(directory, { recursive: true });
+  for (let index = 1; ; index++) {
+    const fileName = `${stem}${index === 1 ? '' : ' (' + index + ')'}.png`;
+    const target = path.join(directory, fileName);
+    try {
+      await fs.promises.writeFile(target, png, { flag: 'wx' });
+      lastScreenshot = target;
+      logStructured('info', 'main.entry', 'screenshot_saved', { target });
+      return { ok: true, value: fileName };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    }
+  }
 }
 
 // --- iOS-style permission alerts rendered inside the simulated screen -------
@@ -467,7 +489,8 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
       sandbox: true,
       webSecurity: true,
       spellcheck: false,
-      webviewTag: true
+      webviewTag: true,
+      disableHtmlFullscreenWindowResize: true
     }
   });
   // The tray owns app actions; Electron's default Windows menu would intercept Ctrl shortcuts.

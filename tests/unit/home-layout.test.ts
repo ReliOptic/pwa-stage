@@ -30,6 +30,20 @@ describe('Home Screen reference layout', () => {
       expect(l.gridTop + (l.rows - 1) * l.pitch + l.icon + 19).toBeLessThan(l.searchTop);
     }
   });
+  it('fits normal and large icons in both orientations of every preset', () => {
+    for (const preset of DEVICE_PRESETS) {
+      for (const [width,height,rail,top] of [[preset.width,preset.height,preset.safeAreaPortrait.right,preset.safeAreaPortrait.top],
+        [preset.height,preset.width,0,preset.safeAreaLandscape.top]]) {
+        const normal=resolveHomeLayout(width,height,rail,top);
+        const large=resolveHomeLayout(width,height,rail,top,true);
+        expect(large.icon).toBe(normal.icon+8);
+        expect(large.panelWidth).toBeGreaterThanOrEqual(large.icon*4);
+        expect(large.gridTop + (large.rows-1)*large.pitch + large.icon).toBeLessThan(large.pageDotsTop);
+        expect(large.dockIcon).toBeLessThan(rail?72:large.dockHeight);
+      }
+    }
+    expect([375,390,393,402,414,430].map(w=>resolveHomeLayout(w,874).icon)).toEqual([60,62,63,64,66,68]);
+  });
   it('retains access to overflow apps and clamps after deletion', () => {
     expect(resolveHomePage(0, 16, 0)).toEqual({ pages: 1, page: 0 });
     expect(resolveHomePage(33, 16, 2)).toEqual({ pages: 3, page: 2 });

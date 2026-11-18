@@ -1,3 +1,4 @@
+import { useGuestFullscreen } from '../guest-fullscreen';
 import { platformLabel } from '../../utils/platform.util';
 import React from 'react';
 import { validateHttpUrl } from '../../config/env.config';
@@ -28,7 +29,7 @@ import {
 } from '../../utils/viewport-math.util';
 import { DuoStatusRing } from './DuoStatusRing';
 import { prefersLightContent } from '../../utils/color.util';
-import { appMotionStyle, useScreen } from './ScreenLayers';
+import { appMotionStyle, isHomeTool, useScreen } from './ScreenLayers';
 import { setSafariBarCollapsed, useKeyboardVisible, useSafariBarCollapsed } from '../sim-events';
 import { SoftwareKeyboard } from './SoftwareKeyboard';
 
@@ -143,18 +144,6 @@ export function HardwareCutout(props: {
   );
 }
 
-function useHtmlFullscreenState(): boolean {
-  const [isHtmlFs, setIsHtmlFs] = React.useState<boolean>(false);
-  React.useEffect((): (() => void) => {
-    const onFs = (evt: Event): void => {
-      setIsHtmlFs(Boolean((evt as CustomEvent<boolean>).detail));
-    };
-    window.addEventListener('sim:html-fullscreen', onFs);
-    return (): void => window.removeEventListener('sim:html-fullscreen', onFs);
-  }, []);
-  return isHtmlFs;
-}
-
 function DuoVerticalSystemRail(props: {
   readonly preset: DevicePreset;
   readonly darkMode: boolean;
@@ -192,10 +181,6 @@ function DuoVerticalSystemRail(props: {
 }
 
 export function IosStatusBar(props: BrowserShellOverlayProps): React.ReactElement | null {
-  const isHtmlFs = useHtmlFullscreenState();
-  if (isHtmlFs) {
-    return null;
-  }
   const { preset, orientation, darkMode } = props;
   const fgColor = darkMode ? '#ffffff' : '#000000';
   const isDuoOuter = preset.cutoutType === HardwareCutoutType.DUO_OUTER_CORNER;
@@ -323,10 +308,9 @@ function AddressField(props: { readonly url: string; readonly chrome?: boolean; 
 }
 
 export function BrowserShellBarOverlay(props: BrowserShellBarOverlayProps): React.ReactElement | null {
-  const isHtmlFs = useHtmlFullscreenState();
   const screen = useScreen();
   const addressRef = React.useRef<HTMLInputElement>(null);
-  if (isHtmlFs || props.shellMode === BrowserShellMode.PWA_STANDALONE) {
+  if (props.shellMode === BrowserShellMode.PWA_STANDALONE) {
     return null;
   }
   const host = getHostnameForDisplay(props.currentUrl);
@@ -455,10 +439,6 @@ export function HomeIndicatorOverlay(props: {
   readonly trailingInset?: number;
   readonly onGoHome?: () => void;
 }): React.ReactElement | null {
-  const isHtmlFs = useHtmlFullscreenState();
-  if (isHtmlFs) {
-    return null;
-  }
   return (
     <button
       type="button"
@@ -506,6 +486,7 @@ function resolveLitPreset(preset: DevicePreset, cutoutType: HardwareCutoutType):
  * 3D Duo stage so both render pixel-identical system UI.
  */
 export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.ReactElement {
+  const fullscreen = useGuestFullscreen();
   const lit = resolveLitPreset(props.preset, props.cutoutType);
   const safeArea = resolveSafeAreaInsets(lit, props.orientation);
   const safariCollapsed = useSafariBarCollapsed();
@@ -538,12 +519,15 @@ export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.Reac
       ? pwaBand
       : '#000000'
     : props.tintColor ?? (props.state.darkMode ? '#0e0e12' : '#f6f6fa');
-  const lightContent = prefersLightContent(statusBackdrop, props.state.darkMode);
+  const insideTool = isHomeTool(screen.sheet.kind);
+  const lightContent = insideTool ? screen.darkMode : prefersLightContent(statusBackdrop, props.state.darkMode);
   return (
     <div
-      className={`ios-overlay-scaler ${onHome ? 'ios-overlay-home' : ''}`}
+      className={`ios-overlay-scaler ${onHome ? 'ios-overlay-home' : ''} ${insideTool ? 'ios-overlay-tool' : ''}`}
       style={{ width: `${props.logicalW}px`, height: `${props.logicalH}px` }}
     >
+      <HardwareCutout wideNotch={lit.id === DeviceModelId.IPHONE_11} cutoutType={props.cutoutType} orientation={props.orientation} />
+      {(!fullscreen || onHome) && <>
       {pwaBand && (
         <div
           className="ios-pwa-status-band"
@@ -551,7 +535,6 @@ export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.Reac
           style={{ height: `${chrome.topBarHeight}px`, right: `${trailing}px`, background: pwaBand }}
         />
       )}
-      <HardwareCutout wideNotch={lit.id === DeviceModelId.IPHONE_11} cutoutType={props.cutoutType} orientation={props.orientation} />
       <IosStatusBar
         preset={{ ...lit, cutoutType: props.cutoutType }}
         orientation={props.orientation}
@@ -586,6 +569,7 @@ export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.Reac
           onGoHome={props.onGoHome}
         />
       )}
+      </>}
     </div>
   );
 }

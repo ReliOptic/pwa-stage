@@ -1,3 +1,4 @@
+import { FullscreenPane } from '../guest-fullscreen';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ComputedViewportMetrics,
@@ -16,7 +17,7 @@ import {
   RIGHT_LEAF_HIDDEN,
   TRANSITION_MAX_BLUR_PX
 } from '../../utils/duo-3d-engine.util';
-import { transitionDimAlpha, sampleTransitionGradient } from '../../utils/duo-transition.util';
+import { transitionDimAlpha, sampleCoverGlint, sampleTransitionGradient } from '../../utils/duo-transition.util';
 import { DuoPostureId } from '../../utils/duo-fold-math.util';
 import { ScreenSystemOverlay } from './BrowserShellOverlay';
 import { acquireGuestMirror, setGuestMirrorRate } from './GuestMirrorPane';
@@ -95,6 +96,7 @@ interface AnchoredFaceProps {
   readonly matrix3d: string;
   readonly clip: string;
   readonly motion: number;
+  readonly angle: number;
   readonly brightness: number;
   readonly pageWidth: number;
   readonly coverLayout: boolean;
@@ -154,7 +156,20 @@ function MovingScreenContent(props: MovingScreenProps): React.ReactElement {
   );
 }
 
-type FaceOpticsProps = MovingScreenProps & Pick<AnchoredFaceProps, 'side' | 'gradientX' | 'motion' | 'clip'>;
+function CoverReflection({angle, gradientX, clip}: {angle: number; gradientX?: readonly number[]; clip?: string}) {
+  const {strength, center} = sampleCoverGlint(angle);
+  if (strength <= 0) return null;
+  const at = (distance: number) => gradientX
+    ? sampleTransitionGradient(gradientX, distance).toFixed(2) + 'px'
+    : (100 * distance).toFixed(2) + '%';
+  const gradient = `linear-gradient(to right, transparent ${at(0)}, rgba(31,42,61,.21) ${at(center-.26)},
+    rgba(229,235,243,.14) ${at(center-.12)}, rgba(250,246,235,.52) ${at(center)},
+    rgba(197,213,228,.24) ${at(center+.13)}, rgba(27,37,52,.17) ${at(center+.24)}, transparent ${at(1)})`;
+  return <div className="duo-grazing-glass" aria-hidden="true"
+    style={{opacity:strength, backgroundImage:gradient, clipPath:clip}}/>;
+}
+
+type FaceOpticsProps = MovingScreenProps & Pick<AnchoredFaceProps, 'side' | 'gradientX' | 'motion' | 'clip' | 'angle'>;
 
 function FaceOptics(props: FaceOpticsProps): React.ReactElement | null {
   const { side, gradientX, motion, clip } = props;
@@ -177,6 +192,7 @@ function FaceOptics(props: FaceOpticsProps): React.ReactElement | null {
     <div className="duo-anchored-dim" aria-hidden="true" style={{
       clipPath: clip, background: leafGradient(side, motion, gradientX)
     }} />
+    {side === 'cover' && <CoverReflection angle={props.angle} gradientX={gradientX} clip={clip}/>}
   </>;
 }
 
@@ -516,6 +532,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
             zIndex: projection.left.zIndex
           }}
         >
+          <FullscreenPane.Provider value={split ? 'comparison' : 'primary'}>
           <div
             className="duo-slice-inner-viewport"
             style={{
@@ -557,6 +574,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
               </div>
             </div>
           </div>
+          </FullscreenPane.Provider>
           {/* 3D Crease Valley Shading on Left / Top Leaf */}
           <div
             className={
@@ -587,6 +605,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
               onGoHome={props.onGoHome} onReload={props.onReload} onToggleDuoFold={props.onToggleDuoFold} />
             {modalOnCover && <div className="duo-modal-viewport" style={{inset: 0}}><ScreenModalLayer /></div>}
             <div className="duo-cover-glass" style={{opacity: projection?.coverReflection}} />
+            <CoverReflection angle={foldAngle}/>
           </div>
         </div>
       )}
@@ -652,9 +671,10 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
                 onToggleDuoFold={props.onToggleDuoFold}
               />
             </div>
-            {flatMotion && transition.coverClip && <FaceOptics {...movingScreen} side="cover" clip={transition.coverClip}
+            {isOuterPrimary && !flatMotion && <CoverReflection angle={foldAngle}/>}
+            {flatMotion && transition.coverClip && <FaceOptics {...movingScreen} angle={foldAngle} side="cover" clip={transition.coverClip}
               gradientX={transition.coverGradientX} motion={transition.coverMotion} />}
-            {flatMotion && transition.leftClip && <FaceOptics {...movingScreen} side="innerLeft" clip={transition.leftClip}
+            {flatMotion && transition.leftClip && <FaceOptics {...movingScreen} angle={foldAngle} side="innerLeft" clip={transition.leftClip}
               gradientX={transition.innerGradientX} motion={transition.innerMotion} />}
             <div className="duo-modal-viewport" style={{ left: -primaryShiftX, top: -primaryShiftY, width: primarySlice.width, height: primarySlice.height }}>
               {!modalOnCover && <ScreenModalLayer />}
@@ -680,6 +700,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
         <>
           {transition.leftClip && (
             <AnchoredFace
+              angle={foldAngle}
               pageWidth={pageWidth}
               coverLayout={coverLayout}
               side="innerLeft"
@@ -699,6 +720,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
           )}
           {transition.coverClip && (
             <AnchoredFace
+              angle={foldAngle}
               pageWidth={pageWidth}
               coverLayout={coverLayout}
               side="cover"

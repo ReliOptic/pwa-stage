@@ -30,6 +30,13 @@ function smoothRamp(start: number, end: number, value: number): number {
   return t * t * (3 - 2 * t);
 }
 
+/** Local grazing highlight on the outward-facing glass, in physical hinge degrees. */
+export const COVER_GLINT_DEG = 70;
+export function sampleCoverGlint(angle: number) {
+  const strength = smoothRamp(48, COVER_GLINT_DEG, angle) * (1 - smoothRamp(COVER_GLINT_DEG, 88, angle));
+  return { strength, center: 0.32 + 0.42 * smoothRamp(48, 88, angle) };
+}
+
 /** Simulator focus choreography. Visibility and depth come from the mesh. */
 export function sampleFoldFocus(openFraction: number): { coverMotion: number; innerMotion: number } {
   const coverMotion = smoothRamp(0, FOLD_FOCUS_HANDOFF, openFraction);

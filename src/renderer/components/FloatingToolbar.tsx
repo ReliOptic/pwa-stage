@@ -8,6 +8,7 @@ import {
   Columns2,
   CornerDownLeft,
   FolderClosed,
+  FolderOpen,
   SlidersHorizontal,
   PanelTopClose,
   GripHorizontal,
@@ -54,6 +55,9 @@ export interface FloatingToolbarProps {
   readonly onClose: () => void;
   readonly onGoHome?: () => void;
   readonly onScreenshot?: () => void;
+  readonly screenshotDirectory: string;
+  readonly lastCapture: string;
+  readonly onOpenScreenshotLocation: (latest: boolean) => void;
   readonly onToggleInspector?: () => void;
   readonly inspectorOpen?: boolean;
   readonly inspectorBadge?: number;
@@ -305,12 +309,6 @@ function HardwareRow(props: FloatingToolbarProps): React.ReactElement {
         onClick={(): void => onUpdateState({ darkMode: !state.darkMode })}
       />
       <ActionButton
-        icon={<Camera size={12} />}
-        label="Screenshot"
-        title={platformLabel("Save screenshot to Desktop (⌘S)")}
-        onClick={props.onScreenshot}
-      />
-      <ActionButton
         icon={<ClipboardCheck size={12} />}
         label="PWA checks"
         title="iOS web app checks: manifest, icons, viewport, status bar, service worker"
@@ -404,6 +402,7 @@ function ComparisonUrlRow(props: FloatingToolbarProps): React.ReactElement {
 
 export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement | null {
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [section, setSection] = useState<'device' | 'captures'>('device');
   const header = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const { state, onUpdateState } = props;
@@ -427,15 +426,42 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
     aria-label="Pin to current desktop" aria-pressed={state.alwaysOnTop}
     onClick={() => onUpdateState({alwaysOnTop: !state.alwaysOnTop})}>
     {state.alwaysOnTop ? <Pin size={15}/> : <PinOff size={15}/>}</button>;
+  const controlsButton = <button ref={trigger} type="button" className="tool-icon" aria-label="Device controls" title="Device controls"
+    aria-controls="device-controls" aria-expanded={toolsOpen} onClick={() => setToolsOpen(!toolsOpen)}><SlidersHorizontal size={16}/></button>;
+  const panel = toolsOpen && <section id="device-controls" className="device-controls" role="dialog" aria-label="Device controls">
+    <div className="device-control-heading">
+      <div className="control-sections" role="group" aria-label="Control sections">
+        <button type="button" aria-pressed={section==='device'} onClick={() => setSection('device')}>Device</button>
+        <button type="button" aria-pressed={section==='captures'} onClick={() => setSection('captures')}>Screenshots</button>
+      </div>
+      <button type="button" className="tool-icon" aria-label="Close device controls" onClick={() => {setToolsOpen(false);trigger.current?.focus();}}><X size={14}/></button>
+    </div>
+    {section === 'device' ? <>
+      <div className="control-display"><span>Scale</span><DisplayScale {...props}/>{!state.hudCollapsed && pin}</div>
+      <HardwareRow {...props}/>
+      {isDuo(props.activePreset) && state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON && <ComparisonUrlRow {...props}/>}
+    </> : <div className="capture-controls">
+      <div><span>Save location</span><code title={props.screenshotDirectory}>{props.screenshotDirectory || 'Desktop'}</code></div>
+      <div className="capture-actions">
+        <ActionButton icon={<Camera size={15}/>} label="Save screenshot" title={platformLabel('Save screenshot (⌘S)')} onClick={props.onScreenshot}/>
+        <ActionButton icon={<FolderOpen size={15}/>} label="Open folder" title="Open the screenshot folder" onClick={() => props.onOpenScreenshotLocation(false)}/>
+      </div>
+      {props.lastCapture && <div className="capture-last" aria-live="polite"><span>Latest screenshot</span>
+        <button type="button" title="Show this file in its folder" onClick={() => props.onOpenScreenshotLocation(true)}>{props.lastCapture}</button>
+      </div>}
+    </div>}
+  </section>;
   if (state.hudCollapsed) return (
-    <header className="preview-handle" aria-label="Preview controls">
+    <header ref={header} className="preview-handle" aria-label="Preview controls">
       <GripHorizontal size={14} className="preview-grip" aria-hidden="true" />
       <button type="button" className="handle-expand" title={platformLabel("Show Toolbar (⌘B)")}
         onClick={() => onUpdateState({hudCollapsed:false})}>{deviceLabel(props.activePreset)}<ChevronDown size={12}/></button>
+      {controlsButton}
       {pin}
       <button type="button" className="tool-icon" title="Switch touch or mouse input" aria-label="Switch touch or mouse input"
         onClick={() => onUpdateState({touchCursorEnabled:!state.touchCursorEnabled})}>
         {state.touchCursorEnabled ? <Sparkles size={14}/> : <MousePointerClick size={14}/>}</button>
+      {panel}
     </header>
   );
   return (
@@ -444,17 +470,11 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
       <BrowserRow {...props}/>
       <div className="tool-shortcuts">
         <button type="button" className="tool-icon" aria-label="Home" title={platformLabel("Home (⇧⌘H)")} onClick={props.onGoHome}><House size={16}/></button>
-        <button ref={trigger} type="button" className="tool-icon" aria-label="Device controls" title="Device controls"
-          aria-controls="device-controls" aria-expanded={toolsOpen} onClick={() => setToolsOpen(!toolsOpen)}>
-          <SlidersHorizontal size={16}/></button>
+        {controlsButton}
         <button type="button" className="tool-icon" aria-label="Hide toolbar" title={platformLabel("Hide toolbar (⌘B)")}
           onClick={() => onUpdateState({hudCollapsed:true})}><PanelTopClose size={16}/></button>
       </div>
-      {toolsOpen && <section id="device-controls" className="device-controls" role="dialog" aria-label="Device controls">
-        <div className="device-control-heading"><strong>Device controls</strong>{pin}<DisplayScale {...props}/></div>
-        <HardwareRow {...props}/>
-        {isDuo(props.activePreset) && state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON && <ComparisonUrlRow {...props}/>}
-      </section>}
+      {panel}
     </header>
   );
 }

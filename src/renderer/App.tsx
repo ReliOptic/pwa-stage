@@ -193,7 +193,7 @@ function useSimulatorController(): SimulatorController {
 function findScreenElement(): HTMLElement | null {
   return (
     document.querySelector<HTMLElement>('.iphone-screen') ??
-    document.querySelector<HTMLElement>('.duo-slice-primary')
+    document.querySelector<HTMLElement>('.duo-3d-stage-root')
   );
 }
 
@@ -212,26 +212,37 @@ export function App(): React.ReactElement {
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
   const { showToast } = screen;
 
-  const takeScreenshot = useCallback((): void => {
+  const [screenshotDirectory, setScreenshotDirectory] = useState('');
+  const [lastCapture, setLastCapture] = useState('');
+  const capturing = React.useRef(false);
+  useEffect(() => {
+    void getSimulatorBridge().getScreenshotDirectory?.().then(setScreenshotDirectory).catch(() => {});
+  }, []);
+  const takeScreenshot = useCallback(async (): Promise<void> => {
     const el = findScreenElement();
     const bridge = getSimulatorBridge();
-    if (!el || !bridge.captureScreenshot) {
-      return;
+    if (!el || !bridge.captureScreenshot || capturing.current) return;
+    capturing.current = true;
+    document.documentElement.classList.add('capturing-screen');
+    try {
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      const r = el.getBoundingClientRect();
+      const res = await bridge.captureScreenshot({x:r.left,y:r.top,width:r.width,height:r.height}, activePreset.name);
+      if (!res.ok || !res.value) throw Error('Empty capture');
+      setLastCapture(res.value);
+      showToast('Screenshot saved to ' + screenshotDirectory);
+    } catch {
+      showToast('Could not save the screenshot');
+    } finally {
+      document.documentElement.classList.remove('capturing-screen');
+      capturing.current = false;
     }
-    const r = el.getBoundingClientRect();
-    const flash = document.createElement('div');
-    flash.className = 'screenshot-flash';
-    el.appendChild(flash);
-    window.setTimeout(() => flash.remove(), 420);
-    void bridge
-      .captureScreenshot(
-        { x: r.left, y: r.top, width: r.width, height: r.height },
-        activePreset.name
-      )
-      .then((res): void => {
-        showToast(res.ok && res.value ? `Saved to Desktop: ${res.value}` : 'Screenshot failed');
-      });
-  }, [activePreset.name, showToast]);
+  }, [activePreset.name, screenshotDirectory, showToast]);
+  const openScreenshotLocation = (latest: boolean): void => {
+    void getSimulatorBridge().openScreenshotLocation?.(latest)
+      .then(opened => { if (!opened) showToast('Could not open the screenshot folder'); })
+      .catch(() => showToast('Could not open the screenshot folder'));
+  };
 
   const rotate = useCallback((): void => {
     ctrl.handleUpdateState({
@@ -266,6 +277,9 @@ export function App(): React.ReactElement {
           onOpenDevTools={ctrl.handleOpenDevTools}
           onGoHome={screen.value.goHome}
           onScreenshot={takeScreenshot}
+          screenshotDirectory={screenshotDirectory}
+          lastCapture={lastCapture}
+          onOpenScreenshotLocation={openScreenshotLocation}
           onToggleInspector={(): void => setInspectorOpen((v) => !v)}
           inspectorOpen={inspectorOpen}
           inspectorBadge={screen.report?.checks.filter((c) => c.level === 'fail').length ?? 0}

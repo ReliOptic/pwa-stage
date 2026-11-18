@@ -28,7 +28,7 @@ const server=http.createServer((req,res)=>{
 });
 setTimeout(()=>app.exit(2),240000);
 server.listen(18771,'127.0.0.1',async()=>{
- require(path.resolve(__dirname, '../../dist-electron/index.js'));await app.whenReady();
+ require(process.env.SIMULATOR_TEST_ENTRY || path.resolve(__dirname, '../../dist-electron/index.js'));await app.whenReady();
  try{
  const win=await wait(()=>BrowserWindow.getAllWindows()[0]);win.show();win.focus();win.webContents.setBackgroundThrottling(false);
  const js=e=>win.webContents.executeJavaScript(e);
@@ -145,6 +145,35 @@ server.listen(18771,'127.0.0.1',async()=>{
  assert.equal(installed[0].launchUrl,site+'/chrome');
  assert.equal(installed[0].opensAsWebApp,false);
  assert.equal(installed[1].name,'Coast');
+ // Open the bundled tools from the same Home where both browsers installed a site.
+ const tool=name=>click('.home-grid button[aria-label="'+name+'"]');
+ const backHome=()=>click('[aria-label="Back to Home Screen"]');
+ await tool('Manifest');
+ await wait(()=>js("document.querySelector('.home-tool-scroll pre')?.textContent.includes('start_url')"));
+ await click('[aria-label="Refresh inspection"]');await capture('home-manifest');
+ await backHome();await tool('PWA Checks');
+ await wait(()=>present('.home-tool-check'));await capture('home-pwa-checks');await backHome();
+ const homeIconSize=()=>js("document.querySelector('.home-grid button').offsetWidth");
+ const regular=await homeIconSize();
+ await tool('Settings');await click('.home-utility label:nth-child(2) input');
+ await wait(async()=>await homeIconSize()>regular);
+ await capture('home-settings');
+ await backHome();await capture('home-large-icons');await tool('Settings');
+ await click('.home-utility label:nth-child(2) input');
+ await wait(async()=>await homeIconSize()===regular);
+ await click('.home-tool-app:nth-child(2)');
+ await setField('.home-utility input:not([type=checkbox])','Coast Maps');
+ await click('.home-utility input[type=checkbox]');await clickText('Save changes');
+ const readInstalled=()=>js('JSON.parse(localStorage.getItem("pwa-stage.installed-web-apps.v1"))');
+ await wait(async()=> (await readInstalled()).some(a=>a.name==='Coast Maps' && !a.opensAsWebApp));
+ await capture('home-app-details');
+ await clickText('Open app');await wait(()=>pageLoaded('safari'));
+ assert.equal((await js('window.simulatorBridge.getInitialPayload()')).value.state.shellMode,'ios-safari');
+ await goHome();await tool('Settings');await click('.home-tool-app:nth-child(2)');
+ await clickText('Remove from Home Screen');await clickText('Cancel');assert.equal((await readInstalled()).length,2);
+ await clickText('Remove from Home Screen');await clickText('Confirm removal');
+ await wait(async()=>(await readInstalled()).length===1);
+ await backHome();assert(!await present('.home-grid [aria-label="Coast Maps"]'));
  await click('.home-grid [aria-label="Tide Table"]');await wait(()=>present('.app-surface-app'));
  const chromeBookmarkLaunch=await js('window.simulatorBridge.getInitialPayload()');
  win.webContents.send('simulator:external-state',{...chromeBookmarkLaunch.value.state,selectedDeviceId:'iphone-duo-unfolded',duoDisplayMode:'single-span'});

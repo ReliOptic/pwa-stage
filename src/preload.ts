@@ -79,6 +79,8 @@ export const simulatorBridge: SimulatorBridgeApi = {
     ipcRenderer.invoke('simulator:guest-input', webContentsId, event),
   inspectPage: (webContentsId: number) =>
     ipcRenderer.invoke('simulator:inspect-page', webContentsId),
+  getScreenshotDirectory: () => ipcRenderer.invoke('simulator:screenshot-directory'),
+  openScreenshotLocation: (latest: boolean) => ipcRenderer.invoke('simulator:open-screenshot-location', latest),
   captureScreenshot: (
     rect: { x: number; y: number; width: number; height: number },
     deviceName: string

@@ -368,7 +368,9 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
                 left: `${b.left}px`,
                 width: `${eff.logicalWidth}px`,
                 height: `${eff.logicalHeight}px`,
-                borderRadius: innerRadiusCss
+                borderRadius: innerRadiusCss,
+                ['--utility-safe-top' as string]: `${eff.safeArea.top}px`,
+                ['--utility-safe-side' as string]: `${Math.max(eff.safeArea.left,eff.safeArea.right)}px`
               }}
             >
               <AppSurface>

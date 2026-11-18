@@ -80,7 +80,9 @@ server.listen(0, '127.0.0.1', async () => {
       window.requestAnimationFrame=cb=>nativeRAF(real=>{
         if(real!==clock.last){
           clock.last=real;
-          if(clock.stop===null || stage.dataset.motionFrame!==String(clock.stop)) clock.now+=6;
+          const frame=Number(stage.dataset.motionFrame || 0);
+          if(clock.stop===null) clock.now+=32;
+          else if(frame!==clock.stop) clock.now+=Math.abs(clock.stop-frame)<6?2:6;
         }
         cb(clock.now);
       });
@@ -88,15 +90,16 @@ server.listen(0, '127.0.0.1', async () => {
       marker.id='focus-fence';marker.style.cssText='position:fixed;top:0;left:0;width:8px;height:8px;z-index:2147483647;pointer-events:none';
       document.body.append(marker);
       const control=document.createElement('style');
-      control.textContent='.focus-control .duo-focus-source{filter:none!important}';
+      control.textContent='.focus-control .duo-focus-source{filter:none!important}.no-glint .duo-grazing-glass{visibility:hidden!important}';
       document.head.append(control);
     })()`);
-    const capture = async (control) => {
-      await evaluate(`document.body.classList.toggle('focus-control',${control});document.querySelector('#focus-fence').style.background='${control ? 'red' : 'lime'}'`);
+    const capture = async (control, hideGlint=false) => {
+      const red=control || hideGlint;
+      await evaluate(`document.body.classList.toggle('focus-control',${control});document.body.classList.toggle('no-glint',${hideGlint});document.querySelector('#focus-fence').style.background='${red ? 'red' : 'lime'}'`);
       let previous;
       return until(async () => {
         const image = await shell.capturePage(), px = image.toBitmap(), i = (2 * image.getSize().width + 2) * 4;
-        if (!(control ? px[i+2]>250 && px[i+1]<5 : px[i+1]>250 && px[i+2]<5)) return false;
+        if (!(red ? px[i+2]>250 && px[i+1]<5 : px[i+1]>250 && px[i+2]<5)) return false;
         // The native guest and the masked mirror can submit after the shell.
         const {width,height}=image.getSize();
         const strip=image.crop({x:0,y:Math.floor(height*0.42),width,height:36}).toBitmap();
@@ -169,6 +172,30 @@ server.listen(0, '127.0.0.1', async () => {
     // Read after a native paint, so releasing cannot switch the profile back.
     await capture(false);
     assert.equal(await guest.executeJavaScript('screen.width'),466);
+    const reflections=[];
+    shell.sendInputEvent({type:'mouseDown',...point(48),button:'left',clickCount:1});
+    for(const [direction, angles] of [['open',[55,70,85]],['close',[85,70,55]]]) {
+      for(const angle of angles) {
+        shell.sendInputEvent({type:'mouseMove',...point(angle),button:'left',modifiers:['leftButtonDown']});
+        await until(()=>evaluate(`document.querySelector('.duo-hinge-slider').value==='${angle}' && !!document.querySelector('.duo-slice-primary .duo-grazing-glass')`),'reflection at '+angle);
+        const actual=await capture(false), off=await capture(false,true);
+        const coords=await evaluate(`(()=>{const g=document.querySelector('.duo-slice-primary .duo-grazing-glass');
+          const plane=g.parentElement; const stops=[...g.style.backgroundImage.matchAll(/([-\\d.]+)px/g)].map(m=>Number(m[1]));
+          function pt(x){const p=document.createElement('i');p.style.cssText='position:absolute;top:330px;left:'+x+'px';plane.append(p);
+            const r=p.getBoundingClientRect();p.remove();return {x:r.x,y:r.y}}
+          return {moving:pt(stops[3]),held:pt(820),width:innerWidth,strength:Number(g.style.opacity)}
+        })()`);
+        const moving=differenceAt(actual,off,coords.moving,coords.width),fixed=differenceAt(actual,off,coords.held,coords.width);
+        reflections.push({direction,angle,moving,fixed,strength:coords.strength});
+        console.log('GLASS',JSON.stringify(reflections.at(-1)));
+        assert(fixed<1,'Reflection escaped the moving glass');
+        if(angle===70){assert.equal(coords.strength,1);assert(moving>3,'Missing painted 70 degree highlight');
+          fs.writeFileSync(path.join(output,'glass-'+direction+'-70-control.png'),off.toPNG());}
+        fs.writeFileSync(path.join(output,'glass-'+direction+'-'+angle+'.png'),actual.toPNG());
+      }
+    }
+    shell.sendInputEvent({type:'mouseUp',...point(55),button:'left',clickCount:1});
+    fs.writeFileSync(path.join(output,'reflection.json'),JSON.stringify(reflections,null,2));
     fs.writeFileSync(path.join(output,'handoff-profile.json'),JSON.stringify(held,null,2));
     console.log('GUEST PROFILE', JSON.stringify(held));
     assert.equal(token, await guest.executeJavaScript('window.visitToken'));
