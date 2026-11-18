@@ -61,8 +61,20 @@ server.listen(0, '127.0.0.1', async () => {
     await wait(async()=>(await state()).target==='paused');
     const stopped = (await state()).angle; await sleep(200);
     assert.equal((await state()).angle, stopped, 'Escape must hold its angle');
+    // On Core Animation the resumed sweep can finish before a round trip to
+    // the main process. Observe the actual target change before sending input.
+    await shell.executeJavaScript(`(() => {
+      const bar = document.querySelector('.duo-bottom-minibar');
+      window.observedResumeTarget = null;
+      const observer = new MutationObserver(() => {
+        if (bar.dataset.target === 'paused') return;
+        window.observedResumeTarget = bar.dataset.target;
+        observer.disconnect();
+      });
+      observer.observe(bar, { attributes: true, attributeFilter: ['data-target'] });
+    })()`);
     await click('.duo-pause-btn');
-    await wait(async()=>(await state()).target!=='paused');
+    await wait(() => shell.executeJavaScript("window.observedResumeTarget === '0'"));
     let s = await state(), r=s.rect;
     const scrubPosture=s.posture;
     const y=Math.round(r.y+r.height/2), x=value=>Math.round(r.x+10+(r.width-20)*value/180);
