@@ -20,6 +20,8 @@ Screen web app present it, on every iPhone viewport class, without opening Xcode
 | **Permissions** | Camera / mic / location / notifications / motion requests show an iOS alert inside the screen; desktop-only APIs are denied. |
 | **iPhone Duo** | Restored skinned 3D hardware with six postures and free-stop scrub. One app instance moves between the two displays (scroll position and JS state carry over, nothing reloads). **Fold / Unfold plays the Duo's signature transition**: content stays anchored in space while the moving half passes over it like tracing paper, blurring and darkening towards its free edge; the cover shows the content lying beneath it, the half in your hand stays sharp, and the other half comes into focus as it lies flat. Shift-click Fold / Unfold for slow motion. At rest (Book, Tabletop, free-stop scrub) the inner display is one sharp, continuous page across the crease. 84pt iOS 27.3 system rail, span / split. |
 
+The Electron preview negotiates a mobile site on the first request. Cross-site players and background workers receive the selected mobile browser identity. An embedded frame keeps its own layout width and reports the selected device’s logical screen and pixel ratio. Chromium still evaluates legacy CSS device-size queries in some isolated frames using the host display. Public YouTube viewing links open on `m.youtube.com`. Embedded videos, explicit desktop links and redirects chosen by the site keep their destinations. Opening the Vite shell directly in a desktop browser gives an iframe layout preview with the host browser’s network identity.
+
 On macOS, for the final pixel check use real WebKit: tray menu → **Open URL in Xcode iOS Simulator**.
 
 ## Install the page on the simulated Home Screen

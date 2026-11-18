@@ -50,6 +50,7 @@ describe('integration: simulator full device & shell switching flow', () => {
         insertCSS: vi.fn().mockResolvedValue('css'),
         executeJavaScript: vi.fn().mockResolvedValue(undefined),
         debugger: {
+          on: vi.fn(), removeListener: vi.fn(),
           isAttached: () => false,
           attach: vi.fn(),
           sendCommand: cdpSpy

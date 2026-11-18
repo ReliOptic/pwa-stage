@@ -29,6 +29,7 @@ jobs:
           ./node_modules/.bin/electron tests/electron/focus.cjs
           ./node_modules/.bin/electron tests/electron/media.cjs
           ./node_modules/.bin/electron tests/electron/gestures.cjs
+          ./node_modules/.bin/electron tests/electron/mobile-rendering.cjs
         timeout-minutes: 8
       - name: Verify in-device video and capture location on Windows
         if: runner.os == 'Windows'
@@ -36,6 +37,8 @@ jobs:
           node_modules/.bin/electron.cmd tests/electron/media.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node_modules/.bin/electron.cmd tests/electron/gestures.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node_modules/.bin/electron.cmd tests/electron/mobile-rendering.cjs
         timeout-minutes: 3
       - name: Real Electron regression flows
         if: runner.os == 'Linux'

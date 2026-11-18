@@ -117,6 +117,7 @@ describe('emulation service', () => {
       insertCSS: vi.fn().mockResolvedValue('css-key'),
       executeJavaScript: vi.fn().mockResolvedValue(undefined),
       debugger: {
+        on: vi.fn(), removeListener: vi.fn(),
         isAttached: () => false,
         attach: vi.fn(),
         sendCommand: sendCommandMock
@@ -147,6 +148,7 @@ describe('emulation service', () => {
     const failingTarget: EmulationTargetWebContents = {
       ...mockTarget,
       debugger: {
+        on: vi.fn(), removeListener: vi.fn(),
         isAttached: () => true,
         attach: vi.fn(),
         sendCommand: vi.fn().mockRejectedValue(new Error('CDP detached'))

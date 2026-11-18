@@ -30,7 +30,8 @@ import {
   isTrustedShellSender
 } from './services/security';
 import { createDefaultSimulatorState, mergeStoredStateWithDefaults } from './services/storage';
-import { forgetEmulationTarget } from './services/emulation';
+import { installMobileNavigation } from './services/mobile-navigation';
+import { buildMobileUserAgent, forgetEmulationTarget } from './services/emulation';
 import {
   clampMirrorFps,
   forwardGuestPointerEvent,
@@ -592,6 +593,9 @@ export function bootstrapElectronApp(): void {
     const rebootRoot = resolveRebootStaticRoot(__dirname, process.resourcesPath);
     const rebootServerUrl = await startEmbeddedRebootServer(rebootRoot, 18765);
     const deps = buildCoordinatorDependencies(rebootServerUrl);
+    // A background service worker can start before there is a page to attach to.
+    app.userAgentFallback = buildMobileUserAgent(readCurrentState(deps).shellMode,
+      deps.envConfig.safariIosVersion, deps.envConfig.chromeIosVersion);
     const ctx: MenuControllerContext = {
       deps,
       getWindow: () => mainFloatingWindow,
@@ -612,6 +616,7 @@ export function bootstrapElectronApp(): void {
 
     // Guests are untrusted: every camera / mic / location / notification
     // request becomes an iOS-style alert inside the simulated screen.
+    installMobileNavigation(session.defaultSession);
     installGuestPermissionPrompts(
       session.defaultSession,
       { ask: askPermissionInShell },

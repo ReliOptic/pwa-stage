@@ -22,6 +22,8 @@ export interface CdpTouchEmulationPayload {
 export interface EmulationProfile {
   readonly userAgent: string;
   readonly platform: string;
+  readonly standalone: boolean;
+  readonly mediaFeatures: { name: string; value: string }[];
   readonly metrics: CdpDeviceMetricsPayload;
   readonly touch: CdpTouchEmulationPayload;
   readonly pageSafeArea: SafeAreaInsets;
@@ -41,14 +43,23 @@ export interface EmulationProfileInput {
   readonly pwaStatusBarStyle?: PwaStatusBarStyle;
 }
 
+export interface RelatedTargetEvent {
+  readonly sessionId: string;
+  readonly targetInfo?: { readonly type: string };
+  readonly waitingForDebugger?: boolean;
+}
+
 export interface DebuggerCommandSender {
   readonly isAttached: () => boolean;
   readonly attach: (protocolVersion?: string) => void;
-  readonly sendCommand: (method: string, commandParams?: Record<string, unknown>) => Promise<unknown>;
+  readonly on: (event: 'message', listener: (event: unknown, method: string, params: RelatedTargetEvent) => void) => unknown;
+  readonly removeListener: DebuggerCommandSender['on'];
+  readonly sendCommand: (method: string, commandParams?: Record<string, unknown>, sessionId?: string) => Promise<unknown>;
 }
 
 export interface EmulationTargetWebContents {
   readonly id: number;
+  readonly session?: {setUserAgent: (userAgent: string) => void};
   readonly setUserAgent: (userAgent: string) => void;
   readonly setZoomFactor?: (factor: number) => void;
   readonly insertCSS: (css: string) => Promise<string>;

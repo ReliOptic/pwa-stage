@@ -1,4 +1,5 @@
-import { Orientation, SafeAreaInsets } from '../types/device.types';
+import { mobileChildTargets } from './mobile-targets';
+import { DeviceFormFactor, Orientation, SafeAreaInsets } from '../types/device.types';
 import {
   EmulationProfile,
   EmulationProfileInput,
@@ -99,7 +100,7 @@ export function buildStandaloneInitScript(
   define(Navigator.prototype, 'vendor', 'Apple Computer, Inc.');
   define(Navigator.prototype, 'maxTouchPoints', 5);
   try { delete Navigator.prototype.userAgentData; } catch {}
-  define(Navigator.prototype, 'userAgentData', undefined);
+
 
 
   // --- (display-mode) media queries: Chromium cannot emulate them ---------
@@ -293,6 +294,11 @@ export function buildEmulationProfile(input: EmulationProfileInput): EmulationPr
       input.chromeIosVersion
     ),
     platform: 'iPhone',
+    standalone: input.shellMode === BrowserShellMode.PWA_STANDALONE,
+    mediaFeatures: [
+      { name: 'prefers-color-scheme', value: input.darkMode ? 'dark' : 'light' },
+      { name: 'prefers-reduced-motion', value: 'no-preference' }
+    ],
     metrics: {
       width: screenWidth - railWidth,
       height: viewportHeight,
@@ -325,12 +331,14 @@ export function buildEmulationProfile(input: EmulationProfileInput): EmulationPr
 
 /** Per-guest bookkeeping so re-applying emulation replaces instead of stacking. */
 interface AppliedGuestState {
+  children?: ReturnType<typeof mobileChildTargets>;
   cssKey: string | null;
   initScriptId: string | null;
 }
 const appliedByGuest = new Map<number, AppliedGuestState>();
 
 export function forgetEmulationTarget(webContentsId: number): void {
+  appliedByGuest.get(webContentsId)?.children?.dispose();
   appliedByGuest.delete(webContentsId);
 }
 
@@ -375,29 +383,34 @@ async function applyEmulationNow(
 ): Promise<Result<EmulationProfile, EmulationFailureError>> {
   const profile = buildEmulationProfile(input);
   const insets = profile.pageSafeArea;
-  const bookkeeping = appliedByGuest.get(target.id) ?? { cssKey: null, initScriptId: null };
+  const bookkeeping: AppliedGuestState = appliedByGuest.get(target.id) ?? { cssKey: null, initScriptId: null };
   appliedByGuest.set(target.id, bookkeeping);
 
   try {
     if (!target.debugger.isAttached()) {
+      bookkeeping.children?.dispose();
+      bookkeeping.children = undefined;
       target.debugger.attach('1.3');
     }
     // Page must be enabled before registering scripts, otherwise Chromium
     // acknowledges the registration but skips it at document creation.
     await target.debugger.sendCommand('Page.enable');
+    target.session?.setUserAgent(profile.userAgent);
     target.setUserAgent(profile.userAgent);
+    bookkeeping.children ??= mobileChildTargets(target.debugger, profile);
     target.setZoomFactor?.(1.0);
 
     await Promise.all([
+      bookkeeping.children.update(profile),
       target.debugger.sendCommand('Emulation.setUserAgentOverride', {
         userAgent: profile.userAgent,
         platform: profile.platform
       }),
-      // width/height 0 = keep the real <webview> box (which already matches the
-      // simulated viewport); only density, screen size and mobile viewport
-      // semantics (meta viewport, overlay scrollbars, text autosizing) change.
+      // Give rigid displays their logical width before the new renderer's first
+      // layout. Duo panes resize continuously, and browser chrome changes height.
       target.debugger.sendCommand('Emulation.setDeviceMetricsOverride', {
-        width: 0,
+        width: input.preset.formFactor === DeviceFormFactor.FOLDABLE_COVER ||
+          input.preset.formFactor === DeviceFormFactor.FOLDABLE_DUAL ? 0 : profile.metrics.width,
         height: 0,
         deviceScaleFactor: profile.metrics.deviceScaleFactor,
         mobile: true,
@@ -412,10 +425,7 @@ async function applyEmulationNow(
         enabled: !input.touchCursorEnabled, configuration: 'mobile'
       }),
       target.debugger.sendCommand('Emulation.setEmulatedMedia', {
-        features: [
-          { name: 'prefers-color-scheme', value: input.darkMode ? 'dark' : 'light' },
-          { name: 'prefers-reduced-motion', value: 'no-preference' }
-        ]
+        features: profile.mediaFeatures
       }),
       target.debugger
         .sendCommand('Emulation.setSafeAreaInsetsOverride', {

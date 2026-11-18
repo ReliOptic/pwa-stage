@@ -52,6 +52,7 @@ function createMockCoordinatorDeps(): CoordinatorDependencies {
             executeJavaScript: vi.fn().mockResolvedValue(undefined),
             openDevTools: vi.fn(),
             debugger: {
+              on: vi.fn(), removeListener: vi.fn(),
               isAttached: () => false,
               attach: vi.fn(),
               sendCommand: vi.fn().mockResolvedValue({})
