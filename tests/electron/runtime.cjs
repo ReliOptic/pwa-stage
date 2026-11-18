@@ -31,11 +31,20 @@ server.listen(0,'127.0.0.1',async()=>{
       if(guest && guest.debugger.isAttached() && guest.getURL().startsWith(site+'/')) break;
       await sleep(100);
     }
-    await sleep(1200);
-    const first=await probe(guest);
+    const probeLoaded = async () => {
+      for(let i=0;i<100;i++) {
+        if(await evaluate(guest, "document.readyState === 'complete' && !!window.boot && !!document.querySelector('#nested')")) {
+          return probe(guest);
+        }
+        await sleep(50);
+      }
+      throw Error('Fixture did not finish loading');
+    };
+    const first=await probeLoaded();
+    const reloaded=new Promise(resolve=>guest.once('did-finish-load',resolve));
     guest.reload();
-    await sleep(1200);
-    const reload=await probe(guest);
+    await reloaded;
+    const reload=await probeLoaded();
     await evaluate(guest, `document.querySelector('a').click()`);
     await sleep(1200);
     const win=BrowserWindow.getAllWindows().find(w=>w.webContents.getType()==='window');

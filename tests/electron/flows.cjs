@@ -184,6 +184,10 @@ server.listen(18771,'127.0.0.1',async()=>{
  await wait(()=>guest.executeJavaScript("!document.querySelector('dialog').open"));
  await wait(async()=>!await present('.duo-cover-source[data-framed-dialog]'));
  await scrub(180);
+ // A range input updates its readout before the guest and native hit regions
+ // finish moving from the 466-point cover to the 951-point inner display.
+ await wait(()=>guest.executeJavaScript('screen.width===951'));
+ await capture('duo-wide-after-cover');
  await click('button[aria-label="Posture and finish"]');
  await click('button[title="Cover Display (5.4″ · 466×678pt)"]');
  await wait(()=>js('document.querySelector(".duo-hinge-slider").value==="0"'));await sleep(500);
