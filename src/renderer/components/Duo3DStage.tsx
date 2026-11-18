@@ -216,20 +216,43 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const [coverDialog, setCoverDialog] = useState<{ center: number; width: number } | null>(null);
   const coverPaneRef = useRef<HTMLDivElement>(null);
   const [coverSelected, setCoverSelected] = useState(false);
-  const [atlas, setAtlas] = useState<{ finish: string; images: HTMLImageElement[] } | null>(null);
+  const [atlas, setAtlas] = useState<{ finish: string; frames: ImageBitmap[] } | null>(null);
   const motionCanvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     let active = true;
-    const images = motionCrops.map((_, group) => {
-      const img = new Image();
-      img.src = `./duo-3d/motion/${finish}-${group}.webp`;
-      return img;
-    });
-    Promise.all(images.map(img => img.decode())).then(() => {
-      if (active) setAtlas({finish, images});
-    }).catch(() => { if (active) setAtlas(null); });
-    return () => { active = false; };
+    let published = false;
+    const frames: ImageBitmap[] = [];
+    async function prepare() {
+      // Raster each sheet once. Drawing a source rectangle directly from a large
+      // compressed atlas can synchronously upload the whole sheet on first use.
+      for (let group = 0; group < motionCrops.length && active; group++) {
+        const sheet = new Image();
+        sheet.src = `./duo-3d/motion/${finish}-${group}.webp`;
+        await sheet.decode();
+        if (!active) return;
+        const [left, top, right, bottom] = motionCrops[group];
+        const width = right - left, height = bottom - top;
+        const tile = new OffscreenCanvas(width, height);
+        const ctx = tile.getContext('2d', {willReadFrequently: true});
+        if (!ctx) return;
+        for (let i = 0; i < 9 && group * 9 + i <= 60; i++) {
+          ctx.drawImage(sheet, i % 3 * width, Math.floor(i / 3) * height,
+            width, height, 0, 0, width, height);
+          frames.push(tile.transferToImageBitmap());
+        }
+      }
+      if (active) {
+        published = true;
+        setAtlas({finish, frames});
+      }
+    }
+    void prepare().catch(() => { if (active) setAtlas(null); });
+    return () => {
+      active = false;
+      if (!published) frames.forEach(bitmap => bitmap.close());
+    };
   }, [finish]);
+  useEffect(() => () => { atlas?.frames.forEach(bitmap => bitmap.close()); }, [atlas]);
   const useMotionRig = transitioning && atlas?.finish === finish && orbitDeg === 0 && pitchDeg === 0 &&
     (posture === 'open' || posture === 'closed');
   const frame = Math.round(foldAngle / 3);
@@ -241,8 +264,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     const [left, top, right, bottom] = motionCrops[group];
     const width = right - left, height = bottom - top;
     ctx.clearRect(0, 0, STAGE_WIDTH, STAGE_HEIGHT);
-    ctx.drawImage(atlas.images[group], frame % 3 * width, Math.floor(frame % 9 / 3) * height,
-      width, height, left, top, width, height);
+    ctx.drawImage(atlas.frames[frame], left, top, width, height);
   }, [atlas, frame, useMotionRig]);
   const projectedAngle = useMotionRig ? frame * 3 : foldAngle;
   const dragRef = useRef<{

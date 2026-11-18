@@ -37,6 +37,17 @@ function createMockWindow(destroyed = false): NativeFloatingWindow {
 }
 
 describe('window-manager service', () => {
+  it('does not resize or reapply Spaces when the Duo hands off between displays', () => {
+    const win = createMockWindow();
+    for (const id of [DeviceModelId.IPHONE_DUO_FOLDED, DeviceModelId.IPHONE_DUO_UNFOLDED]) {
+      applyDeviceWindowBounds(win, {
+        preset: getDevicePresetById(id), orientation: Orientation.PORTRAIT, scale: 0.85, isFramed: true
+      });
+      setFloatingPin(win, true);
+    }
+    expect(win.setSize).toHaveBeenCalledTimes(1);
+    expect(win.setAlwaysOnTop).toHaveBeenCalledTimes(1);
+  });
   it('resizes floating window when switching from iPhone 17 to iPhone Duo Unfolded', () => {
     const win = createMockWindow(false);
     const duoPreset = getDevicePresetById(DeviceModelId.IPHONE_DUO_UNFOLDED);

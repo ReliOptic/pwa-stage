@@ -175,7 +175,10 @@ server.listen(0, '127.0.0.1', async () => {
     for (const [name, title, angle] of postures) {
       await js('document.querySelector("button[aria-label=\'Posture and finish\']").click()');
       await js('document.querySelector(' + JSON.stringify('button[title=' + JSON.stringify(title) + ']') + ').click()');
-      await wait(() => js('Number(document.querySelector(".duo-hinge-slider").value) === ' + angle));
+      // The slider rounds to integer degrees. Before the drive settles, the
+      // camera can still move far enough to shift an edge by two output pixels.
+      await wait(() => js(`Number(document.querySelector('.duo-hinge-slider').value) === ${angle}
+        && document.querySelector('.duo-bottom-minibar').dataset.target === 'paused'`));
       assert.equal(guests().length, 1); assert.equal(guests()[0].id, guestId);
       await snap('duo-' + name);
     }

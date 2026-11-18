@@ -7,6 +7,10 @@ import {
 import { logStructured } from '../utils/logger.util';
 import { computeViewportMetrics } from '../utils/viewport-math.util';
 
+// The initial workspace policy must be applied even if BrowserWindow was
+// constructed at the requested floating level.
+const appliedPin = new WeakMap<NativeFloatingWindow, boolean>();
+
 export function applyDeviceWindowBounds(
   win: NativeFloatingWindow,
   request: WindowResizeRequest
@@ -35,19 +39,17 @@ export function applyDeviceWindowBounds(
       request.hudCollapsed ?? false
     );
 
-    win.setSize(
-      metrics.scaledOuterWidth,
-      metrics.scaledOuterHeight,
-      request.animate ?? false
-    );
-
-    logStructured('info', 'window-manager.service', 'window_bounds_updated', {
-      deviceId: request.preset.id,
-      orientation: request.orientation,
-      scale: request.scale,
-      width: metrics.scaledOuterWidth,
-      height: metrics.scaledOuterHeight
-    });
+    const [width, height] = win.getSize();
+    if (width !== metrics.scaledOuterWidth || height !== metrics.scaledOuterHeight) {
+      win.setSize(metrics.scaledOuterWidth, metrics.scaledOuterHeight, request.animate ?? false);
+      logStructured('info', 'window-manager.service', 'window_bounds_updated', {
+        deviceId: request.preset.id,
+        orientation: request.orientation,
+        scale: request.scale,
+        width: metrics.scaledOuterWidth,
+        height: metrics.scaledOuterHeight
+      });
+    }
 
     return {
       ok: true,
@@ -92,11 +94,17 @@ export function setFloatingPin(
   }
 
   try {
+    // Reapplying the Spaces policy can temporarily hide an Electron window on
+    // macOS. A fold, navigation, or theme change should never move the window.
+    if (appliedPin.get(win) === pinned && win.isAlwaysOnTop() === pinned) {
+      return { ok: true, value: pinned };
+    }
     win.setAlwaysOnTop(pinned, pinned ? 'floating' : 'normal');
     if (process.platform !== 'win32') {
       win.setVisibleOnAllWorkspaces(!pinned, { visibleOnFullScreen: !pinned });
     }
 
+    appliedPin.set(win, pinned);
     logStructured('info', 'window-manager.service', 'floating_pin_changed', {
       alwaysOnTop: pinned
     });

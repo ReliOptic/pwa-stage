@@ -8,7 +8,7 @@ This document captures the current architecture, verified state, exact remaining
 
 ### Playback and preview controls in 1.0.6
 
-Ordinary Fold and Unfold advance through compositor frames even when a display update stalls. Front-view motion uses the bundled hardware rendered at three-degree intervals with a depth-tested aperture over the persistent live page. The free camera and stationary postures still render the mesh at the selected angle. Device controls open from a fixed toolbar above the preview. Launch and Home animate the page and browser bars to the chosen icon. The primary surface's animation completion drives the phase change.
+Ordinary Fold and Unfold advance through compositor frames even when a display update stalls. Front-view motion uses the bundled hardware rendered at three-degree intervals with a depth-tested aperture over the persistent live page. The free camera and stationary postures still render the mesh at the selected angle. Device controls open from a fixed toolbar above the preview. The native window only resizes or reapplies its Spaces policy when needed. Launch and Home animate the page and browser bars to the chosen icon. The primary surface's animation completion drives the phase change.
 
 `tests/electron/motion.cjs` samples actual device pixels at ordinary speed in both directions. The optional eight-times-slower recording exercises separate inspection and interruption cases.
 
