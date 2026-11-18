@@ -36,11 +36,6 @@ server.listen(0, '127.0.0.1', async () => {
     win.focus();
     const reducedBySystem = await shell.executeJavaScript("matchMedia('(prefers-reduced-motion: reduce)').matches");
     console.log('Default desktop motion preference:', reducedBySystem ? 'reduced' : 'normal', 'window:', win.getBounds());
-    // Exercise ordinary and reduced mode independently of the runner's accessibility setting.
-    if (reducedBySystem) {
-      shell.debugger.attach('1.3');
-      await shell.debugger.sendCommand('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
-    }
     const state = () => shell.executeJavaScript(`(() => {const bar=document.querySelector('.duo-bottom-minibar'),slider=document.querySelector('.duo-hinge-slider');return bar&&{angle:Number(slider.value),target:bar.dataset.target,posture:bar.dataset.posture,rect:slider.getBoundingClientRect().toJSON()}})()`);
     await wait(async () => (await state())?.angle === 0);
     await wait(() => webContents.getAllWebContents().some(w=>w.getType()==='webview' && w.getURL().startsWith(process.env.SIMULATOR_DEFAULT_URL) && !w.isLoading()));
@@ -53,6 +48,11 @@ server.listen(0, '127.0.0.1', async () => {
     };
     const settled = angle => wait(async()=>{const s=await state();return s.angle===angle&&s.target==='paused'});
     const toggle = async slow => { await click('.duo-fold-toggle', slow); await sleep(80); };
+    if (reducedBySystem) {
+      // Measure the same explicit override available to someone with Reduce Motion enabled.
+      await click('.duo-enable-motion');
+      await wait(() => shell.executeJavaScript("document.querySelector('.duo-bottom-minibar').dataset.motion === 'full'"));
+    }
     // Ordinary-speed playback must change the composited device itself. Sample
     // the static fixture and rim at mid-height, excluding both control bars.
     const ordinary = [];
@@ -209,7 +209,21 @@ server.listen(0, '127.0.0.1', async () => {
     // OS reduced-motion preference uses an immediate, deterministic endpoint.
     if (!shell.debugger.isAttached()) shell.debugger.attach('1.3');
     await shell.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
-    await toggle(false); await settled(0); shell.debugger.detach();
+    if (reducedBySystem) {
+      await click('.duo-settings');
+      await click('.duo-motion-preference input');
+      await click('.duo-settings');
+    }
+    const motionMode = () => shell.executeJavaScript("document.querySelector('.duo-bottom-minibar').dataset.motion");
+    await wait(async () => await motionMode() === 'reduced');
+    await toggle(false); await settled(0);
+    assert(await shell.executeJavaScript("!!document.querySelector('.duo-enable-motion')"));
+    fs.writeFileSync(path.join(out,'motion-reduced.png'),(await shell.capturePage()).toPNG());
+    await click('.duo-enable-motion');
+    await wait(async () => await motionMode() === 'full');
+    assert.equal(await shell.executeJavaScript("localStorage.getItem('duo-always-animate')"),'true');
+    await toggle(false); await settled(180);
+    shell.debugger.detach();
     fs.writeFileSync(path.join(out,'motion.json'),JSON.stringify({checkpoints,scrubbed,sizes,guestId:guest.id,token,ordinary,frames,reducedMotion:true},null,2));
     console.log('PASS motion: reverse, pause, drag, keyboard, guest continuity, reduced motion');
     clearTimeout(watchdog); app.exit(0);

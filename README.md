@@ -130,4 +130,6 @@ The slab frame now uses the bundled hardware artwork, registered and rotated wit
 
 `display-mode` CSS emulation covers nested rules and dynamically added accessible stylesheets. Browser origin protections still apply to cross-origin CSS; validate those cases in real WebKit. This tool does not replace iOS device testing. Internal build 1.0.3 has been exercised on Linux Electron; macOS and Windows packages are cross-built and unsigned.
 
-Duo controls: click Open / Close again to reverse, Escape or Pause to stop, and Resume to continue. Drag the wider angle slider for direct control without changing the selected camera; Home / End and arrow keys work when it has focus. Shift-click Open / Close for 8× slow playback. Reduced motion skips automated movement. See [interaction review](docs/fold-interaction-review.md) for the Apple reference, corrections and verification limits.
+Duo controls: click Open / Close again to reverse, Escape or Pause to stop, and Resume to continue. Drag the wider angle slider for direct control without changing the selected camera; Home / End and arrow keys work when it has focus. Shift-click Open / Close for 8× slow playback. See [interaction review](docs/fold-interaction-review.md) for the Apple reference, corrections and verification limits.
+
+When the system has Reduce Motion enabled, Duo opens and closes immediately. Choose **Enable motion** next to Open to preview the fold animation. The setting is saved on this computer. Clear **Always animate folding** in the posture controls to follow the system again.

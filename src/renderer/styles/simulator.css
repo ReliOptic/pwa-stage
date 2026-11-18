@@ -1223,6 +1223,11 @@ html, body, #root {
 .duo-secondary-controls .duo-posture-strip { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 3px; }
 .duo-secondary-controls .shadcn-seg-item { justify-content: center; color: var(--shell-secondary); }
 .duo-secondary-controls .duo-telemetry-group { justify-content: flex-end; border-top: 1px solid var(--shell-line); padding-top: 6px; }
+.duo-enable-motion { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; min-height: 32px;
+  padding: 0 7px; border: 0; border-radius: 9px; cursor: pointer; color: var(--shell-ink); background: var(--shell-well); font: 11px system-ui; }
+.duo-motion-preference { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 32px; border-top: 1px solid var(--shell-line); color: var(--shell-ink); font: 12px system-ui; cursor: pointer; }
+.duo-motion-preference input { accent-color: var(--shell-ink); }
 .duo-secondary-controls .duo-finish-label { color: var(--shell-secondary); font: 11px system-ui; margin-right: auto; }
 
 /* System sheets sit within the device and always follow its own appearance. */

@@ -23,6 +23,9 @@ export interface DuoFoldMiniBarProps {
   readonly foldAngle: number;
   readonly targetAngle: number | null;
   readonly canResume: boolean;
+  readonly motionReduced: boolean;
+  readonly alwaysAnimate: boolean;
+  readonly onMotionOverride: (value: boolean) => void;
   readonly onResume: () => void;
   readonly onToggleFold: (slow?: boolean) => void;
   readonly onPause: () => void;
@@ -59,6 +62,9 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
     foldAngle,
     targetAngle,
     canResume,
+    motionReduced,
+    alwaysAnimate,
+    onMotionOverride,
     onResume,
     onToggleFold,
     onPause,
@@ -122,21 +128,26 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
   };
 
   return (
-    <div ref={barRef} className="duo-bottom-minibar" role="region" aria-label="iPhone Duo 3D Hinge Control" data-posture={posture} data-target={targetAngle ?? "paused"}>
+    <div ref={barRef} className="duo-bottom-minibar" role="region" aria-label="iPhone Duo 3D Hinge Control" data-motion={motionReduced ? 'reduced' : 'full'} data-posture={posture} data-target={targetAngle ?? "paused"}>
       <div className="duo-scrub-deck">
         <button type="button" className="duo-fold-toggle"
           onClick={e => onToggleFold(e.shiftKey)}
-          title="Open / close. Click again to reverse. Shift-click for slow motion."
+          title={motionReduced ? "Open or close instantly. Reduced Motion is on." : "Open / close. Click again to reverse. Shift-click for slow motion."}
           aria-label={(targetAngle ?? foldAngle) < 90 ? 'Open Duo' : 'Close Duo'}>
           {(targetAngle ?? foldAngle) < 90 ? <BookOpen size={15} /> : <FolderClosed size={15} />}
           <span>{(targetAngle ?? foldAngle) < 90 ? 'Open' : 'Close'}</span>
         </button>
-        <button type="button" className="duo-pause-btn" onClick={canResume ? onResume : onPause}
+        {motionReduced ? (
+          <button type="button" className="duo-enable-motion" onClick={() => onMotionOverride(true)}
+            title="Reduced Motion is on. Enable folding animation in this simulator.">
+            <Play size={12} /> Enable motion
+          </button>
+        ) : <button type="button" className="duo-pause-btn" onClick={canResume ? onResume : onPause}
           disabled={targetAngle === null && !canResume}
           aria-label={canResume ? 'Resume hinge motion' : 'Pause hinge motion'}
           title={canResume ? 'Resume' : 'Pause (Escape)'}>
           {canResume ? <Play size={15} /> : <Pause size={15} />}
-        </button>
+        </button>}
         <button
           type="button"
           className="duo-frame-step-btn"
@@ -220,6 +231,10 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
         })}
       </div>
 
+      <label className="duo-motion-preference">
+        <span>Always animate folding</span>
+        <input type="checkbox" checked={alwaysAnimate} onChange={e => onMotionOverride(e.target.checked)} />
+      </label>
       <div className="duo-telemetry-group">
         <span className="duo-finish-label">{finish === 'night' ? 'Night Sky' : 'Star White'}</span>
         <span className={`duo-status-pill duo-status-${status}`}>

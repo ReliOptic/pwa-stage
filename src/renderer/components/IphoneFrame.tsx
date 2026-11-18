@@ -422,6 +422,9 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
           targetAngle={hinge.targetAngle}
           canResume={hinge.resumeAngle !== null}
           onResume={hinge.resume}
+          motionReduced={hinge.motionReduced}
+          alwaysAnimate={hinge.alwaysAnimate}
+          onMotionOverride={hinge.setMotionOverride}
           onToggleFold={requestDuoFoldToggle}
           onPause={hinge.pause}
           posture={hinge.posture}

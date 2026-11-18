@@ -16,6 +16,25 @@ export function useDuoHingeController(selectedDeviceId: DeviceModelId) {
   const [finish, setFinish] = useState<'night' | 'white'>('night');
   const [orbitDeg, setOrbitDeg] = useState(0);
   const [pitchDeg, setPitchDeg] = useState(0);
+  const [systemReducesMotion, setSystemReducesMotion] = useState(
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+  const [alwaysAnimate, setAlwaysAnimate] = useState(
+    () => window.localStorage.getItem('duo-always-animate') === 'true'
+  );
+  const motionReduced = systemReducesMotion && !alwaysAnimate;
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => setSystemReducesMotion(media.matches);
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, []);
+  const setMotionOverride = (value: boolean) => {
+    if (value) window.localStorage.setItem('duo-always-animate', 'true');
+    else window.localStorage.removeItem('duo-always-animate');
+    setAlwaysAnimate(value);
+  };
   const raf = useRef<number | null>(null);
   const angle = useRef(initial);
   const velocity = useRef(0);
@@ -48,9 +67,8 @@ export function useDuoHingeController(selectedDeviceId: DeviceModelId) {
     target.current = destination;
     setTargetAngle(destination);
     setResumeAngle(null);
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const duration = computeFoldDriveDurationMs(from, destination) * getFoldSlowFactor();
-    if (reducedMotion || Math.abs(destination - from) < 0.25) {
+    if (motionReduced || Math.abs(destination - from) < 0.25) {
       angle.current = destination;
       setFoldAngle(destination);
       stop();
@@ -71,7 +89,7 @@ export function useDuoHingeController(selectedDeviceId: DeviceModelId) {
       else raf.current = requestAnimationFrame(step);
     };
     raf.current = requestAnimationFrame(step);
-  }, [stop]);
+  }, [stop, motionReduced]);
 
   const toggle = useCallback(() => {
     // Reverse the pending destination, even before the hinge crosses halfway.
@@ -124,7 +142,7 @@ export function useDuoHingeController(selectedDeviceId: DeviceModelId) {
   }, [foldActionBase]);
 
   return { foldAngle, targetAngle, resumeAngle, isAnimating: targetAngle !== null, posture, finish,
-    orbitDeg, pitchDeg, setFinish, setOrbitDeg, setPitchDeg, pause, toggle,
+    orbitDeg, pitchDeg, motionReduced, alwaysAnimate, setMotionOverride, setFinish, setOrbitDeg, setPitchDeg, pause, toggle,
     resume: () => { if (resumeAngle !== null) animateToAngle(resumeAngle); },
     animateToAngle, scrubToAngle, selectPosture,
     markInternalSync: (id: DeviceModelId) => { internalSync.current = id; }
