@@ -56,6 +56,19 @@ server.listen(0, '127.0.0.1', async () => {
       shell.sendInputEvent({type:'mouseMove',x:event.x,y:event.y});
       shell.sendInputEvent({type:'mouseDown',...event}); shell.sendInputEvent({type:'mouseUp',...event});
     };
+    // Frame submissions and OOPIF hit regions can lag a DOM resize on X11.
+    const awaitShellPaint = async () => {
+      await shell.executeJavaScript(`(()=>{const marker=document.createElement('i');marker.id='controls-paint-fence';
+        marker.style.cssText='position:fixed;top:0;left:0;width:8px;height:8px;z-index:2147483647;background:lime;pointer-events:none';
+        document.body.append(marker)})()`);
+      const green=async()=>{
+        const image=await shell.capturePage(), pixel=image.toBitmap(), i=4*(2*image.getSize().width+2);
+        return pixel[i]<10 && pixel[i+1]>245 && pixel[i+2]<10;
+      };
+      await wait(green);
+      await shell.executeJavaScript("document.querySelector('#controls-paint-fence').remove()");
+      await wait(async()=>!await green());
+    };
     const settled = async angle => {
       let lastAngle, lastChange=Date.now();
       const deadline=Date.now()+60000;
@@ -192,9 +205,10 @@ server.listen(0, '127.0.0.1', async () => {
       s=await state(); scrubbed.push(s);
       assert.equal(s.posture,scrubPosture); assert.equal(s.target,'paused');
       if(angle===16) {
+        await awaitShellPaint();
         await click('button[title^="Show Toolbar"]');
         await wait(()=>shell.executeJavaScript("!!document.querySelector('.preview-toolbar')"));
-        await shell.capturePage();
+        await awaitShellPaint();
         await click('button[aria-label="Device controls"]');
         await wait(()=>shell.executeJavaScript(`!!document.querySelector('.tb-action[aria-label="Unfold"]')`));
         await shell.executeJavaScript(`document.querySelector('button[aria-label="Hide toolbar"]').click()`);
@@ -267,7 +281,7 @@ server.listen(0, '127.0.0.1', async () => {
     if (reducedBySystem) {
       await shell.executeJavaScript(`(() => {const m=document.querySelector('[aria-label="More hinge options"]');
         m.value='motion';m.dispatchEvent(new Event('change',{bubbles:true}));})()`);
-      await wait(() => shell.executeJavaScript("localStorage.getItem('duo-always-animate')==='false'"));
+      await wait(() => shell.executeJavaScript("localStorage.getItem('duo-always-animate')===null"));
     }
     const motionMode = () => shell.executeJavaScript("document.querySelector('.duo-bottom-minibar').dataset.motion");
     await wait(async () => await motionMode() === 'reduced');
