@@ -175,10 +175,20 @@ server.listen(0, '127.0.0.1', async () => {
     for (const [name, title, angle] of postures) {
       await js('document.querySelector("button[aria-label=\'Posture and finish\']").click()');
       await js('document.querySelector(' + JSON.stringify('button[title=' + JSON.stringify(title) + ']') + ').click()');
-      // The slider rounds to integer degrees. Before the drive settles, the
-      // camera can still move far enough to shift an edge by two output pixels.
-      await wait(() => js(`Number(document.querySelector('.duo-hinge-slider').value) === ${angle}
-        && document.querySelector('.duo-bottom-minibar').dataset.target === 'paused'`));
+      // Full-density software rendering of the skinned Book/Table rig can take
+      // longer than loading a page. Keep watching while the hinge is advancing.
+      let lastAngle = null, lastChange = Date.now();
+      await wait(async () => {
+        const pose = await js(`({angle:Number(document.querySelector('.duo-hinge-slider').value),
+          target:document.querySelector('.duo-bottom-minibar').dataset.target})`);
+        if (pose.target === 'paused') {
+          assert.equal(pose.angle, angle, name+' settled at the wrong angle');
+          return true;
+        }
+        if (pose.angle !== lastAngle) { lastAngle = pose.angle; lastChange = Date.now(); }
+        assert(Date.now()-lastChange < 18000, name+' stopped progressing at '+pose.angle+'°');
+        return false;
+      }, 1000);
       assert.equal(guests().length, 1); assert.equal(guests()[0].id, guestId);
       await snap('duo-' + name);
     }
