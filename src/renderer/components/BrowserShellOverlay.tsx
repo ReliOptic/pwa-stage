@@ -1,5 +1,5 @@
+import { HomeGesture } from './HomeGesture';
 import { useGuestFullscreen } from '../guest-fullscreen';
-import { platformLabel } from '../../utils/platform.util';
 import React from 'react';
 import { validateHttpUrl } from '../../config/env.config';
 import {
@@ -434,28 +434,6 @@ export function BrowserShellBarOverlay(props: BrowserShellBarOverlayProps): Reac
   );
 }
 
-export function HomeIndicatorOverlay(props: {
-  readonly darkMode: boolean;
-  readonly trailingInset?: number;
-  readonly onGoHome?: () => void;
-}): React.ReactElement | null {
-  return (
-    <button
-      type="button"
-      className="ios-home-indicator"
-      title={platformLabel("Swipe up / click to go Home (⇧⌘H)")}
-      aria-label="Home"
-      onClick={props.onGoHome}
-      style={{
-        left: `calc((100% - ${props.trailingInset ?? 0}px) / 2)`,
-        background: props.darkMode
-          ? 'rgba(255, 255, 255, 0.82)'
-          : 'rgba(0, 0, 0, 0.68)'
-      }}
-    />
-  );
-}
-
 export interface ScreenSystemOverlayProps {
   readonly preset: DevicePreset;
   readonly cutoutType: HardwareCutoutType;
@@ -521,7 +499,7 @@ export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.Reac
     : props.tintColor ?? (props.state.darkMode ? '#0e0e12' : '#f6f6fa');
   const insideTool = isHomeTool(screen.sheet.kind);
   const lightContent = insideTool ? screen.darkMode : prefersLightContent(statusBackdrop, props.state.darkMode);
-  return (
+  return (<>
     <div
       className={`ios-overlay-scaler ${onHome ? 'ios-overlay-home' : ''} ${insideTool ? 'ios-overlay-tool' : ''}`}
       style={{ width: `${props.logicalW}px`, height: `${props.logicalH}px` }}
@@ -562,14 +540,11 @@ export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.Reac
         darkMode={props.state.darkMode}
         bottomSafeArea={safeArea.bottom}
       />
-      {props.cutoutType !== HardwareCutoutType.NONE && (
-        <HomeIndicatorOverlay
-          darkMode={onHome || (isPwa ? lightContent : props.state.darkMode)}
-          trailingInset={trailing}
-          onGoHome={props.onGoHome}
-        />
-      )}
       </>}
     </div>
-  );
+    {props.cutoutType !== HardwareCutoutType.NONE && <HomeGesture
+      width={props.logicalW} height={props.logicalH} trailing={trailing}
+      light={insideTool ? screen.darkMode : onHome || (isPwa ? lightContent : props.state.darkMode)}
+      immersive={fullscreen && !onHome} onHome={props.onGoHome} />}
+  </>);
 }

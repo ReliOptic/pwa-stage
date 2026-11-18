@@ -672,15 +672,29 @@ html, body, #root {
   width: 40px; padding: 7px 2px; border-radius: 14px; font-size: 9px; font-weight: 600;
 }
 
+.home-gesture-plane { position:absolute;top:0;left:0;pointer-events:none;z-index:78; }
 .ios-home-indicator {
-  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-  width: 138px; height: 5px; border-radius: 100px; z-index: 36;
-  border: none; padding: 0; cursor: pointer; pointer-events: auto;
-  /* 44pt-tall invisible hit target, like the real gesture area */
-  outline: none; box-shadow: 0 0 0 0 transparent;
+  position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:76%;height:20px;
+  padding:0;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;
+  pointer-events:auto;touch-action:none;user-select:none;-webkit-app-region:no-drag;
 }
-.ios-home-indicator::before {
-  content: ''; position: absolute; left: -12px; right: -12px; top: -16px; bottom: -8px;
+.ios-home-indicator span { width:min(138px,65%);height:5px;border-radius:10px;background:currentColor;opacity:.84; }
+.ios-home-indicator[data-immersive] { height:10px;width:48%; }
+.ios-home-indicator[data-immersive] span { visibility:hidden; }
+.ios-home-indicator:disabled { pointer-events:none; }
+.home-screen-preview { z-index:0;pointer-events:none; }
+.stage-wrapper[data-home-drag] .app-surface-app { z-index:25; }
+.stage-wrapper[data-home-drag=tracking] :is(.app-surface-app,.browser-motion-app,.home-utility),
+.stage-wrapper[data-home-drag=returning] :is(.app-surface-app,.browser-motion-app,.home-utility) {
+  transform-origin:50% 50%;transform:translateY(var(--home-lift)) scale(var(--home-scale));
+  border-radius:32px;clip-path:inset(0 round 32px);overflow:hidden;
+}
+.stage-wrapper[data-home-drag=returning] :is(.app-surface-app,.browser-motion-app,.home-utility) {
+  transform:translateY(0) scale(1);border-radius:inherit;clip-path:inset(0 round 0px);
+  transition:transform 140ms ease-out,clip-path 140ms ease-out;
+}
+@media (prefers-reduced-motion:reduce) {
+  .stage-wrapper[data-home-drag] :is(.app-surface-app,.browser-motion-app,.home-utility) { transform:none;border-radius:inherit;clip-path:none;transition:none; }
 }
 
 /* ---- Touch ID iPhones (SE): classic status bar, earpiece, home button ---- */
@@ -749,9 +763,11 @@ html, body, #root {
 .app-surface-closing, .browser-motion-closing,
 .app-surface-launching, .browser-motion-launching { overflow:hidden; pointer-events:none; }
 .app-surface-closing, .app-surface-launching { z-index:25; }
+.stage-wrapper[data-home-drag=committed] { --home-corner:32px; }
 .app-surface-closing, .browser-motion-closing { animation: sim-app-close 340ms cubic-bezier(.4,0,.4,1) both; }
 .app-surface-launching, .browser-motion-launching { animation: sim-app-open 440ms cubic-bezier(.22,.64,.26,1) both; }
 @keyframes sim-app-close {
+  from { transform:translate(calc((1 - var(--home-scale,1)) * 50%),calc((1 - var(--home-scale,1)) * 50% + var(--home-lift,0px))) scale(var(--home-scale,1));border-radius:var(--home-corner,0); }
   to { transform: translate(var(--icon-left),var(--icon-top)) scale(var(--icon-width),var(--icon-height)); border-radius:24%; opacity:.15; }
 }
 @keyframes sim-app-open {
@@ -1232,3 +1248,15 @@ html, body, #root {
 .settings-dial::before { inset:5%;background:repeating-conic-gradient(#d5d8dc 0deg 3deg,#575d66 4deg 9deg,#343a43 10deg 12deg); }
 .settings-dial i { inset:21%;background:repeating-conic-gradient(from 8deg,#777f89 0deg 7deg,#ccd0d6 8deg 10deg,#3f454e 11deg 20deg);border:2px solid #626973;box-shadow:0 0 0 1px #c2c6cb; }
 .settings-dial i::after { content:'';position:absolute;inset:27%;border-radius:50%;border:1px solid #c7cbd1;background:linear-gradient(155deg,#77808a,#434953); }
+.home-screen { touch-action:pan-y; }
+.home-grid { transform:translateX(var(--page-drag,0px)); }
+.home-screen:not(.home-with-rail) .home-dock { left:50%;right:auto;transform:translateX(-50%);width:var(--home-dock-width);justify-content:center;gap:var(--home-dock-gap); }
+.home-app > .home-app-icon { border-radius:0; }
+.home-app > .home-app-icon::after { border-radius:22%; }
+.home-tool-app .installed-app-name { flex:1;min-width:0; }
+.installed-app-badge { display:grid;place-items:center;width:32px;height:32px;flex:none;border-radius:23%;overflow:hidden;font-weight:600;background:#577789;color:white; }
+.installed-app-badge img { display:block;width:100%;height:100%;object-fit:cover; }
+.app-settings-title { display:flex;gap:12px;align-items:center;margin:3px 0 18px; }
+.app-settings-title h2 { margin:0; }
+.home-tool-group select { max-width:55%;font:inherit;border-radius:8px;border:1px solid var(--utility-line);background:var(--utility-group);color:inherit;padding:5px; }
+.viewport-readings dd { font-variant-numeric:tabular-nums; }

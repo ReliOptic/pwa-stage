@@ -1,6 +1,9 @@
+import { chooseTouchIcon } from '../utils/home-icon.util';
 import {
   HomeScreenIdentity,
   PageInspection,
+  PageViewport,
+  TouchIcon,
   PwaCheck,
   WebAppManifestIcon,
   WebAppManifestSubset
@@ -55,6 +58,11 @@ export const PAGE_INSPECTION_EXPRESSION = `(async () => {
     url: location.href,
     title: document.title,
     isSecureContext: window.isSecureContext,
+    viewport: {layoutWidth: innerWidth, layoutHeight: innerHeight, visualWidth: visualViewport?.width,
+      visualHeight: visualViewport?.height, scale: visualViewport?.scale, screenWidth: screen.width,
+      screenHeight: screen.height, dpr: devicePixelRatio},
+    touchIcons: Array.from(document.querySelectorAll('link[rel~="apple-touch-icon"], link[rel~="apple-touch-icon-precomposed"]'))
+      .filter(el => !el.media || matchMedia(el.media).matches).slice(0,32).map(el=>({src:el.href,sizes:el.sizes.value})),
     viewportContent: meta('viewport'),
     themeColor: themeEl ? themeEl.getAttribute('content') : null,
     bodyBackground: bodyBg && bodyBg !== 'rgba(0, 0, 0, 0)' ? bodyBg : htmlBg,
@@ -148,6 +156,26 @@ function sanitizeManifest(raw: unknown, baseUrl: string, documentUrl: string): W
   };
 }
 
+function readViewport(raw: unknown): PageViewport | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const fields = ['layoutWidth','layoutHeight','visualWidth','visualHeight','screenWidth','screenHeight','scale','dpr'] as const;
+  const result = {} as Record<typeof fields[number], number>;
+  for (const field of fields) {
+    const value = (raw as Record<string, unknown>)[field];
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null;
+    result[field] = value;
+  }
+  return result;
+}
+
+function readTouchIcons(raw: unknown): TouchIcon[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(0,32).flatMap(item => {
+    const src = httpUrl(item?.src);
+    return src ? [{src, sizes:str(item.sizes,128)}] : [];
+  });
+}
+
 export function sanitizePageInspection(raw: unknown): PageInspection | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const r = raw as Record<string, unknown>;
@@ -158,6 +186,8 @@ export function sanitizePageInspection(raw: unknown): PageInspection | null {
     url,
     title: str(r.title, 200) ?? '',
     isSecureContext: r.isSecureContext === true,
+    viewport: readViewport(r.viewport),
+    touchIcons: readTouchIcons(r.touchIcons),
     viewportContent: str(r.viewportContent, 300),
     themeColor: safeCssColor(r.themeColor),
     bodyBackground: safeCssColor(r.bodyBackground),
@@ -218,10 +248,11 @@ export function resolveHomeScreenIdentity(insp: PageInspection): HomeScreenIdent
     m?.name?.trim() ||
     insp.title.trim() ||
     host;
-  const icon = insp.appleTouchIcon ?? largestIcon(m?.icons)?.src ?? null;
+  const icon = chooseTouchIcon(insp.touchIcons,60*(insp.viewport?.dpr ?? 3)) ?? insp.appleTouchIcon ?? largestIcon(m?.icons)?.src ?? null;
   return {
     name: name.slice(0, 40),
     iconUrl: icon,
+    touchIcons: insp.touchIcons,
     launchUrl: m?.start_url ?? insp.url,
     // iOS 26+: every Home Screen bookmark opens as a web app unless the user
     // turns it off, even when the manifest requests display:"browser".

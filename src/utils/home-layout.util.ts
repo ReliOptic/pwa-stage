@@ -25,6 +25,8 @@ export function resolveHomeLayout(width: number, height: number, rail = 0, safeT
   return { inner, landscape, icon, panelWidth, left, top, widget, gridTop, rows,
     pitch: Math.max(icon + 16, pitch), capacity: rows * 4, dockHeight, dockBottom, searchTop, pageDotsTop,
     dockIcon: rail ? (largeIcons ? 54 : 48) : icon,
+    dockWidth: rail ? 72 : Math.min(width - 32, panelWidth + 24),
+    dockGap: Math.max(8, (panelWidth - icon) / 3 - icon),
     dockRadius: rail ? 28 : Math.round(dockHeight * .38),
     labelWidth: Math.floor((panelWidth - icon) / 3) - 4,
     label: shortSide <= 375 ? 11.5 : 12 };

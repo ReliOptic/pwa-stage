@@ -1,8 +1,26 @@
+export interface TouchIcon {
+  readonly src: string;
+  readonly sizes: string | null;
+}
+
+export interface PageViewport {
+  readonly layoutWidth: number;
+  readonly layoutHeight: number;
+  readonly visualWidth: number;
+  readonly visualHeight: number;
+  readonly screenWidth: number;
+  readonly screenHeight: number;
+  readonly dpr: number;
+  readonly scale: number;
+}
+
 /** Raw facts read from the page under test (see services/page-inspector.ts). */
 export interface PageInspection {
   readonly url: string;
   readonly title: string;
   readonly isSecureContext: boolean;
+  readonly viewport: PageViewport | null;
+  readonly touchIcons: readonly TouchIcon[];
   readonly viewportContent: string | null;
   readonly themeColor: string | null;
   readonly bodyBackground: string | null;
@@ -50,6 +68,7 @@ export interface PwaCheck {
 /** What iOS would use when the page is added to the Home Screen. */
 export interface HomeScreenIdentity {
   readonly name: string;
+  readonly touchIcons?: readonly TouchIcon[];
   readonly iconUrl: string | null;
   readonly launchUrl: string;
   readonly opensAsWebApp: boolean;
@@ -60,5 +79,6 @@ export interface HomeScreenIdentity {
 
 export interface InstalledWebApp extends HomeScreenIdentity {
   readonly id: string;
+  readonly browser?: 'safari' | 'chrome';
   readonly addedAt: number;
 }

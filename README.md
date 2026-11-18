@@ -28,6 +28,8 @@ Go Home and open Safari or Chrome from the dock. Enter the website in the device
 
 In Safari, open the page menu (AA) and choose Website Settings. In Chrome, open More and choose Settings. Page zoom is saved for each site in each browser. Dark appearance updates the emulated color scheme. Both menus include search within the current page, bookmarks, browsing history, and sharing.
 
+On Face ID devices and Duo, swipe up from the bottom edge with a finger or drag it upward with the mouse to go Home. A short drag returns the app to its previous position. A vertical trackpad scroll starting on the indicator also opens Home. Swipe horizontally across Home to move between app pages. The SE keeps its physical Home button. [Apple’s iPhone navigation guide](https://support.apple.com/guide/iphone/learn-gestures-to-navigate-iphone-iphfdf164cac/ios)
+
 The Duo dock keeps Open / Close, Pause and the hinge angle below the preview. Click the angle to reveal the scrubber, posture picker and fine adjustments in the same row. The compact bar above the preview expands to a device picker, browser and address field. **Device controls** opens zoom, pin, rotation and inspection. The bar stays in place while the device folds.
 
 ## Shortcuts (Xcode Simulator compatible)
@@ -105,7 +107,7 @@ across platforms and uses Chromium, not WebKit.
 
 **Personal / internal tool — not for public distribution. Do not publish the repository or installers.** Application source is covered by [MIT](LICENSE); this does not license the bundled hardware artwork/model, whose provenance and redistribution rights are unknown. See [ASSETS.md](ASSETS.md). This project is not affiliated with Apple; projected device geometry and animation tuning are estimates.
 
-The default start page asks for a website URL. Home Screen contains Safari, Chrome and the sites added through Share → Add to Home Screen. Open **Settings** to rename, launch or remove a saved app, choose whether it opens standalone, and switch between standard labelled icons and large icons. The **Manifest** and **PWA Checks** apps read the currently loaded website and keep it open while you inspect its manifest, service worker and install diagnostics.
+The default start page asks for a website URL. Home Screen contains Safari, Chrome and the sites added through Share → Add to Home Screen. Open **Settings** to rename, launch or remove a saved app, choose whether it opens standalone, and switch between standard labelled icons and large icons. **Viewport** measures the active website’s layout viewport, visual viewport, emulated screen, zoom and pixel ratio. In Settings, a saved browser shortcut can open in Safari or Chrome. The **Manifest** and **PWA Checks** apps read the currently loaded website and keep it open while you inspect its manifest, service worker and install diagnostics.
 
 Video and HTML fullscreen stay within the selected simulated display. Escape restores the browser chrome and the previous viewport.
 

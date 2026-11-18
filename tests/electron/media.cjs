@@ -111,7 +111,21 @@ const html=(res,markup)=>{res.setHeader('Content-Type','text/html; charset=utf-8
   await click('button[aria-label="Open folder"]');await until(()=>opened.length===1,'open folder');
   await click('.capture-last button');await until(()=>opened.length===2,'reveal capture');
   assert.deepEqual(opened,[desktop,path.join(desktop,file)]);
-  fs.writeFileSync(path.join(out,'device-media.json'),JSON.stringify({bounds,before,full,guestRetained:true,escape:true,saved:file,folder:desktop,osDestinations:opened},null,2));
+  await click('button[aria-label="Device controls"]');
+  await frame.executeJavaScript("document.querySelector('button').click()",true);
+  const edge=await until(()=>js(`(()=>{const e=document.querySelector('.ios-home-indicator[data-immersive]');
+    if(!e)return null;const r=e.getBoundingClientRect(),x=Math.round(r.x+r.width/2),y=Math.round(r.y+r.height/2);
+    return e.contains(document.elementFromPoint(x,y))?{x,y}:null;})()`),'fullscreen gesture area');
+  wc.sendInputEvent({type:'mouseDown',...edge,button:'left',clickCount:1});
+  for(const dy of [20,45,80]) {
+    wc.sendInputEvent({type:'mouseMove',x:edge.x,y:edge.y-dy,modifiers:['leftButtonDown']});
+    await pause(40);
+  }
+  wc.sendInputEvent({type:'mouseUp',x:edge.x,y:edge.y-80,button:'left',clickCount:1});
+  await until(()=>js("!!document.querySelector('.home-screen-home')"),'Home from fullscreen');
+  await until(()=>frame.executeJavaScript('!document.fullscreenElement'),'fullscreen to end on Home');
+  assert.equal(guest.id,id);assert.deepEqual(win.getBounds(),bounds);
+  fs.writeFileSync(path.join(out,'device-media.json'),JSON.stringify({bounds,before,full,guestRetained:true,escape:true,swipeHome:true,saved:file,folder:desktop,osDestinations:opened},null,2));
   console.log('PASS media: cross-origin fullscreen stays inside the screen, Escape restores the browser, capture destinations verified');app.exit(0);
 })().catch(e=>{console.error(e);app.exit(1);});
 setTimeout(()=>app.exit(2),110000);

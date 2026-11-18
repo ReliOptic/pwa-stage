@@ -76,6 +76,8 @@ counted structural fact. No numerical value below is an Apple API contract.
 
 In 1.0.9 default slab icons follow the short side at 64/402, rounded to a whole logical point and clamped to 58–68pt. For example, 375pt uses 60pt, 390pt uses 62pt, 402pt uses 64pt and 430pt uses 68pt. Rotating preserves the model's base size. Large icons add 8pt and hide grid labels. Duo retains 60pt grid icons and a 48pt rail dock in its standard configuration. Label width comes from the horizontal cell pitch. The table below records the earlier geometry from the original audit.
 
+The horizontal dock now keeps its two browser icons on the same pitch as the grid, including in landscape. Installed sites that declare several square touch icons can supply a different image for the current logical icon size and emulated pixel ratio. Sites saved by older builds keep their stored icon URL.
+
 Only the 402×874 and Duo classes have normalized imagery in this audit. All other
 rows are **low-confidence derived layouts**, not individually measured iPhones.
 The layout helper is `src/utils/home-layout.util.ts`; DPR does not multiply points.

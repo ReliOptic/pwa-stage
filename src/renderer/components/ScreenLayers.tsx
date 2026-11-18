@@ -1,8 +1,11 @@
+import { chooseTouchIcon } from '../../utils/home-icon.util';
+import { useHomePaging } from '../useHomePaging';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
   PanelsTopLeft,
+  Scan,
   FileJson2,
   Info,
   SquarePlus,
@@ -37,14 +40,15 @@ function SettingsGlyph() {
 const homeTools = [
   {kind:'device-settings', name:'Settings', icon:SettingsGlyph, background:'linear-gradient(150deg,#aeb2b9,#777e88 52%,#5e626b)'},
   {kind:'manifest', name:'Manifest', icon:FileJson2, background:'linear-gradient(150deg,#3c8283,#204a55)'},
-  {kind:'app-checks', name:'PWA Checks', icon:PanelsTopLeft, background:'linear-gradient(145deg,#7167a4,#403658)'}
+  {kind:'app-checks', name:'PWA Checks', icon:PanelsTopLeft, background:'linear-gradient(145deg,#7167a4,#403658)'},
+  {kind:'viewport', name:'Viewport', icon:Scan, background:'linear-gradient(150deg,#317cb2,#204464)'}
 ] as const;
 export function isHomeTool(kind: ScreenSheetState['kind']): boolean {
   return homeTools.some(tool => tool.kind === kind);
 }
 
 export interface ScreenSheetState {
-  readonly kind: 'none' | 'browser-menu' | 'settings' | 'find' | 'bookmarks' | 'history' | 'share' | 'add-to-home' | 'device-settings' | 'manifest' | 'app-checks';
+  readonly kind: 'none' | 'browser-menu' | 'settings' | 'find' | 'bookmarks' | 'history' | 'share' | 'add-to-home' | 'device-settings' | 'manifest' | 'app-checks' | 'viewport';
 }
 
 export interface PermissionPromptState {
@@ -59,8 +63,11 @@ export interface HomeNavigation {
 }
 
 export interface ScreenContextValue {
+  readonly iconDpr: number;
   readonly browserMode: BrowserShellMode;
   readonly setAppearance: (dark: boolean) => void;
+  readonly homePreview: boolean;
+  readonly setHomePreview: (show: boolean) => void;
   readonly homeNavigation: HomeNavigation;
   readonly setHomeNavigation: (next: HomeNavigation) => void;
   readonly phase: ScreenPhase;
@@ -78,7 +85,7 @@ export interface ScreenContextValue {
   readonly addToHome: (name: string, opensAsWebApp: boolean) => void;
   readonly largeIcons: boolean;
   readonly setLargeIcons: (enabled: boolean) => void;
-  readonly updateApp: (id: string, name: string, opensAsWebApp: boolean) => void;
+  readonly updateApp: (id: string, name: string, opensAsWebApp: boolean, browser: 'safari' | 'chrome') => void;
   readonly removeApp: (id: string) => void;
   readonly answerPermission: (granted: boolean) => void;
   readonly openUrl: (url: string) => void;
@@ -92,8 +99,9 @@ export interface ScreenContextValue {
 const noop = (): void => undefined;
 
 export const ScreenContext = createContext<ScreenContextValue>({
-  browserMode: BrowserShellMode.IOS_SAFARI,
+  iconDpr: 3, browserMode: BrowserShellMode.IOS_SAFARI,
   setAppearance: noop,
+  homePreview: false, setHomePreview: noop,
   homeNavigation: { page: 0, searching: false, query: '' },
   setHomeNavigation: noop,
   phase: 'app',
@@ -244,9 +252,12 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
     ...screen.installedApps.map(app => ({kind:'site' as const, name:app.name, app}))
   ].filter(item => item.name.toLowerCase().includes(query.trim().toLowerCase()));
   const { pages, page } = resolveHomePage(apps.length, layout.capacity, requestedPage);
-  if (screen.phase === 'app') return null;
+  const paging = useHomePaging(page, pages, next => updateNavigation({page:next}), !props.mirror && !searching && screen.phase==='home');
+  const preview = screen.phase === 'app' && screen.homePreview;
+  if (screen.phase === 'app' && !preview) return null;
   const style = {
     '--home-label-width': `${layout.labelWidth}px`, '--home-label-size': `${layout.label}px`,
+    '--home-dock-width': `${layout.dockWidth}px`, '--home-dock-gap': `${layout.dockGap}px`,
     '--home-dock-radius': `${layout.dockRadius}px`,
     '--home-icon': `${layout.icon}px`, '--home-panel': `${layout.panelWidth}px`,
     '--home-left': `${layout.left}px`, '--home-top': `${layout.top}px`,
@@ -257,14 +268,14 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
   } as React.CSSProperties;
   const visible = apps.slice(page * layout.capacity, (page + 1) * layout.capacity);
   return (
-    <div className={`home-screen home-screen-${screen.phase} ${rail ? 'home-with-rail' : ''} ${layout.landscape ? 'home-landscape' : ''}`} style={style} ref={el => { if (el) el.inert = Boolean(props.mirror || isHomeTool(screen.sheet.kind)); }} aria-hidden={props.mirror || undefined}>
+    <div {...paging} className={`home-screen home-screen-${preview ? 'preview' : screen.phase} ${rail ? 'home-with-rail' : ''} ${layout.landscape ? 'home-landscape' : ''}`} style={style} ref={el => { if (el) el.inert = Boolean(preview || props.mirror || isHomeTool(screen.sheet.kind)); }} aria-hidden={preview || props.mirror || undefined}>
       <div className="home-wallpaper" aria-hidden="true"><i /><i /><i /></div>
       <div className="home-grid" aria-label="Home Screen apps">
          {visible.map(item => item.kind === 'tool'
           ? <AppIcon key={item.tool.kind} label={item.name} size={layout.icon} hideLabel={screen.largeIcons}
               tone={item.tool.background} glyph={<item.tool.icon size="61%" strokeWidth={1.65} aria-hidden="true"/>}
               onOpen={() => screen.openSheet(item.tool.kind)} />
-          : <AppIcon key={item.app.id} label={item.name} iconUrl={item.app.iconUrl} size={layout.icon} hideLabel={screen.largeIcons}
+          : <AppIcon key={item.app.id} label={item.name} iconUrl={chooseTouchIcon(item.app.touchIcons,layout.icon*screen.iconDpr) ?? item.app.iconUrl} size={layout.icon} hideLabel={screen.largeIcons}
               onOpen={origin => screen.launchApp(item.app, origin)} onRemove={() => screen.removeApp(item.app.id)} />)}
       </div>
       {(rail > 0 || pages > 1) && <div className="home-page-dots" aria-label="Home Screen pages">{Array.from({length: pages}, (_, i) => <button key={i} aria-label={`Page ${i + 1}`} aria-current={page === i ? 'page' : undefined} onClick={() => updateNavigation({ page: i })} />)}</div>}

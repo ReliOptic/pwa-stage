@@ -44,6 +44,13 @@ describe('Home Screen reference layout', () => {
     }
     expect([375,390,393,402,414,430].map(w=>resolveHomeLayout(w,874).icon)).toEqual([60,62,63,64,66,68]);
   });
+  it('keeps horizontal dock icons on the grid pitch and a compact width after rotation', () => {
+    for (const [width, height] of [[375,667],[402,874],[874,402]]) {
+      const layout = resolveHomeLayout(width,height);
+      expect(layout.icon + layout.dockGap).toBeCloseTo((layout.panelWidth-layout.icon)/3);
+      expect(layout.dockWidth).toBeLessThanOrEqual(layout.panelWidth+24);
+    }
+  });
   it('retains access to overflow apps and clamps after deletion', () => {
     expect(resolveHomePage(0, 16, 0)).toEqual({ pages: 1, page: 0 });
     expect(resolveHomePage(33, 16, 2)).toEqual({ pages: 3, page: 2 });

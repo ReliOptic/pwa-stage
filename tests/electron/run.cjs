@@ -7,7 +7,7 @@ const output = process.env.SIMULATOR_TEST_OUTPUT || fs.mkdtempSync(path.join(os.
 fs.mkdirSync(output, { recursive: true });
 const binary = process.env.SIMULATOR_ELECTRON_BINARY || require('electron');
 const results = [];
-for (const name of process.env.SIMULATOR_VISUAL_ONLY === '1' ? ['visual'] : ['runtime', 'home', 'duo', 'flows', 'motion', 'focus', 'media', 'home-catalog']) {
+for (const name of process.env.SIMULATOR_VISUAL_ONLY === '1' ? ['visual'] : ['runtime', 'home', 'duo', 'flows', 'motion', 'focus', 'media', 'gestures', 'home-catalog']) {
   const args = ['--enable-unsafe-swiftshader'];
   if (process.platform === 'linux') {
     // CI hosts may expose an unusable Mesa/GL device. Select the software
@@ -19,7 +19,7 @@ for (const name of process.env.SIMULATOR_VISUAL_ONLY === '1' ? ['visual'] : ['ru
   args.push(path.join(__dirname, name + '.cjs'));
   const result = spawnSync(binary, args, {
     env: { ...process.env, SIMULATOR_TEST_OUTPUT: output },
-    encoding: 'utf8', timeout: name === 'visual' ? 915000 : (name === 'motion' || name === 'focus') ? 230000 : name === 'flows' ? 245000 : name === 'home-catalog' ? 230000 : name === 'media' ? 115000 : 65000, maxBuffer: 8 * 1024 * 1024
+    encoding: 'utf8', timeout: name === 'visual' ? 915000 : (name === 'motion' || name === 'focus') ? 230000 : name === 'flows' ? 245000 : name === 'home-catalog' ? 230000 : (name === 'media' || name === 'gestures') ? 115000 : 65000, maxBuffer: 8 * 1024 * 1024
   });
   const log = (result.stdout || '') + (result.stderr || '');
   fs.writeFileSync(path.join(output, name + '.log'), log);

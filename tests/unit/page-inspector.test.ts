@@ -1,3 +1,4 @@
+import { chooseTouchIcon } from '../../src/utils/home-icon.util';
 import { describe, expect, it } from 'vitest';
 import {
   evaluatePwaChecks,
@@ -129,4 +130,17 @@ describe('page inspector', () => {
     expect(resolveHomeScreenIdentity(insp).opensAsWebApp).toBe(true);
   });
 
+});
+
+describe('Home icon renditions and viewport inspection', () => {
+  it('chooses size-matched safe touch artwork, with a smaller fallback', () => {
+    const result = sanitizePageInspection({...GOOD, touchIcons:[
+      {src:'https://app.example.com/180.png',sizes:'180x180'}, {src:'https://app.example.com/120.png',sizes:'120x120'},
+      {src:'file:///x',sizes:'128x128'}]});
+    expect(result?.touchIcons).toHaveLength(2);
+    expect(chooseTouchIcon(result?.touchIcons,120)).toBe('https://app.example.com/120.png');
+    expect(chooseTouchIcon(result?.touchIcons,192)).toBe('https://app.example.com/180.png');
+    expect(chooseTouchIcon(undefined,120)).toBeNull();
+    expect(sanitizePageInspection({...GOOD,viewport:{dpr:-1}})?.viewport).toBeNull();
+  });
 });

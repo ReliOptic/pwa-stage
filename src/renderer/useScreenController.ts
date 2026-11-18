@@ -1,3 +1,5 @@
+import { getDevicePresetById } from '../config/device-presets.config';
+import { exitGuestFullscreen } from './guest-fullscreen';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { updateLibrary } from './browser-preferences';
 import { PageInspectionReport } from '../types/ipc-coordinator.types';
@@ -66,6 +68,7 @@ export function useScreenController(
   updateState: (patch: Partial<SimulatorState>) => void,
   reload: () => void
 ): ScreenController {
+  const [homePreview, setHomePreview] = useState(false);
   const [phase, setPhase] = useState<ScreenPhase>('app');
   const [homeNavigation, setHomeNavigation] = useState<HomeNavigation>({ page: 0, searching: false, query: '' });
   const [launchOrigin, setLaunchOrigin] = useState<LaunchOrigin>({ x: 0.5, y: 0.92, width: 0.15, height: 0.075 });
@@ -149,6 +152,10 @@ export function useScreenController(
     if (lastGuestRef.current !== null) runInspection(lastGuestRef.current);
   }, [runInspection]);
 
+  useEffect(() => {
+    if (sheet.kind === 'viewport') reinspect();
+  }, [sheet.kind, state.selectedDeviceId, state.orientation, reinspect]);
+
   // Picking a browser / URL in the toolbar while on the Home Screen
   // means "show me the page": leave the springboard.
   const lastTargetRef = useRef(`${state.shellMode}|${state.currentUrl}`);
@@ -180,6 +187,7 @@ export function useScreenController(
 
   // --- springboard ------------------------------------------------------------
   const goHome = useCallback((): void => {
+    exitGuestFullscreen();
     setSheet({ kind: 'none' });
     setSplash(null);
     setPhase(current => current === 'home' ? 'home' : 'closing');
@@ -196,7 +204,8 @@ export function useScreenController(
         setPhase('launching');
         return;
       }
-      const shellMode = app.opensAsWebApp ? BrowserShellMode.PWA_STANDALONE : BrowserShellMode.IOS_SAFARI;
+      const shellMode = app.opensAsWebApp ? BrowserShellMode.PWA_STANDALONE
+        : app.browser === 'chrome' ? BrowserShellMode.IOS_CHROME : BrowserShellMode.IOS_SAFARI;
       updateState({
         shellMode,
         currentUrl: app.launchUrl,
@@ -238,11 +247,11 @@ export function useScreenController(
     [report, state.currentUrl]
   );
 
-  const updateApp = useCallback((id: string, name: string, opensAsWebApp: boolean) => {
+  const updateApp = useCallback((id: string, name: string, opensAsWebApp: boolean, browser: 'safari' | 'chrome') => {
     const label = name.trim().slice(0, 80);
     if (!label) return;
     setInstalledApps(previous => {
-      const next = previous.map(app => app.id === id ? {...app, name:label, opensAsWebApp} : app);
+      const next = previous.map(app => app.id === id ? {...app, name:label, opensAsWebApp, browser} : app);
       saveInstalledApps(next);
       return next;
     });
@@ -277,9 +286,10 @@ export function useScreenController(
 
   const value = useMemo<ScreenContextValue>(
     () => ({
+      iconDpr: getDevicePresetById(state.selectedDeviceId).deviceScaleFactor,
       browserMode: state.shellMode,
       setAppearance: darkMode => updateState({darkMode}),
-      homeNavigation,
+      homePreview, setHomePreview, homeNavigation,
       setHomeNavigation,
       phase,
       launchOrigin,
@@ -304,8 +314,8 @@ export function useScreenController(
       reload
     }),
     [
-      state.shellMode, updateState, openSheet,
-      homeNavigation,
+      state.shellMode, state.selectedDeviceId, updateState, openSheet,
+      homePreview, setHomePreview, homeNavigation,
       phase,
       launchOrigin,
       finishTransition,

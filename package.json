@@ -1,6 +1,6 @@
 {
   "name": "macos-iphone-pwa-simulator",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Floating macOS and Windows iPhone & iPhone Duo simulator for Progressive Web App developers",
   "main": "dist-electron/index.js",
   "author": "reliqbit",
@@ -28,7 +28,7 @@
   "build": {
     "appId": "com.reliqbit.iphone-pwa-simulator",
     "productName": "iPhone PWA Simulator",
-    "copyright": "Copyright \u00a9 2026 reliqbit",
+    "copyright": "Copyright © 2026 reliqbit",
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [

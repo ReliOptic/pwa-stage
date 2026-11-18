@@ -1,8 +1,10 @@
 import { createContext, useContext, useSyncExternalStore } from 'react';
 
+import type { ElectronWebviewElement } from '../types/renderer.types';
+
 type Pane = 'primary' | 'comparison';
 export const FullscreenPane = createContext<Pane>('primary');
-const owners = new Map<Pane, HTMLElement>();
+const owners = new Map<Pane, ElectronWebviewElement>();
 const listeners = new Set<() => void>();
 function subscribe(listener: () => void) {
   listeners.add(listener);
@@ -10,7 +12,7 @@ function subscribe(listener: () => void) {
 }
 
 // Mirrors subscribe to their source pane. A departing guest can only clear its own entry.
-export function setGuestFullscreen(pane: Pane, guest: HTMLElement, active: boolean): void {
+export function setGuestFullscreen(pane: Pane, guest: ElectronWebviewElement, active: boolean): void {
   if (active) {
     if (owners.get(pane) === guest) return;
     owners.set(pane, guest);
@@ -24,4 +26,10 @@ export function setGuestFullscreen(pane: Pane, guest: HTMLElement, active: boole
 export function useGuestFullscreen(): boolean {
   const pane = useContext(FullscreenPane);
   return useSyncExternalStore(subscribe, () => owners.has(pane));
+}
+
+export function exitGuestFullscreen(): void {
+  for (const guest of owners.values()) {
+    void guest.executeJavaScript('document.fullscreenElement && document.exitFullscreen()').catch(() => {});
+  }
 }
