@@ -27,6 +27,7 @@ jobs:
         run: xvfb-run -a -s "-screen 0 2560x1800x24" npm run test:electron
         env:
           SIMULATOR_TEST_NO_SANDBOX: '1'
+          SIMULATOR_RECORD_MOTION: '1'
       - name: Display aperture pixel checks
         if: runner.os == 'Linux'
         run: xvfb-run -a -s "-screen 0 4000x2400x24" npm run test:visual

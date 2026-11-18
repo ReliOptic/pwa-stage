@@ -148,50 +148,42 @@ function AnchoredFace(props: AnchoredFaceProps): React.ReactElement {
         filter: props.brightness >= 0.999 ? undefined : `brightness(${props.brightness.toFixed(3)})`
       }}
     >
-      {bands.map((band) => {
-        const blurPx = TRANSITION_MAX_BLUR_PX * motion * band.strength;
-        const mask = maskFor(band.from, band.to);
-        return (
-          <div
-            key={band.strength}
-            className="duo-anchored-layer"
-            style={{
-              filter: blurPx > 0.3 ? `blur(${blurPx.toFixed(2)}px)` : undefined,
-              maskImage: mask,
-              WebkitMaskImage: mask
-            }}
-          >
-            <div
-              className="duo-slice-inner-viewport"
-              style={{ width: `${INNER_W}px`, height: `${INNER_H}px` }}
-            >
-              <AppSurface>
-                <WebviewContainer
-                  state={props.state}
-                  isDualUnfolded={true}
-                  reloadTick={0}
-                  onRegisterWebContentsId={(): void => {}}
-                  mirrorGuestId={props.guestId}
-                  mirrorCoverFrameOffsetX={side === 'cover' ? HINGE_X : undefined}
-                  mirrorInteractive={side === 'innerLeft'}
-                />
-              </AppSurface>
-              <HomeScreen mirror width={INNER_W} height={INNER_H} safeTop={20} trailingInset={84} />
-              <SystemOverlayLayer
-                preset={props.preset}
-                state={props.state}
-                isOuterActive={false}
-                isTallInner={false}
-                tintColor={props.tintColor}
-                onGoHome={props.onGoHome}
-                logicalW={INNER_W}
-                logicalH={INNER_H}
-                onReload={props.onReload}
-                onToggleDuoFold={props.onToggleDuoFold}
-              />
-            </div>
-          </div>
-        );
+      <div
+        className="duo-slice-inner-viewport"
+        style={{ width: `${INNER_W}px`, height: `${INNER_H}px` }}
+      >
+        <AppSurface>
+          <WebviewContainer
+            state={props.state}
+            isDualUnfolded={true}
+            reloadTick={0}
+            onRegisterWebContentsId={(): void => {}}
+            mirrorGuestId={props.guestId}
+            mirrorCoverFrameOffsetX={side === 'cover' ? HINGE_X : undefined}
+            mirrorInteractive={side === 'innerLeft'}
+          />
+        </AppSurface>
+        <HomeScreen mirror width={INNER_W} height={INNER_H} safeTop={20} trailingInset={84} />
+        <SystemOverlayLayer
+          preset={props.preset}
+          state={props.state}
+          isOuterActive={false}
+          isTallInner={false}
+          tintColor={props.tintColor}
+          onGoHome={props.onGoHome}
+          logicalW={INNER_W}
+          logicalH={INNER_H}
+          onReload={props.onReload}
+          onToggleDuoFold={props.onToggleDuoFold}
+        />
+      </div>
+      {bands.map(band => {
+        const blur = TRANSITION_MAX_BLUR_PX * motion * band.strength;
+        if (blur < 0.3) return null;
+        return <div key={band.strength} className="duo-anchored-blur" aria-hidden="true" style={{
+          backdropFilter: `blur(${blur.toFixed(2)}px)`,
+          maskImage: maskFor(band.from, band.to)
+        }} />;
       })}
       <div className="duo-anchored-dim" style={{ background: dim }} />
     </div>

@@ -105,6 +105,20 @@ server.listen(0, '127.0.0.1', async () => {
     await guest.executeJavaScript(`document.querySelector('#paint-fence').remove()`);
     await wait(async()=>countGreen(await shell.capturePage()).every(n=>n===0));
     fs.writeFileSync(path.join(out,'motion-controls.png'),(await shell.capturePage()).toPNG());
+    // This fixture has a cream background. An unpainted moving leaf exposes
+    // the shell's dark backing over a large block between the rim and hinge.
+    const blankLeafFraction = image => {
+      const {width,height}=image.getSize(), pixels=image.toBitmap();
+      let blank=0, total=0;
+      for(let y=Math.round(height*.2);y<height*.62;y+=4) {
+        for(let x=Math.round(width*.24);x<width*.47;x+=4) {
+          const i=(y*width+x)*4;
+          if(pixels[i+3]>240 && Math.abs(pixels[i]-12)<2 && Math.abs(pixels[i+1]-9)<2 && Math.abs(pixels[i+2]-9)<2) blank++;
+          total++;
+        }
+      }
+      return blank/total;
+    };
     const frames=[];
     if(process.env.SIMULATOR_RECORD_MOTION==='1') {
       fs.mkdirSync(path.join(out,'frames'),{recursive:true});
@@ -119,7 +133,9 @@ server.listen(0, '127.0.0.1', async () => {
           if(snapshot.target==='paused'){settledFrames++;stable=hash===previousHash?stable+1:0;}
           previousHash=hash;
           fs.writeFileSync(path.join(out,'frames',name),png);
-          frames.push({name,destination,ms:Date.now()-started,...snapshot});
+          const blankFraction=blankLeafFraction(image);
+          frames.push({name,destination,ms:Date.now()-started,...snapshot,blankFraction});
+          assert(blankFraction<0.35,`Moving leaf lost page pixels in ${name} (${Math.round(100*blankFraction)}% backing)`);
           await sleep(60);
         } while(settledFrames<4 || stable<2);
       }

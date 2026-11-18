@@ -1092,7 +1092,7 @@ html, body, #root {
 /* ===================== Duo opening / closing transition ===================== */
 .duo-anchored-face { background: transparent; pointer-events: none; }
 .duo-anchored-innerLeft { pointer-events: auto; }
-.duo-anchored-layer { position: absolute; inset: 0; }
+.duo-anchored-blur { position: absolute; inset: 0; pointer-events: none; z-index: 45; }
 .duo-anchored-dim { position: absolute; inset: 0; pointer-events: none; z-index: 60; }
 
 /* Confirmation geometry estimated from WebKit's official Safari 26 illustration.

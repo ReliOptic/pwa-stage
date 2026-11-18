@@ -111,32 +111,35 @@ export function GuestMirrorPane(props: {
 
   useLayoutEffect((): (() => void) | void => {
     if (guestId === null) return;
+    let hasMatchingFrame = false;
     let coverShown = false;
     let firstInnerAt = 0;
     const draw = (bitmap: ImageBitmap): void => {
       const canvas = canvasRef.current;
       if (!canvas || canvas.clientWidth === 0 || canvas.clientHeight === 0) return;
-      // Right after the hand-off the guest is still presenting frames laid
-      // out for the other display. Drawing those would stretch them across
-      // this panel, so wait for a frame with the right shape.
       const paneAspect = canvas.clientWidth / canvas.clientHeight;
       const frameAspect = bitmap.width / bitmap.height;
       if (Math.abs(frameAspect / paneAspect - 1) > 0.03) {
-        if (coverFrameOffsetX === undefined || frameAspect > 1) return;
-        const scale = bitmap.height / canvas.clientHeight;
-        const w = Math.round(canvas.clientWidth * scale);
-        if (canvas.width !== w || canvas.height !== bitmap.height) {
-          canvas.width = w;
-          canvas.height = bitmap.height;
+        if (hasMatchingFrame) return;
+        // Emulation and guest paint change size asynchronously. Keep showing
+        // the live cover picture until the first correctly sized inner frame.
+        const height = bitmap.height;
+        const width = Math.round(height * paneAspect);
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
         }
         const ctx = canvas.getContext('2d');
-        if (ctx) {
-          const dx = Math.round(coverFrameOffsetX * scale);
-          ctx.fillStyle = '#000';
-          ctx.fillRect(0, 0, w, bitmap.height);
-          ctx.drawImage(bitmap, dx, 0, w - dx, bitmap.height);
+        if (!ctx) return;
+        const scale = Math.max(width / bitmap.width, height / bitmap.height);
+        const drawnWidth = bitmap.width * scale;
+        const drawnHeight = bitmap.height * scale;
+        ctx.drawImage(bitmap, (width - drawnWidth) / 2, (height - drawnHeight) / 2, drawnWidth, drawnHeight);
+        if (coverFrameOffsetX !== undefined && frameAspect < 1) {
+          const hinge = Math.round(coverFrameOffsetX * height / canvas.clientHeight);
+          ctx.drawImage(bitmap, hinge, 0, width - hinge, height);
+          coverShown = true;
         }
-        coverShown = true;
         canvas.classList.add('guest-mirror-ready');
         return;
       }
@@ -148,6 +151,7 @@ export function GuestMirrorPane(props: {
         if (performance.now() - firstInnerAt < 260) return;
         coverShown = false;
       }
+      hasMatchingFrame = true;
       canvas.classList.add('guest-mirror-ready');
       if (canvas.width !== bitmap.width || canvas.height !== bitmap.height) {
         canvas.width = bitmap.width;
