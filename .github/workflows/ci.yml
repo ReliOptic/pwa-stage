@@ -24,7 +24,9 @@ jobs:
       - run: npm run build
       - name: Verify normal-speed folding in macOS Electron
         if: runner.os == 'macOS'
-        run: ./node_modules/.bin/electron tests/electron/motion.cjs
+        run: |
+          ./node_modules/.bin/electron tests/electron/motion.cjs
+          ./node_modules/.bin/electron tests/electron/focus.cjs
         timeout-minutes: 5
       - name: Real Electron regression flows
         if: runner.os == 'Linux'

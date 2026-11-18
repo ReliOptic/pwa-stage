@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ComputedViewportMetrics,
+  DeviceFormFactor,
   DevicePreset,
   HardwareCutoutType,
   Orientation
@@ -15,7 +16,7 @@ import {
   RIGHT_LEAF_HIDDEN,
   TRANSITION_MAX_BLUR_PX
 } from '../../utils/duo-3d-engine.util';
-import { TRANSITION_BLUR_BANDS as BLUR_BANDS, transitionDimAlpha, sampleTransitionGradient } from '../../utils/duo-transition.util';
+import { transitionDimAlpha, sampleTransitionGradient } from '../../utils/duo-transition.util';
 import { DuoPostureId } from '../../utils/duo-fold-math.util';
 import { ScreenSystemOverlay } from './BrowserShellOverlay';
 import { acquireGuestMirror, setGuestMirrorRate } from './GuestMirrorPane';
@@ -24,6 +25,7 @@ import { WebviewContainer } from './WebviewContainer';
 
 export interface Duo3DStageProps {
   readonly transitioning: boolean;
+  readonly focusHandoff: boolean;
   readonly preset: DevicePreset;
   readonly metrics: ComputedViewportMetrics;
   readonly state: SimulatorState;
@@ -93,6 +95,8 @@ interface AnchoredFaceProps {
   readonly clip: string;
   readonly motion: number;
   readonly brightness: number;
+  readonly pageWidth: number;
+  readonly coverLayout: boolean;
   readonly guestId: number | null;
   readonly preset: DevicePreset;
   readonly state: SimulatorState;
@@ -113,6 +117,68 @@ function leafGradient(side: AnchoredFaceProps['side'], motion: number, gradientX
     .join(', ')})`;
 }
 
+type MovingScreenProps = Pick<AnchoredFaceProps, 'side' | 'pageWidth' | 'coverLayout' | 'guestId' | 'preset' | 'state' | 'tintColor' | 'onReload' | 'onToggleDuoFold' | 'onGoHome'>;
+function MovingScreenContent(props: MovingScreenProps): React.ReactElement {
+  const { side } = props;
+  return (
+    <div
+      className="duo-slice-inner-viewport"
+      style={{ width: props.pageWidth, height: INNER_H, marginLeft: INNER_W - props.pageWidth }}
+    >
+      <AppSurface>
+        <WebviewContainer
+          state={props.state}
+          isDualUnfolded={!props.coverLayout}
+          reloadTick={0}
+          onRegisterWebContentsId={(): void => {}}
+          mirrorGuestId={props.guestId}
+          mirrorCoverFrameOffsetX={side === 'cover' ? HINGE_X : undefined}
+          mirrorInteractive={side === 'innerLeft'}
+        />
+      </AppSurface>
+      <HomeScreen mirror width={props.pageWidth} height={INNER_H} safeTop={20} trailingInset={84} />
+      <SystemOverlayLayer
+        preset={props.preset}
+        state={props.state}
+        isOuterActive={props.coverLayout}
+        isTallInner={false}
+        tintColor={props.tintColor}
+        onGoHome={props.onGoHome}
+        logicalW={props.pageWidth}
+        logicalH={INNER_H}
+        onReload={props.onReload}
+        onToggleDuoFold={props.onToggleDuoFold}
+      />
+    </div>
+  );
+}
+
+type FaceOpticsProps = MovingScreenProps & Pick<AnchoredFaceProps, 'side' | 'gradientX' | 'motion' | 'clip'>;
+
+function FaceOptics(props: FaceOpticsProps): React.ReactElement | null {
+  const { side, gradientX, motion, clip } = props;
+  if (motion <= 0) return null;
+  // Project the blur mask along the glass. The held half and the hinge stay sharp.
+  const hinge = sampleTransitionGradient(gradientX, 0).toFixed(2);
+  const edge = sampleTransitionGradient(gradientX, 0.85).toFixed(2);
+  const mask = side === 'cover' ? `transparent ${hinge}px, black ${edge}px`
+    : `black ${edge}px, transparent ${hinge}px`;
+  // Tuned CSS radii in unfolded-screen points. The cover diffuses more strongly.
+  const radius = motion * (side === 'cover' ? TRANSITION_MAX_BLUR_PX : 14);
+  return <>
+    <div className="duo-anchored-blur" data-face={side} aria-hidden="true" style={{
+      clipPath: clip, maskImage: `linear-gradient(to right, ${mask})`
+    }} ref={el => { if (el) el.inert = true; }}>
+      <div className="duo-focus-source" style={{filter: `blur(${radius.toFixed(2)}px)`}}>
+        <MovingScreenContent {...props} />
+      </div>
+    </div>
+    <div className="duo-anchored-dim" aria-hidden="true" style={{
+      clipPath: clip, background: leafGradient(side, motion, gradientX)
+    }} />
+  </>;
+}
+
 /**
  * One screen of the moving leaf during the opening / closing transition.
  *
@@ -129,20 +195,7 @@ function leafGradient(side: AnchoredFaceProps['side'], motion: number, gradientX
  * picture appears to pass through the swinging half.
  */
 function AnchoredFace(props: AnchoredFaceProps): React.ReactElement {
-  const { side, motion } = props;
-  // distance from the hinge (0) to the free edge (1), as a local x in points
-  const xAt = (e: number): number => sampleTransitionGradient(props.gradientX, e);
-  const maskFor = (from: number, to: number): string | undefined => {
-    if (to <= 0) return undefined;
-    const a = xAt(from).toFixed(1);
-    const b = xAt(to).toFixed(1);
-    return side === 'cover'
-      ? `linear-gradient(to right, transparent ${a}px, #000 ${b}px)`
-      : `linear-gradient(to right, #000 ${b}px, transparent ${a}px)`;
-  };
-  const bands = motion < 0.02 ? BLUR_BANDS.slice(0, 1) : BLUR_BANDS;
-  const dim = leafGradient(side, motion, props.gradientX);
-
+  const { side } = props;
   return (
     <div
       className={`duo-interactive-slice duo-anchored-face duo-anchored-${side}`}
@@ -155,44 +208,8 @@ function AnchoredFace(props: AnchoredFaceProps): React.ReactElement {
         filter: props.brightness >= 0.999 ? undefined : `brightness(${props.brightness.toFixed(3)})`
       }}
     >
-      <div
-        className="duo-slice-inner-viewport"
-        style={{ width: `${INNER_W}px`, height: `${INNER_H}px` }}
-      >
-        <AppSurface>
-          <WebviewContainer
-            state={props.state}
-            isDualUnfolded={true}
-            reloadTick={0}
-            onRegisterWebContentsId={(): void => {}}
-            mirrorGuestId={props.guestId}
-            mirrorCoverFrameOffsetX={side === 'cover' ? HINGE_X : undefined}
-            mirrorInteractive={side === 'innerLeft'}
-          />
-        </AppSurface>
-        <HomeScreen mirror width={INNER_W} height={INNER_H} safeTop={20} trailingInset={84} />
-        <SystemOverlayLayer
-          preset={props.preset}
-          state={props.state}
-          isOuterActive={false}
-          isTallInner={false}
-          tintColor={props.tintColor}
-          onGoHome={props.onGoHome}
-          logicalW={INNER_W}
-          logicalH={INNER_H}
-          onReload={props.onReload}
-          onToggleDuoFold={props.onToggleDuoFold}
-        />
-      </div>
-      {bands.map(band => {
-        const blur = TRANSITION_MAX_BLUR_PX * motion * band.strength;
-        if (blur < 0.3) return null;
-        return <div key={band.strength} className="duo-anchored-blur" aria-hidden="true" style={{
-          backdropFilter: `blur(${blur.toFixed(2)}px)`,
-          maskImage: maskFor(band.from, band.to)
-        }} />;
-      })}
-      <div className="duo-anchored-dim" style={{ background: dim }} />
+      <MovingScreenContent {...props} />
+      <FaceOptics {...props} />
     </div>
   );
 }
@@ -349,6 +366,15 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const split = state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON;
   const transition = projection?.transition;
   const flatMotion = useMotionRig && !split && transition?.active;
+  // The PWA reflows once across the optical handoff. Keep the page right-aligned
+  // and wide enough to fill every exposed point of the unfolded picture.
+  const handoff = props.focusHandoff && transition?.active;
+  const exposedLeft = projection?.leftFacing && transition
+    ? Math.min(HINGE_X, ...transition.innerGradientX) : HINGE_X;
+  const coverWidth = projection?.outer.width ?? 466;
+  const pageWidth = handoff ? Math.min(INNER_W, Math.ceil(Math.max(INNER_W - exposedLeft,
+    coverWidth + (INNER_W - coverWidth) * (1 - transition.innerMotion)))) : fullLogicalW;
+  const coverLayout = handoff ? preset.formFactor === DeviceFormFactor.FOLDABLE_COVER : isOuterPrimary;
   const sliceInner = !flatMotion && (isBentInner || split);
   const primarySlice = flatMotion ? transition.flat : isOuterPrimary
     ? projection?.outer
@@ -424,7 +450,8 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     : defaultLeft;
   const innerBrightness = projection?.innerBrightness ?? 1;
   const innerFilter = innerBrightness >= 0.999 ? undefined : `brightness(${innerBrightness.toFixed(3)})`;
-  const needsMirror = showCoverMirror || (mirrorLeft && !useMotionRig && (inTransition || isBentInner));
+  // Keep the same capture stream across the cover-to-inner transfer.
+  const needsMirror = showCoverMirror || (mirrorLeft && (transitioning || isBentInner));
   useEffect(() => {
     if (!needsMirror || primaryGuestId === null) return;
     const release = acquireGuestMirror(primaryGuestId);
@@ -432,6 +459,8 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
     return release;
   }, [needsMirror, primaryGuestId]);
 
+  const movingScreen = { pageWidth, coverLayout, guestId: primaryGuestId, preset, state, tintColor: props.tintColor,
+    onReload: props.onReload, onToggleDuoFold: props.onToggleDuoFold, onGoHome: props.onGoHome };
   const foldDepthIntensity = projection
     ? Math.sin(projection.phi * Math.PI)
     : 0;
@@ -581,42 +610,39 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
               clipPath: flatMotion ? undefined : isOuterPrimary ? projection?.outer.apertureClip : projection?.full.apertureClip
             }}
           >
-            <AppSurface style={splitSurface}>
-              <WebviewContainer
+            <div className="duo-page-layout" style={{width: pageWidth, left: fullLogicalW - pageWidth}}>
+              <AppSurface style={splitSurface}>
+                <WebviewContainer
+                  state={state}
+                  isDualUnfolded={!coverLayout}
+                  reloadTick={props.reloadTick}
+                  onRegisterWebContentsId={(id: number): void => {
+                    setPrimaryGuestId(id);
+                    props.onRegisterWebContentsId(id);
+                  }}
+                  onPageReady={props.onPageReady}
+                  onNavigate={props.onNavigate}
+                />
+                <LaunchSplash />
+              </AppSurface>
+              <HomeScreen width={pageWidth} height={fullLogicalH} safeTop={54} trailingInset={isOuterPrimary || !isHorizontalSplit ? 84 : 0} />
+              <SystemOverlayLayer
+                preset={preset}
                 state={state}
-                isDualUnfolded={!isOuterPrimary}
-                reloadTick={props.reloadTick}
-                onRegisterWebContentsId={(id: number): void => {
-                  setPrimaryGuestId(id);
-                  props.onRegisterWebContentsId(id);
-                }}
-                onPageReady={props.onPageReady}
-                onNavigate={props.onNavigate}
+                isOuterActive={coverLayout}
+                isTallInner={isHorizontalSplit}
+                tintColor={props.tintColor}
+                onGoHome={props.onGoHome}
+                logicalW={pageWidth}
+                logicalH={fullLogicalH}
+                onReload={props.onReload}
+                onToggleDuoFold={props.onToggleDuoFold}
               />
-              <LaunchSplash />
-            </AppSurface>
-            <HomeScreen width={fullLogicalW} height={fullLogicalH} safeTop={54} trailingInset={isOuterPrimary || !isHorizontalSplit ? 84 : 0} />
-            <SystemOverlayLayer
-              preset={preset}
-              state={state}
-              isOuterActive={isOuterPrimary}
-              isTallInner={isHorizontalSplit}
-              tintColor={props.tintColor}
-              onGoHome={props.onGoHome}
-              logicalW={fullLogicalW}
-              logicalH={fullLogicalH}
-              onReload={props.onReload}
-              onToggleDuoFold={props.onToggleDuoFold}
-            />
-            {flatMotion && (transition.coverClip || transition.leftClip) && (
-              <div className="duo-anchored-dim" aria-hidden="true" style={{
-                clipPath: transition.coverClip || transition.leftClip || undefined,
-                backdropFilter: `blur(${((transition.coverClip ? transition.coverMotion : transition.innerMotion) * 1.8).toFixed(2)}px)`,
-                background: transition.coverClip
-                  ? leafGradient('cover', transition.coverMotion, transition.coverGradientX)
-                  : leafGradient('innerLeft', transition.innerMotion, transition.innerGradientX)
-              }} />
-            )}
+            </div>
+            {flatMotion && transition.coverClip && <FaceOptics {...movingScreen} side="cover" clip={transition.coverClip}
+              gradientX={transition.coverGradientX} motion={transition.coverMotion} />}
+            {flatMotion && transition.leftClip && <FaceOptics {...movingScreen} side="innerLeft" clip={transition.leftClip}
+              gradientX={transition.innerGradientX} motion={transition.innerMotion} />}
             <div className="duo-modal-viewport" style={{ left: -primaryShiftX, top: -primaryShiftY, width: primarySlice.width, height: primarySlice.height }}>
               {!modalOnCover && <ScreenModalLayer />}
             </div>
@@ -641,6 +667,8 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
         <>
           {transition.leftClip && (
             <AnchoredFace
+              pageWidth={pageWidth}
+              coverLayout={coverLayout}
               side="innerLeft"
               gradientX={transition.innerGradientX}
               matrix3d={transition.flat.matrix3d}
@@ -658,6 +686,8 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
           )}
           {transition.coverClip && (
             <AnchoredFace
+              pageWidth={pageWidth}
+              coverLayout={coverLayout}
               side="cover"
               gradientX={transition.coverGradientX}
               matrix3d={transition.flat.matrix3d}

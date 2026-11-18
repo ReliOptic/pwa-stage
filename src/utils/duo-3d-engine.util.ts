@@ -1,3 +1,4 @@
+import { sampleFoldFocus } from './duo-transition.util';
 import { readDisplayOutline, displayOutlineCss, leftDisplayContour, DisplayOutline } from './display-outline.util';
 import {
   computeHomographyMatrix3d,
@@ -86,9 +87,8 @@ declare global {
 }
 
 /**
- * Hinge angle at which the app moves from the cover layout to the inner
- * layout. It has to happen as soon as the device cracks open: during the
- * opening transition the cover shows the very content that lies beneath it.
+ * At this angle the inner plane can start painting beneath the raised cover.
+ * The front-view focus and emulated viewport handoff are timed separately.
  */
 export const COVER_HANDOFF_DEG = 2;
 /**
@@ -100,10 +100,8 @@ export const COVER_HANDOFF_DEG = 2;
 export const RIGHT_LEAF_HIDDEN = 'hidden';
 /** The inner display fades up between the hand-off and this angle. */
 export const INNER_FULLY_LIT_DEG = 20;
-/** Uncalibrated CSS Gaussian sigma in inner-display points.
- * Recreation radii (72/144 source px) use different kernels; not interchangeable. */
-export const TRANSITION_MAX_BLUR_PX = 40;
-
+/** Estimated cover-glass blur radius in CSS points on the unfolded plane. */
+export const TRANSITION_MAX_BLUR_PX = 18;
 function clamp(val: number, min = 0, max = 1): number {
   return Math.max(min, Math.min(max, val));
 }
@@ -648,14 +646,7 @@ export class Duo3DHardwareEngine {
       this.asset.point(d.minX, d.y, d.minZ, 25), this.asset.point(d.maxX, d.y, d.minZ, 25),
       this.asset.point(d.maxX, d.y, d.maxZ, 25), this.asset.point(d.minX, d.y, d.maxZ, 25)
     ]);
-    const smooth01 = (t: number): number => {
-      const c = clamp(t, 0, 1);
-      return c * c * (3 - 2 * c);
-    };
-    // Cover: sharp when shut, strongest once the leaf stands upright.
-    // Inner-left: strongest while upright, back in focus as it lies flat.
-    const coverMotion = smooth01(angleDeg / 90);
-    const innerMotion = smooth01((180 - angleDeg) / 90);
+    const { coverMotion, innerMotion } = sampleFoldFocus(u);
     const innerBrightness = isOuterPrimary
       ? 0
       : clamp(

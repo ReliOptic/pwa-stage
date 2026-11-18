@@ -3,6 +3,12 @@
 The previous 1.0.2 compositor audit checked resting images. It did not establish
 that interrupted opening, closing or dragging felt correct.
 
+## Focus handoff in 1.0.7
+
+In the front-facing Span preview, 70% of the physical opening is 126°. The moving cover progressively diffuses its picture. The moving inner glass brings that picture into focus from 108° to 144°, with half its maximum blur at 126°. Closing and reversing follow the same angles. The held right panel stays sharp. The emulated device switches between cover and inner profiles at the midpoint, and the same live PWA reflows to the exposed width. This choreography is specific to the simulator.
+
+The moving glass samples the actual guest through its shared compositor stream. A mask registered to the hinge keeps the effect within the appropriate glass aperture. The native-pointer focus regression takes opening and closing captures at 72°, 108°, 126° and 144°. At each angle it compares device pixels with the blur enabled and disabled while keeping the pose, mask and dimming identical.
+
 ## Normal-speed playback in 1.0.6
 
 A desktop recording of 1.0.5 showed the hinge jumping from 0° to 97° to 175° while the previous slow-motion checks still passed. The reference film shows the held half staying legible as the cover swings through the middle of the frame. In 1.0.6 the standard front-view sweep uses pre-rendered hardware and a matching visible-glass stencil; the web page, Home Screen, and browser chrome are live. A bounded frame step prevents time spent on a delayed paint from consuming the entire sweep. The finite drive targets 680 ms to open and 610 ms to close; elapsed time can increase on a slow renderer. Pause, reversal, direct hinge dragging, and reduced motion still use one controller.

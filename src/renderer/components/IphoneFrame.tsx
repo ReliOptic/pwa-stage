@@ -1,5 +1,5 @@
 import { platformLabel } from '../../utils/platform.util';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { IOS27_CHROME_ASSETS } from '../../config/ios27-assets.config';
 import {
   computeDuoFoldMetrics,
@@ -16,7 +16,8 @@ import {
   HardwareCutoutType,
   Orientation
 } from '../../types/device.types';
-import { SimulatorState } from '../../types/simulator.types';
+import { DuoDisplayMode, SimulatorState } from '../../types/simulator.types';
+import { FOLD_FOCUS_HANDOFF } from '../../utils/duo-transition.util';
 import { COVER_HANDOFF_DEG } from '../../utils/duo-3d-engine.util';
 import { requestDuoFoldToggle } from '../sim-events';
 import { useDuoHingeController } from '../useDuoHingeController';
@@ -99,6 +100,11 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
     preset.formFactor === DeviceFormFactor.FOLDABLE_COVER ||
     preset.formFactor === DeviceFormFactor.FOLDABLE_DUAL;
   const hinge = useDuoHingeController(state.selectedDeviceId);
+  const [scrubbing, setScrubbing] = useState(false);
+  const moving = hinge.isAnimating || scrubbing;
+  const focusHandoff = moving && isDuoFamily && state.isFramed &&
+    state.duoDisplayMode !== DuoDisplayMode.SPLIT_COMPARISON && hinge.orbitDeg === 0 && hinge.pitchDeg === 0 &&
+    (hinge.posture === 'open' || hinge.posture === 'closed');
   const interp = computeDuoFoldMetrics(hinge.foldAngle);
   const eff = resolveEffectiveMetrics(
     metrics,
@@ -156,7 +162,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
     (deg: number, targetPosture?: DuoPostureId): void => {
       const posture = targetPosture ?? hinge.posture;
       // Stand / tent mode shows content on the *cover* display turned sideways.
-      const usesCover = deg < COVER_HANDOFF_DEG || posture === 'standing';
+      const usesCover = posture === 'standing' || deg < (focusHandoff ? 180 * FOLD_FOCUS_HANDOFF : COVER_HANDOFF_DEG);
       const targetId = usesCover
         ? DeviceModelId.IPHONE_DUO_FOLDED
         : DeviceModelId.IPHONE_DUO_UNFOLDED;
@@ -180,16 +186,16 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
         props.onUpdateState(patch);
       }
     },
-    [hinge, props, state.selectedDeviceId, state.orientation]
+    [hinge, props, state.selectedDeviceId, state.orientation, focusHandoff]
   );
 
-  const syncedPose = useRef(`${hinge.foldAngle}:${hinge.posture}`);
+  const syncedPose = useRef(`${hinge.foldAngle}:${hinge.posture}:${focusHandoff}`);
   useEffect(() => {
-    const key = `${hinge.foldAngle}:${hinge.posture}`;
+    const key = `${hinge.foldAngle}:${hinge.posture}:${focusHandoff}`;
     if (!isDuoFamily || syncedPose.current === key) return;
     syncedPose.current = key;
     syncDeviceForAngle(hinge.foldAngle);
-  }, [hinge.foldAngle, hinge.posture, isDuoFamily, syncDeviceForAngle]);
+  }, [hinge.foldAngle, hinge.posture, focusHandoff, isDuoFamily, syncDeviceForAngle]);
 
   // Toolbar "Rotate" on the unfolded Duo picks the matching posture.
   const lastOrientationRef = useRef(state.orientation);
@@ -256,7 +262,8 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
       >
         {use3DDuoStage ? (
           <Duo3DStage
-            transitioning={hinge.isAnimating}
+            transitioning={moving}
+            focusHandoff={focusHandoff}
             preset={preset}
             metrics={eff}
             state={state}
@@ -432,6 +439,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
           logicalHeight={eff.logicalHeight}
           finish={hinge.finish}
           hasCustomOrbit={hinge.orbitDeg !== 0 || hinge.pitchDeg !== 0}
+          onScrubActiveChange={setScrubbing}
           onScrubAngle={(deg: number): void => {
             hinge.scrubToAngle(deg);
           }}

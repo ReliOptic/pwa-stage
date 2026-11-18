@@ -1106,6 +1106,10 @@ html, body, #root {
 .duo-anchored-face { background: transparent; pointer-events: none; }
 .duo-anchored-innerLeft { pointer-events: auto; }
 .duo-anchored-blur { position: absolute; inset: 0; pointer-events: none; z-index: 45; }
+/* Chromium may not sample the child webview in a masked backdrop filter. Blur
+   its shared compositor image, then clip that image to the physical glass. */
+.duo-focus-source { position: absolute; inset: 0; }
+.duo-focus-source:not(:has(.guest-mirror-ready, .home-screen-home)) { visibility: hidden; }
 .duo-anchored-dim { position: absolute; inset: 0; pointer-events: none; z-index: 60; }
 
 /* Confirmation geometry estimated from WebKit's official Safari 26 illustration.
@@ -1177,6 +1181,7 @@ html, body, #root {
   background: linear-gradient(150deg, #d8cedd73, #625d7566 38%, #262638c9 81%);
 }
 
+.duo-page-layout { position: absolute; top: 0; bottom: 0; }
 .duo-cover-source { position: absolute; top: 0; transform-origin: top left; }
 .duo-cover-glass { position: absolute; inset: 0; z-index: 44; pointer-events: none; background: linear-gradient(116deg,#fff5e9,transparent 28%,transparent 75%,#d9e2ef 100%); }
 

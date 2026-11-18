@@ -20,11 +20,20 @@ export function sampleTransitionGradient(samples: readonly number[], distance: n
   return samples[lo] + (samples[hi] - samples[lo]) * (index - lo);
 }
 
-/** Overlapping ramps approximate linear progressive blur; the hinge is sharp. */
-export const TRANSITION_BLUR_BANDS = [
-  { from: 0, to: 0, strength: 0 },
-  { from: 0, to: 0.25, strength: 0.25 },
-  { from: 0.25, to: 0.5, strength: 0.5 },
-  { from: 0.5, to: 0.75, strength: 0.75 },
-  { from: 0.75, to: 1, strength: 1 }
-] as const;
+/** Fraction of the physical 0–180° opening, also used when reversing. */
+export const FOLD_FOCUS_HANDOFF = 0.7;
+const FOCUS_HALF_WIDTH = 0.1;
+
+function smoothRamp(start: number, end: number, value: number): number {
+  const t = Math.max(0, Math.min(1, (value - start) / (end - start)));
+  return t * t * (3 - 2 * t);
+}
+
+/** Simulator focus choreography. Visibility and depth come from the mesh. */
+export function sampleFoldFocus(openFraction: number): { coverMotion: number; innerMotion: number } {
+  const coverMotion = smoothRamp(0, FOLD_FOCUS_HANDOFF, openFraction);
+  const innerMotion = 1 - smoothRamp(
+    FOLD_FOCUS_HANDOFF - FOCUS_HALF_WIDTH, FOLD_FOCUS_HANDOFF + FOCUS_HALF_WIDTH, openFraction
+  );
+  return { coverMotion, innerMotion };
+}

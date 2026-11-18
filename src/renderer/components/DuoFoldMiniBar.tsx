@@ -34,6 +34,7 @@ export interface DuoFoldMiniBarProps {
   readonly logicalHeight: number;
   readonly finish: 'night' | 'white';
   readonly hasCustomOrbit: boolean;
+  readonly onScrubActiveChange: (active: boolean) => void;
   readonly onScrubAngle: (angleDeg: number) => void;
   readonly onStepAngle: (deltaDeg: number) => void;
   readonly onSelectPosture: (posture: DuoPostureId) => void;
@@ -73,6 +74,7 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
     logicalHeight,
     finish,
     hasCustomOrbit,
+    onScrubActiveChange,
     onScrubAngle,
     onStepAngle,
     onSelectPosture,
@@ -183,6 +185,7 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
               e.preventDefault();
               e.currentTarget.focus();
               e.currentTarget.setPointerCapture(e.pointerId);
+              onScrubActiveChange(true);
               scrubAtPointer(e);
             }}
             onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) scrubAtPointer(e); }}
@@ -191,6 +194,7 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
               scrubAtPointer(e);
               e.currentTarget.releasePointerCapture(e.pointerId);
             }}
+            onLostPointerCapture={() => onScrubActiveChange(false)}
             onChange={(e): void => onScrubAngle(Number(e.target.value))}
           />
         </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { transitionDimAlpha, TRANSITION_BLUR_BANDS, sampleTransitionGradient } from '../../src/utils/duo-transition.util';
+import { transitionDimAlpha, sampleFoldFocus, sampleTransitionGradient } from '../../src/utils/duo-transition.util';
 
 describe('Duo moving-leaf shading', () => {
   it('follows the projected moving edge instead of the full unfolded half-width', () => {
@@ -25,12 +25,20 @@ describe('Duo moving-leaf shading', () => {
       expect(transitionDimAlpha(i / 100, 1)).toBeGreaterThan(transitionDimAlpha((i - 1) / 100, 1));
     }
   });
-  it('starts the blur with a sharp layer and covers the full linear ramp', () => {
-    expect(TRANSITION_BLUR_BANDS[0].strength).toBe(0);
-    expect(TRANSITION_BLUR_BANDS.at(-1)?.to).toBe(1);
-    TRANSITION_BLUR_BANDS.slice(1).forEach((band, i) => {
-      expect(band.from).toBe(TRANSITION_BLUR_BANDS[i].to);
-      expect(band.strength).toBe(band.to);
-    });
+  it('leaves the cover sharp when closed and resolves the inner glass around 70% open', () => {
+    expect(sampleFoldFocus(0)).toEqual({ coverMotion: 0, innerMotion: 1 });
+    expect(sampleFoldFocus(0.6).innerMotion).toBe(1);
+    expect(sampleFoldFocus(126 / 180).innerMotion).toBeCloseTo(0.5);
+    expect(sampleFoldFocus(126 / 180).coverMotion).toBe(1);
+    expect(sampleFoldFocus(0.8).innerMotion).toBe(0);
+    expect(sampleFoldFocus(1)).toEqual({ coverMotion: 1, innerMotion: 0 });
+    let previous = sampleFoldFocus(0);
+    for (let angle = 1; angle <= 180; angle++) {
+      const next = sampleFoldFocus(angle / 180);
+      expect(next.coverMotion - previous.coverMotion).toBeGreaterThanOrEqual(0);
+      expect(previous.innerMotion - next.innerMotion).toBeGreaterThanOrEqual(0);
+      expect(previous.innerMotion - next.innerMotion).toBeLessThan(0.05);
+      previous = next;
+    }
   });
 });
