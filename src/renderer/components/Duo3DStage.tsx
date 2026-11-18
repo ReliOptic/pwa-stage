@@ -369,7 +369,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const flatMotion = useMotionRig && !split && transition?.active;
   // The PWA reflows once across the optical handoff. Keep the page right-aligned
   // and wide enough to fill every exposed point of the unfolded picture.
-  const handoff = props.focusHandoff && transition?.active;
+  const handoff = props.focusHandoff && !isOuterPrimary && transition;
   const exposedLeft = projection?.leftFacing && transition
     ? Math.min(HINGE_X, ...transition.innerGradientX) : HINGE_X;
   const coverWidth = projection?.outer.width ?? 466;
@@ -390,6 +390,9 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const primaryHidden = rawPrimaryClip === RIGHT_LEAF_HIDDEN || !primarySlice?.active;
   const primaryClip = primaryHidden ? undefined : rawPrimaryClip;
   const mirrorLeft = !split;
+  // At free-stop the left mesh shows the leading part of the responsive page.
+  // Its trailing pixel meets the first pixel visible on the held right pane.
+  const leftPageWidth = Math.max(1, pageWidth - HINGE_X);
   const splitSurface = split ? {
     width: `${isOuterPrimary ? fullLogicalW : projection?.right.width ?? fullLogicalW}px`,
     height: `${isOuterPrimary ? fullLogicalH : projection?.right.height ?? fullLogicalH}px`,
@@ -404,7 +407,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const cover = projection?.outer;
   const showCoverMirror = Boolean(cover?.active && !isOuterPrimary && !inTransition);
   const modalOnCover = showCoverMirror && (coverSelected || primaryHidden);
-  const coverSourceWidth = split ? primarySlice?.width ?? fullLogicalW : fullLogicalW;
+  const coverSourceWidth = split ? primarySlice?.width ?? fullLogicalW : pageWidth;
   const coverSourceHeight = split ? primarySlice?.height ?? fullLogicalH : fullLogicalH;
   const coverScale = cover ? Math.max(cover.width / coverSourceWidth, cover.height / coverSourceHeight) : 1;
   // The cover normally shows the trailing portion of the live page. A web
@@ -523,30 +526,36 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
               clipPath: projection.full.apertureClip
             }}
           >
-            <AppSurface style={split ? { width: `${projection.left.width}px`, height: `${projection.left.height}px` } : undefined}>
-              <WebviewContainer
-                state={split ? { ...state, currentUrl: state.secondaryUrl } : state}
-                reserveSystemRail={!split}
-                onNavigate={split ? (url): void => props.onUpdateState({ secondaryUrl: url }) : undefined}
-                isDualUnfolded={true}
-                reloadTick={props.reloadTick}
-                onRegisterWebContentsId={(): void => {}}
-                mirrorGuestId={mirrorLeft ? primaryGuestId : undefined}
-              />
-            </AppSurface>
-            <HomeScreen width={fullLogicalW} height={fullLogicalH} safeTop={54} trailingInset={isHorizontalSplit ? 0 : 84} />
-            <SystemOverlayLayer
-              preset={preset}
-              state={state}
-              isOuterActive={false}
-              isTallInner={isHorizontalSplit}
-              tintColor={props.tintColor}
-              onGoHome={props.onGoHome}
-              logicalW={fullLogicalW}
-              logicalH={fullLogicalH}
-              onReload={props.onReload}
-              onToggleDuoFold={props.onToggleDuoFold}
-            />
+            <div className="duo-left-page-strip" style={handoff ? {
+              width: leftPageWidth, transform: `scaleX(${HINGE_X / leftPageWidth})`
+            } : undefined}>
+              <div className="duo-page-layout" style={{width: pageWidth}}>
+                <AppSurface style={split ? { width: `${projection.left.width}px`, height: `${projection.left.height}px` } : undefined}>
+                  <WebviewContainer
+                    state={split ? { ...state, currentUrl: state.secondaryUrl } : state}
+                    reserveSystemRail={!split}
+                    onNavigate={split ? (url): void => props.onUpdateState({ secondaryUrl: url }) : undefined}
+                    isDualUnfolded={!coverLayout}
+                    reloadTick={props.reloadTick}
+                    onRegisterWebContentsId={(): void => {}}
+                    mirrorGuestId={mirrorLeft ? primaryGuestId : undefined}
+                  />
+                </AppSurface>
+                <HomeScreen width={pageWidth} height={fullLogicalH} safeTop={54} trailingInset={isHorizontalSplit ? 0 : 84} />
+                <SystemOverlayLayer
+                  preset={preset}
+                  state={state}
+                  isOuterActive={coverLayout}
+                  isTallInner={isHorizontalSplit}
+                  tintColor={props.tintColor}
+                  onGoHome={props.onGoHome}
+                  logicalW={pageWidth}
+                  logicalH={fullLogicalH}
+                  onReload={props.onReload}
+                  onToggleDuoFold={props.onToggleDuoFold}
+                />
+              </div>
+            </div>
           </div>
           {/* 3D Crease Valley Shading on Left / Top Leaf */}
           <div

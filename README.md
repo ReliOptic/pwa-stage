@@ -130,7 +130,7 @@ The slab frame now uses the bundled hardware artwork, registered and rotated wit
 
 `display-mode` CSS emulation covers nested rules and dynamically added accessible stylesheets. Browser origin protections still apply to cross-origin CSS; validate those cases in real WebKit. This tool does not replace iOS device testing. Internal build 1.0.3 has been exercised on Linux Electron; macOS and Windows packages are cross-built and unsigned.
 
-In the front Span view, the app hands off between the cover and inner displays at 70% open (126°). Between 108° and 144° the moving inner glass comes into focus. The held half stays sharp, and the angle slider previews the same effect while dragging.
+In the front Span view, the app hands off between the cover and inner displays at 70% open (126°). Between 108° and 144° the moving inner glass comes into focus. The held half stays sharp, and the angle slider previews the same effect while dragging. Releasing the slider restores sharp glass and keeps the selected display profile.
 
 Duo controls: click Open / Close again to reverse, Escape or Pause to stop, and Resume to continue. Drag the wider angle slider for direct control without changing the selected camera; Home / End and arrow keys work when it has focus. Shift-click Open / Close for 8× slow playback. See [interaction review](docs/fold-interaction-review.md) for the Apple reference, corrections and verification limits.
 

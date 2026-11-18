@@ -149,14 +149,25 @@ server.listen(0, '127.0.0.1', async () => {
       await evaluate("document.body.classList.remove('focus-control');focusClock.stop=null");
       await until(() => evaluate(`document.querySelector('.duo-bottom-minibar').dataset.target==='paused' && document.querySelector('.duo-hinge-slider').value==='${opening?180:0}'`), 'resting endpoint');
     }
-    const sliderPoint = await evaluate(`(() => {
-      const r=document.querySelector('.duo-hinge-slider').getBoundingClientRect();
-      return {x:Math.round(r.left+10+(r.width-20)*.7),y:Math.round(r.top+r.height/2)};
-    })()`);
-    shell.sendInputEvent({type:'mouseDown',...sliderPoint,button:'left',clickCount:1});
+    const held = [];
+    const rect=await evaluate("document.querySelector('.duo-hinge-slider').getBoundingClientRect().toJSON()");
+    const point = deg => ({x:Math.round(rect.x+10+(rect.width-20)*deg/180),y:Math.round(rect.y+rect.height/2)});
+    shell.sendInputEvent({type:'mouseDown',...point(123),button:'left',clickCount:1});
+    for (const degrees of [124,125,126,127,126,125]) {
+      shell.sendInputEvent({type:'mouseMove',...point(degrees),button:'left',modifiers:['leftButtonDown']});
+      await until(() => evaluate(`Number(document.querySelector('.duo-hinge-slider').value)===${degrees}`), degrees+' degrees while dragging');
+      const width=degrees<126?466:951;
+      await until(async () => await guest.executeJavaScript('screen.width')===width,'actual guest profile '+width);
+      held.push({degrees,screenWidth:await guest.executeJavaScript('screen.width'),guestId:guest.id,tokenRetained:await guest.executeJavaScript('window.visitToken')===token});
+    }
     await until(() => evaluate("!!document.querySelector('.duo-anchored-blur[data-face=innerLeft]')"), 'dragged focus');
-    shell.sendInputEvent({type:'mouseUp',...sliderPoint,button:'left',clickCount:1});
-    await until(() => evaluate("!document.querySelector('.duo-anchored-blur') && !document.querySelector('[data-motion-frame]')"), 'sharp free-stop');
+    shell.sendInputEvent({type:'mouseUp',...point(125),button:'left',clickCount:1});
+    await until(() => evaluate("!document.querySelector('.duo-anchored-blur')"),'released glass');
+    // Read after a native paint, so releasing cannot switch the profile back.
+    await capture(false);
+    assert.equal(await guest.executeJavaScript('screen.width'),466);
+    fs.writeFileSync(path.join(output,'handoff-profile.json'),JSON.stringify(held,null,2));
+    console.log('GUEST PROFILE', JSON.stringify(held));
     assert.equal(token, await guest.executeJavaScript('window.visitToken'));
     assert.equal(webContents.getAllWebContents().filter(w=>w.getType()==='webview').length, 1);
     fs.writeFileSync(path.join(output,'focus.json'), JSON.stringify(samples,null,2));

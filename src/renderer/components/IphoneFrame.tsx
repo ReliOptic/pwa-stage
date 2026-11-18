@@ -103,7 +103,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
   const hinge = useDuoHingeController(state.selectedDeviceId);
   const [scrubbing, setScrubbing] = useState(false);
   const moving = hinge.isAnimating || scrubbing;
-  const focusHandoff = moving && isDuoFamily && state.isFramed &&
+  const focusHandoff = isDuoFamily && state.isFramed &&
     state.duoDisplayMode !== DuoDisplayMode.SPLIT_COMPARISON && hinge.orbitDeg === 0 && hinge.pitchDeg === 0 &&
     (hinge.posture === 'open' || hinge.posture === 'closed');
   const interp = computeDuoFoldMetrics(hinge.foldAngle);

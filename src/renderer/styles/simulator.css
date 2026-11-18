@@ -1181,6 +1181,7 @@ html, body, #root {
   background: linear-gradient(150deg, #d8cedd73, #625d7566 38%, #262638c9 81%);
 }
 
+.duo-left-page-strip { position: absolute; inset: 0; overflow: hidden; transform-origin: left center; }
 .duo-page-layout { position: absolute; top: 0; bottom: 0; }
 .duo-cover-source { position: absolute; top: 0; transform-origin: top left; }
 .duo-cover-glass { position: absolute; inset: 0; z-index: 44; pointer-events: none; background: linear-gradient(116deg,#fff5e9,transparent 28%,transparent 75%,#d9e2ef 100%); }
