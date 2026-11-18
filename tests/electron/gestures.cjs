@@ -30,9 +30,15 @@ server.listen(0,'127.0.0.1',async()=>{
     const findGuest=()=>webContents.getAllWebContents().find(w=>w.getType()==='webview' && w.getURL()===site && !w.isLoading());
     await until(findGuest,'initial guest');
     const seedApps=async apps=>{
+      const previous=await until(findGuest,'guest before reloading saved apps');
       await js('localStorage.setItem("pwa-stage.installed-web-apps.v1",'+JSON.stringify(JSON.stringify(apps))+')');
       const loaded=new Promise(resolve=>wc.once('did-finish-load',resolve));win.reload();await loaded;
-      await until(findGuest,'guest after loading saved apps');
+      await until(async()=>{
+        const current=findGuest();
+        if(!current || current.id===previous.id) return false;
+        const attached=await js("document.querySelector('webview')?.getWebContentsId()");
+        return attached===current.id && await current.executeJavaScript('typeof window.sessionToken==="number"');
+      },'new guest after loading saved apps');
     };
     const fieldNotes={id:'field-notes',name:'Field notes',launchUrl:site,opensAsWebApp:true,addedAt:1};
     await seedApps([fieldNotes]);
@@ -98,6 +104,8 @@ server.listen(0,'127.0.0.1',async()=>{
     await until(home,'trackpad scroll at bottom edge');
     // Populate a second page only for the pagination regression.
     await seedApps(Array.from({length:26},(_,i)=>({...fieldNotes,id:String(i),name:'Notebook '+i})));
+    // DOM attachment precedes native presentation after a window reload.
+    await capture('reloaded-before-paging');
     if (!(await home())) {await swipe(0,-85);await until(home,'Home after loading two app pages');}
     await swipe(-65,0,'.home-grid button[aria-label=Viewport]');
     await until(()=>js("document.querySelector('[aria-current=page]')?.ariaLabel==='Page 2'"),'second app page');
