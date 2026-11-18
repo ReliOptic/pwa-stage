@@ -19,7 +19,7 @@ for (const name of process.env.SIMULATOR_VISUAL_ONLY === '1' ? ['visual'] : ['ru
   args.push(path.join(__dirname, name + '.cjs'));
   const result = spawnSync(binary, args, {
     env: { ...process.env, SIMULATOR_TEST_OUTPUT: output },
-    encoding: 'utf8', timeout: name === 'visual' ? 915000 : (name === 'motion' || name === 'focus') ? 230000 : name === 'flows' ? 245000 : name === 'home-catalog' ? 230000 : (name === 'media' || name === 'gestures') ? 115000 : 65000, maxBuffer: 8 * 1024 * 1024
+    encoding: 'utf8', timeout: name === 'visual' ? 915000 : (name === 'motion' || name === 'focus') ? 230000 : name === 'flows' ? 245000 : name === 'home-catalog' ? 230000 : (name === 'media' || name === 'gestures' || name === 'mobile-rendering') ? 115000 : 65000, maxBuffer: 8 * 1024 * 1024
   });
   const log = (result.stdout || '') + (result.stderr || '');
   fs.writeFileSync(path.join(output, name + '.log'), log);

@@ -1,6 +1,6 @@
 import { SimulatorEnvConfig } from '../config/env.config';
 import { DevicePreset } from './device.types';
-import { EmulationProfile, EmulationTargetWebContents } from './emulation.types';
+import { EmulationProfile, EmulationTargetWebContents, GuestViewportSize } from './emulation.types';
 import { Result, SimulatorError, SimulatorState } from './simulator.types';
 import { HomeScreenIdentity, PageInspection, PwaCheck } from './pwa.types';
 import { StorageServiceOptions } from './storage.types';
@@ -18,6 +18,7 @@ export interface SimulatorInitPayload {
 }
 
 export interface ApplyWebviewEmulationPayload {
+  readonly viewportSize?: GuestViewportSize;
   readonly webContentsId: number;
   readonly state: SimulatorState;
 }
@@ -33,6 +34,7 @@ export interface SimulatorBridgeApi {
   readonly updateSimulatorState: (
     nextState: SimulatorState
   ) => Promise<Result<SimulatorState, SimulatorError>>;
+  readonly resizeWebview?: (id: number, size: GuestViewportSize) => Promise<void>;
   readonly applyWebviewEmulation: (
     payload: ApplyWebviewEmulationPayload
   ) => Promise<Result<EmulationProfile, SimulatorError>>;
@@ -106,6 +108,7 @@ export interface SimulatorInitPayload {
 }
 
 export interface ApplyWebviewEmulationPayload {
+  readonly viewportSize?: GuestViewportSize;
   readonly webContentsId: number;
   readonly state: SimulatorState;
 }

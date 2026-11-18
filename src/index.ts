@@ -31,7 +31,7 @@ import {
 } from './services/security';
 import { createDefaultSimulatorState, mergeStoredStateWithDefaults } from './services/storage';
 import { installMobileNavigation } from './services/mobile-navigation';
-import { buildMobileUserAgent, forgetEmulationTarget } from './services/emulation';
+import { buildMobileUserAgent, forgetEmulationTarget, readGuestViewportSize, resizeGuestViewport } from './services/emulation';
 import {
   clampMirrorFps,
   forwardGuestPointerEvent,
@@ -197,8 +197,15 @@ function registerIpcHandlers(ctx: MenuControllerContext): void {
     }
     return handleApplyWebviewEmulation(deps, {
       webContentsId: id,
+      viewportSize: readGuestViewportSize(payload.viewportSize),
       state: sanitizeIncomingState(ctx, payload.state)
     });
+  });
+  handleTrusted('simulator:resize-webview', async (_event, rawId, rawSize) => {
+    const id = resolveGuestId(rawId);
+    const size = readGuestViewportSize(rawSize);
+    const target = id === null ? undefined : webContents.fromId(id);
+    if (target && size) await resizeGuestViewport(target, size);
   });
   handleTrusted('simulator:open-webview-devtools', (_event, rawId) => {
     const id = resolveGuestId(rawId);

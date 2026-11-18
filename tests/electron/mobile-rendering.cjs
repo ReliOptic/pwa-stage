@@ -12,8 +12,8 @@ const data = fs.mkdtempSync(path.join(os.tmpdir(),'stage-mobile-profile-'));
 app.setPath('userData',data);
 const requests = [];
 const sleep = ms => new Promise(resolve => setTimeout(resolve,ms));
-async function until(read, name) {
-  const deadline=Date.now()+20000;
+async function until(read, name, timeout=20000) {
+  const deadline=Date.now()+timeout;
   while(Date.now()<deadline){const value=await read();if(value)return value;await sleep(65);}
   throw Error('Timed out waiting for '+name);
 }
@@ -121,10 +121,30 @@ server.listen(0,'127.0.0.1',async()=>{
     await until(async()=>await guest.mainFrame.frames[0].executeJavaScript('screen.width')===874,'rotated iframe screen');
     assert.equal(await guest.executeJavaScript('window.pageToken'),token);
   }
+  // Duo's rail and fold geometry change the real page width. The page must see
+  // the same CSS width at startup and after unfolding, with its state intact.
+  const coverState={...state,selectedDeviceId:'iphone-duo-folded',orientation:'portrait',shellMode:'ios-safari',currentUrl:origin+'/duo/open'};
+  await win.webContents.executeJavaScript('window.simulatorBridge.updateSimulatorState('+JSON.stringify(coverState)+')');
+  const reloaded = new Promise(resolve=>win.webContents.once('did-finish-load',resolve));
+  win.reload();await reloaded;
+  const duo=await until(()=>webContents.getAllWebContents().find(w=>w.getType()==='webview' && w.getURL()===origin+'/duo/library' && !w.isLoading()),'Duo cover');
+  const paneSize=()=>win.webContents.executeJavaScript("(()=>{const el=document.querySelector('.duo-slice-primary webview');return el&&{width:el.clientWidth,height:el.clientHeight}})()");
+  const cover=await until(async()=>{const box=await paneSize();return box?.width===382 && box;},'cover layout box');
+  assert.equal(await duo.executeJavaScript('window.boot.width'),cover.width);
+  const pageToken=await duo.executeJavaScript('window.foldToken=Math.random()');
+  await win.webContents.executeJavaScript("document.querySelector('.duo-fold-toggle').click()");
+  const inner=await until(async()=>{
+    const box=await paneSize();
+    if(box?.width!==867)return false;
+    const reading=await duo.executeJavaScript('({width:innerWidth,height:innerHeight})');
+    return reading.width===box.width && reading.height===box.height && reading;
+  },'inner layout and guest viewport to agree',55000);
+  assert.equal(await duo.executeJavaScript('window.foldToken'),pageToken);
+  report.duo={cover,inner,retained:true};
   // Use a local protocol fixture for the real webRequest redirect path. This
   // checks navigation semantics and never depends on the public YouTube service.
   const routes=[];
-  guest.session.protocol.handle('https', req=>{
+  duo.session.protocol.handle('https', req=>{
     const url=new URL(req.url);routes.push(url.href);
     if(url.hostname==='m.youtube.com' && url.searchParams.has('bounce')){
       return new Response(null,{status:302,headers:{Location:'https://www.youtube.com/watch?v=returned'}});
@@ -138,7 +158,7 @@ server.listen(0,'127.0.0.1',async()=>{
     ['https://www.youtube.com/embed/field','https://www.youtube.com/embed/field'],
     ['https://www.youtube.com/watch?bounce=1','https://www.youtube.com/watch?v=returned']
   ]){
-    await guest.loadURL(start);assert.equal(guest.getURL(),end);
+    await duo.loadURL(start);assert.equal(duo.getURL(),end);
   }
   assert(routes.includes('https://m.youtube.com/watch?bounce=1'));
   fs.writeFileSync(path.join(out,'mobile-rendering.json'),JSON.stringify({report,requests,routes},null,2));

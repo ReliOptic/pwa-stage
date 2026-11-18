@@ -1,6 +1,8 @@
 import { mobileChildTargets } from './mobile-targets';
-import { DeviceFormFactor, Orientation, SafeAreaInsets } from '../types/device.types';
+import { Orientation, SafeAreaInsets } from '../types/device.types';
 import {
+  CdpDeviceMetricsPayload,
+  GuestViewportSize,
   EmulationProfile,
   EmulationProfileInput,
   EmulationTargetWebContents
@@ -331,11 +333,27 @@ export function buildEmulationProfile(input: EmulationProfileInput): EmulationPr
 
 /** Per-guest bookkeeping so re-applying emulation replaces instead of stacking. */
 interface AppliedGuestState {
+  viewport?: GuestViewportSize;
+  metrics?: CdpDeviceMetricsPayload;
   children?: ReturnType<typeof mobileChildTargets>;
   cssKey: string | null;
   initScriptId: string | null;
 }
 const appliedByGuest = new Map<number, AppliedGuestState>();
+
+export function readGuestViewportSize(raw: unknown): GuestViewportSize | undefined {
+  if (!raw || typeof raw !== 'object') return;
+  const {width,height} = raw as Partial<GuestViewportSize>;
+  const valid = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0 && n <= 4096;
+  if (valid(width) && valid(height)) return {width,height};
+}
+
+export async function resizeGuestViewport(target: EmulationTargetWebContents, size: GuestViewportSize) {
+  const state = appliedByGuest.get(target.id);
+  if (!state || (state.viewport?.width === size.width && state.viewport?.height === size.height)) return;
+  state.viewport = size;
+  if (state.metrics) await target.debugger.sendCommand('Emulation.setDeviceMetricsOverride', {...state.metrics, ...size});
+}
 
 export function forgetEmulationTarget(webContentsId: number): void {
   appliedByGuest.get(webContentsId)?.children?.dispose();
@@ -379,12 +397,11 @@ async function replaceInjectedCss(
 
 async function applyEmulationNow(
   target: EmulationTargetWebContents,
-  input: EmulationProfileInput
+  input: EmulationProfileInput,
+  bookkeeping: AppliedGuestState
 ): Promise<Result<EmulationProfile, EmulationFailureError>> {
   const profile = buildEmulationProfile(input);
   const insets = profile.pageSafeArea;
-  const bookkeeping: AppliedGuestState = appliedByGuest.get(target.id) ?? { cssKey: null, initScriptId: null };
-  appliedByGuest.set(target.id, bookkeeping);
 
   try {
     if (!target.debugger.isAttached()) {
@@ -400,23 +417,17 @@ async function applyEmulationNow(
     bookkeeping.children ??= mobileChildTargets(target.debugger, profile);
     target.setZoomFactor?.(1.0);
 
+    bookkeeping.metrics = profile.metrics;
     await Promise.all([
       bookkeeping.children.update(profile),
       target.debugger.sendCommand('Emulation.setUserAgentOverride', {
         userAgent: profile.userAgent,
         platform: profile.platform
       }),
-      // Give rigid displays their logical width before the new renderer's first
-      // layout. Duo panes resize continuously, and browser chrome changes height.
+      // Use the actual pane's unscaled layout box, including at document start.
+      // CSS transforms used for the simulated hardware never enter these metrics.
       target.debugger.sendCommand('Emulation.setDeviceMetricsOverride', {
-        width: input.preset.formFactor === DeviceFormFactor.FOLDABLE_COVER ||
-          input.preset.formFactor === DeviceFormFactor.FOLDABLE_DUAL ? 0 : profile.metrics.width,
-        height: 0,
-        deviceScaleFactor: profile.metrics.deviceScaleFactor,
-        mobile: true,
-        screenWidth: profile.metrics.screenWidth,
-        screenHeight: profile.metrics.screenHeight,
-        screenOrientation: profile.metrics.screenOrientation
+        ...profile.metrics, ...bookkeeping.viewport
       }),
       target.debugger.sendCommand('Emulation.setTouchEmulationEnabled', {
         ...profile.touch
@@ -480,8 +491,11 @@ export function applyEmulationToTarget(
   target: EmulationTargetWebContents,
   input: EmulationProfileInput
 ): Promise<Result<EmulationProfile, EmulationFailureError>> {
+  const bookkeeping: AppliedGuestState = appliedByGuest.get(target.id) ?? {cssKey:null, initScriptId:null};
+  if (input.viewportSize) bookkeeping.viewport = input.viewportSize;
+  appliedByGuest.set(target.id, bookkeeping);
   const pending = (pendingByGuest.get(target.id) ?? Promise.resolve())
-    .then(() => applyEmulationNow(target, input));
+    .then(() => applyEmulationNow(target, input, bookkeeping));
   pendingByGuest.set(target.id, pending);
   void pending.finally(() => {
     if (pendingByGuest.get(target.id) === pending) pendingByGuest.delete(target.id);

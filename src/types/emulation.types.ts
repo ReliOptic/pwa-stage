@@ -1,9 +1,12 @@
 import { DevicePreset, Orientation, SafeAreaInsets } from './device.types';
 import { BrowserShellMode, EmulationFailureError, PwaStatusBarStyle, Result } from './simulator.types';
 
-export interface CdpDeviceMetricsPayload {
+export interface GuestViewportSize {
   readonly width: number;
   readonly height: number;
+}
+
+export interface CdpDeviceMetricsPayload extends GuestViewportSize {
   readonly screenWidth: number;
   readonly screenHeight: number;
   readonly deviceScaleFactor: number;
@@ -32,6 +35,7 @@ export interface EmulationProfile {
 }
 
 export interface EmulationProfileInput {
+  readonly viewportSize?: GuestViewportSize;
   readonly preset: DevicePreset;
   readonly orientation: Orientation;
   readonly shellMode: BrowserShellMode;

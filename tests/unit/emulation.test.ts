@@ -4,7 +4,9 @@ import {
   applyEmulationToTarget,
   buildEmulationProfile,
   buildMobileUserAgent,
-  buildSafeAreaCss
+  buildSafeAreaCss,
+  readGuestViewportSize,
+  resizeGuestViewport
 } from '../../src/services/emulation';
 import { DeviceModelId, Orientation } from '../../src/types/device.types';
 import { EmulationTargetWebContents } from '../../src/types/emulation.types';
@@ -107,6 +109,12 @@ describe('emulation service', () => {
     expect(profile.standaloneInitScript).toContain('"standalone":true');
   });
 
+  it('accepts finite positive logical viewport dimensions from the shell', () => {
+    expect(readGuestViewportSize({width:382,height:586})).toEqual({width:382,height:586});
+    for (const size of [null, {width:0,height:560}, {width:402.5,height:700},
+      {width:Infinity,height:700}, {width:400,height:9000}]) expect(readGuestViewportSize(size)).toBeUndefined();
+  });
+
   it('applies CDP commands to WebContents target and handles errors cleanly', async () => {
     const sendCommandMock = vi.fn().mockResolvedValue({});
     const setZoomMock = vi.fn();
@@ -144,6 +152,15 @@ describe('emulation service', () => {
       'Emulation.setTouchEmulationEnabled',
       expect.objectContaining({ enabled: true, maxTouchPoints: 5 })
     );
+
+    // Resizing pane geometry must preserve the screen identity and must not
+    // reinstall scripts, reload the guest or start a second debugger session.
+    sendCommandMock.mockClear();
+    await resizeGuestViewport(mockTarget,{width:382,height:586});
+    await resizeGuestViewport(mockTarget,{width:382,height:586});
+    expect(sendCommandMock).toHaveBeenCalledTimes(1);
+    expect(sendCommandMock).toHaveBeenCalledWith('Emulation.setDeviceMetricsOverride',
+      expect.objectContaining({width:382,height:586,screenWidth:preset.width,mobile:true}));
 
     const failingTarget: EmulationTargetWebContents = {
       ...mockTarget,

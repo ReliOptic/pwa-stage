@@ -116,6 +116,7 @@ export async function handleApplyWebviewEmulation(
 
   const preset = getDevicePresetById(payload.state.selectedDeviceId);
   return applyEmulationToTarget(target, {
+    viewportSize: payload.viewportSize,
     preset,
     orientation: payload.state.orientation,
     shellMode: payload.state.shellMode,

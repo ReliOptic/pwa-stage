@@ -19,6 +19,7 @@ export const simulatorBridge: SimulatorBridgeApi = {
     nextState: SimulatorState
   ): Promise<Result<SimulatorState, SimulatorError>> =>
     ipcRenderer.invoke('simulator:update-state', nextState),
+  resizeWebview: (id, size) => ipcRenderer.invoke('simulator:resize-webview', id, size),
   applyWebviewEmulation: (
     payload: ApplyWebviewEmulationPayload
   ): Promise<Result<EmulationProfile, SimulatorError>> =>

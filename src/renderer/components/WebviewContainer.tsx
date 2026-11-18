@@ -59,6 +59,28 @@ function useWebviewEffects(
     let queue = Promise.resolve();
     let appliedShell = props.state.shellMode;
     let lastReload = props.reloadTick;
+    let sentWidth = 0, sentHeight = 0;
+    let resizing = false;
+    const bridge = getSimulatorBridge();
+    const sizeOfPane = () => ({width:el.clientWidth, height:el.clientHeight});
+    const publishSize = async (): Promise<void> => {
+      if (disposed || !ready.current || resizing || !bridge.resizeWebview) return;
+      const size = sizeOfPane();
+      if (!size.width || !size.height || (size.width === sentWidth && size.height === sentHeight)) return;
+      sentWidth = size.width;
+      sentHeight = size.height;
+      resizing = true;
+      try {
+        await bridge.resizeWebview(el.getWebContentsId(), size);
+      } catch (error) {
+        if (!disposed) console.error('Could not resize mobile viewport', error);
+      } finally {
+        resizing = false;
+      }
+      void publishSize(); // A newer fold frame may have arrived during the IPC call.
+    };
+    const observer = new ResizeObserver(() => {void publishSize();});
+    observer.observe(el);
 
     const applyZoom = (): void => {
       if (!ready.current || disposed) return;
@@ -71,7 +93,8 @@ function useWebviewEffects(
         const next = latest.current;
         const id = el.getWebContentsId();
         next.onRegisterWebContentsId?.(id);
-        const result = await getSimulatorBridge().applyWebviewEmulation({ webContentsId: id, state: next.state });
+        const viewportSize = sizeOfPane();
+        const result = await bridge.applyWebviewEmulation({webContentsId:id, state:next.state, viewportSize});
         if (!result.ok) throw new Error(result.error.message);
         if (disposed) return;
         const shellChanged = appliedShell !== next.state.shellMode;
@@ -79,6 +102,7 @@ function useWebviewEffects(
         appliedShell = next.state.shellMode;
         lastReload = next.reloadTick;
         ready.current = true;
+        void publishSize();
         applyZoom();
         // src remains inert: even the first real request follows emulation.
         // Skip stale requests when URL/state changed while IPC was in flight.
@@ -128,6 +152,7 @@ function useWebviewEffects(
     return () => {
       window.removeEventListener(ZOOM_CHANGED, applyZoom);
       disposed = true;
+      observer.disconnect();
       leaveFs();
       ready.current = false;
       synchronize.current = null;
