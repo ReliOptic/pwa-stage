@@ -36,6 +36,7 @@ server.listen(18771,'127.0.0.1',async()=>{
 
    // Wait out entrance animations and require an actual, unobstructed hit target.
    const point=await wait(()=>js(`(()=>{const el=${expression};if(!el)return null;const r=el.getBoundingClientRect();const x=Math.round(r.x+r.width/2),y=Math.round(r.y+r.height/2);return el.contains(document.elementFromPoint(x,y))?{x,y}:null})()`));
+   win.webContents.sendInputEvent({type:'mouseMove',...point});
    win.webContents.sendInputEvent({type:'mouseDown',...point,button:'left',clickCount:1});
    win.webContents.sendInputEvent({type:'mouseUp',...point,button:'left',clickCount:1});
    await sleep(80);
@@ -183,22 +184,33 @@ server.listen(18771,'127.0.0.1',async()=>{
  await tapOnCover('dialog button');
  await wait(()=>guest.executeJavaScript("!document.querySelector('dialog').open"));
  await wait(async()=>!await present('.duo-cover-source[data-framed-dialog]'));
- await scrub(180);
- // A range input updates its readout before the guest and native hit regions
- // finish moving from the 466-point cover to the 951-point inner display.
+ // Return from the cover's native guest dialog with a real pointer gesture.
+ // Sending only an input event skips pointer capture, release and focus transfer.
+ const end=await js(`(()=>{const r=document.querySelector('.duo-hinge-slider').getBoundingClientRect();return{x:Math.floor(r.right-3),y:Math.round(r.y+r.height/2)}})()`);
+ for (const type of ['mouseMove','mouseDown','mouseUp']) {
+   win.webContents.sendInputEvent({type,...end,...(type==='mouseMove'?{}:{button:'left',clickCount:1})});
+ }
+ await wait(()=>js("document.querySelector('.duo-hinge-slider').value==='180'"));
  await wait(()=>guest.executeJavaScript('screen.width===951'));
  await capture('duo-wide-after-cover');
- await click('button[aria-label="Posture and finish"]');
- await click('button[title="Cover Display (5.4″ · 466×678pt)"]');
- await wait(()=>js('document.querySelector(".duo-hinge-slider").value==="0"'));await sleep(500);
+ const selectEndpoint=async(title,angle)=>{
+   await click('button[aria-label="Posture and finish"]');
+   await wait(()=>js("document.querySelector('.duo-settings').ariaExpanded==='true'"));
+   await click('button[title="'+title+'"]');
+   // Software rendering may present frames slowly. Require a settled endpoint.
+   const deadline=Date.now()+45000;
+   while(Date.now()<deadline){
+     if(await js(`document.querySelector('.duo-hinge-slider').value==='${angle}' && document.querySelector('.duo-bottom-minibar').dataset.target==='paused'`)) return;
+     await sleep(100);
+   }
+   throw Error('Posture did not settle at '+angle+'°');
+ };
+ await selectEndpoint('Cover Display (5.4″ · 466×678pt)',0);
  const closed={count:guests().length,id:guests()[0].id,token:await guests()[0].executeJavaScript('window.probeToken')};
- await click('button[aria-label="Posture and finish"]');
- await click('button[title="Inner Wide Display (7.6″ · 951×669pt)"]');
- await wait(()=>js('document.querySelector(".duo-hinge-slider").value==="180"'));await sleep(500);
+ await selectEndpoint('Inner Wide Display (7.6″ · 951×669pt)',180);
  const open={count:guests().length,id:guests()[0].id,token:await guests()[0].executeJavaScript('window.probeToken')};
  win.webContents.send('simulator:shortcut',{key:'h',shift:true});await wait(()=>js('!!document.querySelector(".home-screen-home")'));
- await click('button[aria-label="Posture and finish"]');
- await click('button[title="Cover Display (5.4″ · 466×678pt)"]');await wait(()=>js('document.querySelector(".duo-hinge-slider").value==="0"'));await sleep(500);
+ await selectEndpoint('Cover Display (5.4″ · 466×678pt)',0);
  const homeStays=await js('!!document.querySelector(".home-screen-home")');
  const result={toolsChecked,overlapAngles,guestSettingsFromCover:true,standaloneRoutes:[site+'/safari',site+'/chrome'],installed,chromeBookmarkLaunch:chromeBookmarkLaunch.value.state.shellMode,before,closed,open,homeStays};
  assert.equal(installed[0].opensAsWebApp,false); assert.equal(result.chromeBookmarkLaunch,'ios-safari');
@@ -209,7 +221,7 @@ server.listen(18771,'127.0.0.1',async()=>{
  fs.writeFileSync(root+'/flows.json',JSON.stringify(result,null,2));console.log('FLOWS_RESULT '+JSON.stringify(result));app.exit(0);
  }catch(e){
    const win=BrowserWindow.getAllWindows()[0];
-   if(win)console.error('Install state',await win.webContents.executeJavaScript('({field:document.querySelector(".ios-address-form input")?.value,focus:document.activeElement?.outerHTML.slice(0,160),sheet:document.querySelector("[role=dialog]")?.getAttribute("aria-label"),matches:document.querySelector(".browser-find output")?.textContent,angle:document.querySelector(".duo-current-angle")?.textContent})'));
+   if(win)console.error('Install state',await win.webContents.executeJavaScript('({field:document.querySelector(".ios-address-form input")?.value,focus:document.activeElement?.outerHTML.slice(0,160),sheet:document.querySelector("[role=dialog]")?.getAttribute("aria-label"),matches:document.querySelector(".browser-find output")?.textContent,expanded:document.querySelector(".duo-settings")?.ariaExpanded,angle:document.querySelector(".duo-current-angle")?.textContent})'));
    console.error(e);app.exit(1);
  }
 });
