@@ -747,7 +747,8 @@ html, body, #root {
 
 .ios-shell-icon-btn,
 .ios-shell-reload {
-  width: 26px;
+  pointer-events: auto;
+  width: 32px;
   height: 26px;
   border: none;
   border-radius: 50%;
@@ -761,6 +762,8 @@ html, body, #root {
   flex-shrink: 0;
   padding: 0;
 }
+
+.ios-chrome-bottom-dock .ios-shell-icon-btn { width: 44px; height: 40px; }
 
 .ios-shell-icon-btn:hover,
 .ios-shell-reload:hover {
@@ -1163,3 +1166,110 @@ html, body, #root {
   top: 61%; left: -18%; height: 62%; width: 165%; transform: rotate(-32deg);
   background: linear-gradient(150deg, #d8cedd73, #625d7566 38%, #262638c9 81%);
 }
+
+.duo-cover-source { position: absolute; top: 0; transform-origin: top left; }
+.duo-cover-glass { position: absolute; inset: 0; z-index: 44; pointer-events: none; background: linear-gradient(116deg,#fff5e9,transparent 28%,transparent 75%,#d9e2ef 100%); }
+
+/* Host chrome follows the desktop appearance independently of the test page. */
+.simulator-root {
+  --shell-surface: linear-gradient(155deg, #fffdf9f5, #edebedf2);
+  --shell-ink: #25232a; --shell-secondary: #56515d; --shell-line: #302b3c24;
+  --shell-well: #5446530c; --shell-selection: #fffffff2; --shell-accent: #72556d;
+  --shell-shadow: 0 5px 16px #201c2820, inset 0 1px 0 #ffffffa6;
+}
+@media (prefers-color-scheme: dark) {
+  .simulator-root {
+    --shell-surface: linear-gradient(155deg, #37353af5, #242329f5);
+    --shell-ink: #f4f0f0; --shell-secondary: #c5bfc8; --shell-line: #faf1fc26;
+    --shell-well: #08070c33; --shell-selection: #615962; --shell-accent: #dfbddd;
+    --shell-shadow: 0 5px 16px #09070c55, inset 0 1px 0 #fff2;
+  }
+}
+.shadcn-toolbar, .duo-bottom-minibar, .duo-secondary-controls {
+  color: var(--shell-ink); background: var(--shell-surface); border-color: var(--shell-line);
+  box-shadow: var(--shell-shadow); backdrop-filter: blur(24px) saturate(118%);
+}
+.shadcn-toolbar { border-radius: 17px; }
+.shadcn-toolbar :is(.shadcn-select,.shadcn-input-group,.tb-seg,.scale-stepper,.shadcn-icon-btn) {
+  color: var(--shell-ink); background: var(--shell-well); border-color: var(--shell-line);
+}
+.shadcn-toolbar :is(.shadcn-input,.scale-stepper button,.shadcn-input-submit,.shadcn-scale-val),
+.duo-bottom-minibar :is(.duo-current-angle,.duo-settings) { color: var(--shell-ink); }
+.shadcn-toolbar :is(.tb-seg-btn,.tb-action,.shadcn-select-icon,.shadcn-input-icon,.shadcn-select-chevron) { color: var(--shell-secondary); }
+.shadcn-toolbar :is(.tb-seg-btn.seg-active,.tb-on), .duo-secondary-controls .shadcn-seg-active {
+  background: var(--shell-selection); color: var(--shell-ink); box-shadow: 0 1px 3px #201c2822;
+}
+.shadcn-toolbar :is(.tb-seg-btn,.tb-action,.shadcn-icon-btn):hover,
+.duo-bottom-minibar button:hover { color: var(--shell-ink); background-color: var(--shell-well); }
+.shadcn-toolbar :is(button,select,input):focus-visible, .duo-bottom-minibar :is(button,input):focus-visible {
+  outline: 2px solid var(--shell-accent); outline-offset: 1px;
+}
+.duo-bottom-minibar:not(:hover):not(:focus-within) { opacity: .9; }
+.duo-bottom-minibar :is(.duo-fold-toggle,.duo-frame-step-btn,.duo-pause-btn) { background: var(--shell-well); color: var(--shell-ink); }
+.duo-bottom-minibar .duo-fold-toggle { background: var(--shell-selection); box-shadow: 0 1px 3px #15121b20; }
+.duo-hinge-slider::-webkit-slider-runnable-track { background: var(--shell-line); }
+.duo-hinge-slider::-webkit-slider-thumb { background: var(--shell-selection); border-color: var(--shell-secondary); }
+.duo-secondary-controls { width: min(252px,100%); display: grid; gap: 8px; padding: 9px; }
+.duo-secondary-controls .duo-posture-strip { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 3px; }
+.duo-secondary-controls .shadcn-seg-item { justify-content: center; color: var(--shell-secondary); }
+.duo-secondary-controls .duo-telemetry-group { justify-content: flex-end; border-top: 1px solid var(--shell-line); padding-top: 6px; }
+.duo-secondary-controls .duo-finish-label { color: var(--shell-secondary); font: 11px system-ui; margin-right: auto; }
+
+/* System sheets sit within the device and always follow its own appearance. */
+.native-browser-sheet, .browser-find {
+  --sheet-well: #8781891b; --sheet-rule: #81768430; --sheet-accent: #2862a8;
+  pointer-events: auto; -webkit-app-region: no-drag; color: #222126;
+  font: 15px/1.35 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  box-sizing: border-box;
+}
+.native-browser-sheet { width: min(100%,470px); max-height: min(82%,560px); overflow: auto; padding: 8px 14px 22px;
+  border-radius: 27px 27px 0 0; border: 1px solid var(--sheet-rule); box-shadow: 0 -4px 26px #14121a1c; }
+.native-browser-sheet.ios-sheet-dark { color: #f2eff1; --sheet-well: #c1b7c221; --sheet-accent: #aacdff; }
+.native-browser-sheet header { display:flex; align-items:center; gap:9px; margin: 0 0 14px; }
+.native-browser-sheet header > div { flex:1; min-width:0; }
+.native-browser-sheet header strong, .native-browser-sheet header small, .browser-library-row small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.native-browser-sheet header strong { font-size:20px; letter-spacing:-.4px; }
+.native-browser-sheet small { font-size:12px; opacity:.73; }
+.native-browser-sheet button, .browser-find button { border:0; background:transparent; color:inherit; cursor:pointer; font:inherit; }
+.native-browser-sheet header button, .browser-find button { display:grid; place-items:center; min-width:36px; height:36px; border-radius:50%; background:var(--sheet-well); }
+.browser-menu-tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px; }
+.browser-menu-tiles button { display:grid; place-items:center; align-content:center; gap:5px; min-height:54px; border-radius:15px; background:var(--sheet-well); font-size:12px; }
+.browser-menu-tiles svg, .browser-menu-list svg { width:17px; height:17px; }
+.browser-menu-list, .browser-setting-list, .browser-library-row { background:var(--sheet-well); border-radius:16px; padding:0 12px; }
+.browser-menu-list button, .browser-setting { width:100%; display:flex; align-items:center; gap:10px; min-height:44px; text-align:left; }
+.browser-menu-list button + button, .browser-setting + .browser-setting { border-top:1px solid var(--sheet-rule); }
+.browser-menu-list button svg:last-child:not(:first-child) { margin-left:auto; opacity:.5; }
+.browser-setting { justify-content:space-between; }
+.browser-appearance-switch {
+  appearance: none; width: 49px; height: 30px; border: 0; border-radius: 20px; cursor: pointer;
+  padding: 2px; background: #78788061; transition: background 150ms;
+}
+.browser-appearance-switch::before {
+  content: ''; display: block; width: 26px; height: 26px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 4px #0003; transition: transform 150ms;
+}
+.browser-appearance-switch:checked { background: #248a3d; }
+.browser-appearance-switch:checked::before { transform: translateX(19px); }
+.browser-appearance-switch:focus-visible { outline: 2px solid var(--sheet-accent); outline-offset: 2px; }
+.browser-stepper { border-radius: 12px; padding: 0 2px; background: var(--sheet-well); }
+.browser-stepper button { display: inline-grid; place-items: center; }
+.browser-setting { min-height: 54px; }
+@media (prefers-reduced-motion: reduce) {
+  .browser-appearance-switch, .browser-appearance-switch::before { transition: none; }
+}
+.browser-stepper, .browser-library-row { display:flex; align-items:center; }
+.browser-stepper button { min-width:34px; min-height:40px; }
+.native-browser-sheet button:disabled, .browser-find button:disabled { opacity:.35; }
+.browser-library-row + .browser-library-row { margin-top:4px; }
+.browser-library-row button:first-child { flex:1; min-width:0; padding:10px 0; text-align:left; }
+.browser-library-row small { margin-top:3px; }
+.browser-library-row button:last-child { width:36px; min-height:44px; }
+.browser-find { position:absolute; z-index:55; bottom:18px; left:8px; right:8px; max-width:450px; margin:auto;
+  display:flex; align-items:center; gap:4px; padding:6px 8px; border-radius:17px; background:#f9f7f6f5; box-shadow:0 2px 18px #15131a40; }
+.browser-find.ios-sheet-dark { background: #29282df5; color: #f3f1f3; }
+.browser-find input { min-width:0; flex:1; padding:6px 2px; border:0; font:inherit; background:transparent; color:inherit; user-select:text; }
+.browser-find output { white-space:nowrap; font-size:12px; }
+.browser-find button { min-width:29px; height:34px; }
+.ios-shell-aa { min-width:28px; min-height:34px; }
+
+.duo-3d-stage-root .duo-v68-cover-camera { visibility: hidden; }

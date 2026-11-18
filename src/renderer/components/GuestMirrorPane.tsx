@@ -104,6 +104,7 @@ export function GuestMirrorPane(props: {
    */
   readonly coverFrameOffsetX?: number;
   readonly interactive?: boolean;
+  readonly touchInput?: boolean;
 }): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const pressedRef = useRef<boolean>(false);
@@ -165,12 +166,30 @@ export function GuestMirrorPane(props: {
   const send = (type: GuestInputMessage['type'], e: React.PointerEvent | React.WheelEvent): void => {
     if (guestId === null || props.interactive === false) return;
     const native = e.nativeEvent as PointerEvent & WheelEvent;
+    let x = native.offsetX;
+    let y = native.offsetY;
+    if (props.touchInput && type !== 'mouseWheel') {
+      const touchType = { mouseDown: 'touchStart', mouseMove: 'touchMove', mouseUp: 'touchEnd' } as const;
+      if (type === 'mouseDown' || type === 'mouseMove' || type === 'mouseUp') type = touchType[type];
+      if (type === 'touchStart' || type === 'touchMove') {
+        const guest = document.querySelector<HTMLElement>('.duo-slice-primary webview');
+        const pane = canvasRef.current;
+        if (!guest?.parentElement || !pane) return;
+        // A point in the live element's containing block inherits the exact
+        // homography, page scale and viewport offsets of that element.
+        const point = document.createElement('i');
+        point.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none';
+        point.style.left = `${guest.offsetLeft + x * guest.clientWidth / pane.clientWidth}px`;
+        point.style.top = `${guest.offsetTop + y * guest.clientHeight / pane.clientHeight}px`;
+        guest.parentElement.append(point);
+        const bounds = point.getBoundingClientRect();
+        point.remove();
+        x = bounds.x;
+        y = bounds.y;
+      }
+    }
     void getSimulatorBridge().sendGuestInput?.(guestId, {
-      type,
-      // offsetX/Y are in the canvas' own (untransformed) CSS pixels, which is
-      // exactly the guest's coordinate space: both boxes have the same layout.
-      x: native.offsetX,
-      y: native.offsetY,
+      type, x, y,
       deltaX: type === 'mouseWheel' ? -native.deltaX : 0,
       deltaY: type === 'mouseWheel' ? -native.deltaY : 0
     });
@@ -198,7 +217,8 @@ export function GuestMirrorPane(props: {
           send('mouseUp', e);
         }
       }}
-      onPointerCancel={(): void => {
+      onPointerCancel={(e): void => {
+        if (pressedRef.current) send(props.touchInput ? 'touchCancel' : 'mouseUp', e);
         pressedRef.current = false;
       }}
       onWheel={(e): void => send('mouseWheel', e)}

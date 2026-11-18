@@ -63,7 +63,7 @@ export interface GuestFrameMessage {
 }
 
 export interface GuestInputMessage {
-  readonly type: 'mouseDown' | 'mouseUp' | 'mouseMove' | 'mouseWheel';
+  readonly type: 'mouseDown' | 'mouseUp' | 'mouseMove' | 'mouseWheel' | 'touchStart' | 'touchMove' | 'touchEnd' | 'touchCancel';
   readonly x: number;
   readonly y: number;
   readonly deltaX?: number;

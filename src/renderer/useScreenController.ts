@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { updateLibrary } from './browser-preferences';
 import { PageInspectionReport } from '../types/ipc-coordinator.types';
 import { InstalledWebApp } from '../types/pwa.types';
 import { BrowserShellMode, SimulatorState } from '../types/simulator.types';
@@ -76,6 +77,11 @@ export function useScreenController(
   const [inspectionResult, setReport] = useState<PageInspectionReport | null>(null);
   const report = inspectionResult?.inspection.url === state.currentUrl ? inspectionResult : null;
   const inspectionSequence = useRef(0);
+  useEffect(() => {
+    if (report && state.shellMode !== BrowserShellMode.PWA_STANDALONE) {
+      updateLibrary(state.shellMode, 'history', {url: report.inspection.url, title: report.inspection.title || report.identity.name});
+    }
+  }, [report, state.shellMode]);
   const [inspecting, setInspecting] = useState<boolean>(false);
   const [toast, setToast] = useState<string | null>(null);
   const lastGuestRef = useRef<number | null>(null);
@@ -257,6 +263,8 @@ export function useScreenController(
 
   const value = useMemo<ScreenContextValue>(
     () => ({
+      browserMode: state.shellMode,
+      setAppearance: darkMode => updateState({darkMode}),
       homeNavigation,
       setHomeNavigation,
       phase,
@@ -281,6 +289,7 @@ export function useScreenController(
       reload
     }),
     [
+      state.shellMode, updateState,
       homeNavigation,
       phase,
       launchOrigin,

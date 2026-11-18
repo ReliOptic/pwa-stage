@@ -24,15 +24,16 @@ const server=http.createServer((req,res)=>{
    res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 90"><rect width="90" height="90" fill="#084e51"/><path d="M14 52q14-29 31-6t31-5M14 64q14-29 31-6t31-5" fill="none" stroke="#bdf6d3" stroke-width="5"/></svg>');return;
  }
  res.setHeader('Content-Type','text/html; charset=utf-8');
- res.end(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f3f0e7"><link rel="manifest" href="/manifest.json?site=${url.pathname.slice(1)}"><link rel="apple-touch-icon" href="/icon.svg"><title>Tide Table</title><style>*{box-sizing:border-box}body{margin:0;background:#f3f0e7;color:#133e40;font:16px system-ui}main{padding:32px 22px}header{font:bold 22px Georgia}section{background:#104f51;color:#edfae9;border-radius:18px;margin:32px 0 20px;padding:24px 20px}h1{font:42px/1 Georgia;margin:16px 0}h2{font:26px Georgia}p{color:#506865}section p{color:#bbdac9}svg{width:100%}footer{display:flex;justify-content:space-between;padding:15px 0;border-top:1px solid #becbc4}</style><main><header>Tide Table</header><section>Point Reyes<h1>2.4 m</h1><p>Incoming tide</p><svg viewBox="0 0 300 90"><path d="M0 77C65 77 65 10 130 10s92 84 170 40" fill="none" stroke="#abefce" stroke-width="4"/></svg></section><h2>Today’s tides</h2><footer>High tide <b>10:42</b></footer><footer>Low tide <b>16:58</b></footer></main><script>window.probeToken=Math.random()</script>`);
+ res.end(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f3f0e7"><link rel="manifest" href="/manifest.json?site=${url.pathname.slice(1)}"><link rel="apple-touch-icon" href="/icon.svg"><title>Tide Table</title><style>*{box-sizing:border-box}body{margin:0;background:#f3f0e7;color:#133e40;font:16px system-ui}main{padding:32px 22px}header{font:bold 22px Georgia}section{background:#104f51;color:#edfae9;border-radius:18px;margin:32px 0 20px;padding:24px 20px}h1{font:42px/1 Georgia;margin:16px 0}h2{font:26px Georgia}p{color:#506865}section p{color:#bbdac9}svg{width:100%}footer{display:flex;justify-content:space-between;padding:15px 0;border-top:1px solid #becbc4}</style><main><header>Tide Table</header><button id="site-settings" style="position:fixed;right:8%;top:18%;border:0;border-radius:18px;background:#d6ecdf;color:#16494c;padding:9px 14px" onclick="window.settingTapTrusted=event.isTrusted;document.querySelector('dialog').showModal()">Settings</button><dialog>Station settings <button onclick="this.parentElement.close()">Done</button></dialog><section>Point Reyes<h1>2.4 m</h1><p>Incoming tide</p><svg viewBox="0 0 300 90"><path d="M0 77C65 77 65 10 130 10s92 84 170 40" fill="none" stroke="#abefce" stroke-width="4"/></svg></section><h2>Today’s tides</h2><footer>High tide <b>10:42</b></footer><footer>Low tide <b>16:58</b></footer></main><script>window.probeToken=Math.random()</script>`);
 });
-setTimeout(()=>app.exit(2),145000);
+setTimeout(()=>app.exit(2),240000);
 server.listen(18771,'127.0.0.1',async()=>{
  require(path.resolve(__dirname, '../../dist-electron/index.js'));await app.whenReady();
  try{
  const win=await wait(()=>BrowserWindow.getAllWindows()[0]);win.show();win.focus();win.webContents.setBackgroundThrottling(false);
  const js=e=>win.webContents.executeJavaScript(e);
  const press=async expression=>{
+
    // Wait out entrance animations and require an actual, unobstructed hit target.
    const point=await wait(()=>js(`(()=>{const el=${expression};if(!el)return null;const r=el.getBoundingClientRect();const x=Math.round(r.x+r.width/2),y=Math.round(r.y+r.height/2);return el.contains(document.elementFromPoint(x,y))?{x,y}:null})()`));
    win.webContents.sendInputEvent({type:'mouseDown',...point,button:'left',clickCount:1});
@@ -73,6 +74,34 @@ server.listen(18771,'127.0.0.1',async()=>{
    await wait(()=>present('.app-surface-app'));
    await wait(()=>present('input[aria-label="Website address"]'));
  };
+ const toolsChecked = [];
+ const checkBrowserTools=async(browser,route)=>{
+   const guest=guests()[0];
+   const settings=browser==='Safari'?'Website Settings':'Settings';
+   await click(browser==='Safari'?'[aria-label="Page menu"]':'[aria-label="More"]');
+   await clickText(settings);
+   await click('[aria-label="Increase page zoom"]');
+   await wait(()=>Math.abs(guest.getZoomFactor()-1.15)<0.001);
+   await capture(route+'-settings');
+   await click('[aria-label="Reset page zoom"]');
+   await wait(()=>Math.abs(guest.getZoomFactor()-1)<0.001);
+   const dark=()=>guest.executeJavaScript("matchMedia('(prefers-color-scheme:dark)').matches");
+   const initial=await dark();
+   await click('.browser-setting input'); await wait(async()=>await dark()!==initial);
+   await click('.browser-setting input'); await wait(async()=>await dark()===initial);
+   await click('[aria-label="Back to browser menu"]');
+   await clickText('Find on Page');
+   await setField('[aria-label="Find text"]','tide');
+   const matches=await wait(()=>js("document.querySelector('.browser-find output')?.textContent.match(/[1-9] *\\/ *[2-9]/)?.[0]"));
+   await click('[aria-label="Next match"]'); await wait(()=>js("document.querySelector('.browser-find output')?.textContent!=="+JSON.stringify(matches)));
+   await click('[aria-label="Close find"]');
+   await click('[aria-label="More"]');await clickText('Add Bookmark');await clickText('Bookmarks');
+   await wait(()=>js("document.querySelector('.browser-library-row small')?.textContent==="+JSON.stringify(site+'/'+route)));
+   await click('[aria-label="Back to browser menu"]');await clickText('History');
+   await wait(()=>js("Array.from(document.querySelectorAll('.browser-library-row small')).some(item=>item.textContent==="+JSON.stringify(site+'/'+route)+")"));
+   await click('[aria-label="Done"]');
+   toolsChecked.push({browser,zoom:115,restoredZoom:100,appearance:true,matches,bookmarks:true,history:true});
+ };
  const install=async(browser,route,name)=>{
    await enterBrowser(browser);
    await setField('.ios-address-form input',site+'/'+route);
@@ -81,6 +110,7 @@ server.listen(18771,'127.0.0.1',async()=>{
    win.webContents.sendInputEvent({type:'keyUp',keyCode:'Enter'});
    await wait(()=>pageLoaded(route));
    await capture(route+'-browser');
+   await checkBrowserTools(browser,route);
    if(browser==='Safari') { await click('[aria-label="More"]'); await clickText('Share'); }
    else await click('[aria-label="Share"]');
    await capture(route+'-share');
@@ -120,6 +150,33 @@ server.listen(18771,'127.0.0.1',async()=>{
  await wait(async()=>js('!!document.querySelector(".duo-slice-primary webview")'));
  await wait(()=>pageLoaded('chrome'));
  const guest=guests()[0];const before={id:guest.id,token:await guest.executeJavaScript('window.probeToken')};
+ const scrub=async angle=>{
+   await js(`(()=>{const el=document.querySelector('.duo-hinge-slider');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,${angle});el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+   await wait(()=>js(`document.querySelector('.duo-current-angle')?.textContent.trim()==='${angle}°'`));
+ };
+ const overlapAngles=[];
+ for (const angle of [32,33,70,89,90,89,70]){
+   await scrub(angle);
+   const expected=angle>=33 && angle<=89;
+   await wait(()=>js("document.querySelector('.duo-3d-stage-root').hasAttribute('data-dual-display')==="+expected));
+   overlapAngles.push({angle,both:expected});
+ }
+ await wait(()=>present('.duo-cover-mirror .guest-mirror-ready'));
+ await capture('duo-70-held');
+ const cover='.duo-cover-mirror ';
+ await click(cover+'[aria-label="More"]');
+ await wait(()=>present(cover+'[role="dialog"]'));
+ await clickText('Website Settings');await capture('duo-70-browser-settings');
+ await click(cover+'[aria-label="Done"]');
+ // Project the actual guest button's normalized coordinates through the cover canvas.
+ const target=await guest.executeJavaScript("(()=>{const r=document.querySelector('#site-settings').getBoundingClientRect();return [(r.x+r.width/2)/innerWidth,(r.y+r.height/2)/innerHeight]})()");
+ const point=await js(`(()=>{const c=document.querySelector('.duo-cover-mirror canvas');const dot=document.createElement('i');dot.style.cssText='position:absolute;pointer-events:none;width:1px;height:1px;left:'+(c.offsetLeft+c.clientWidth*${target[0]})+'px;top:'+(c.offsetTop+c.clientHeight*${target[1]})+'px';c.parentElement.append(dot);const r=dot.getBoundingClientRect();dot.remove();return {x:Math.round(r.x),y:Math.round(r.y)}})()`);
+ assert(await js(`document.elementFromPoint(${point.x},${point.y})?.matches('.duo-cover-mirror canvas')`));
+ for(const type of ['mouseDown','mouseUp'])win.webContents.sendInputEvent({type,...point,button:'left',clickCount:1});
+ await wait(()=>guest.executeJavaScript("document.querySelector('dialog').open"));
+ assert.equal(await guest.executeJavaScript('window.settingTapTrusted'),true);
+ await guest.executeJavaScript("document.querySelector('dialog').close()");
+ await scrub(180);
  await click('button[aria-label="Posture and finish"]');
  await click('button[title="Cover Display (5.4″ · 466×678pt)"]');
  await wait(()=>js('document.querySelector(".duo-hinge-slider").value==="0"'));await sleep(500);
@@ -132,7 +189,7 @@ server.listen(18771,'127.0.0.1',async()=>{
  await click('button[aria-label="Posture and finish"]');
  await click('button[title="Cover Display (5.4″ · 466×678pt)"]');await wait(()=>js('document.querySelector(".duo-hinge-slider").value==="0"'));await sleep(500);
  const homeStays=await js('!!document.querySelector(".home-screen-home")');
- const result={standaloneRoutes:[site+'/safari',site+'/chrome'],installed,chromeBookmarkLaunch:chromeBookmarkLaunch.value.state.shellMode,before,closed,open,homeStays};
+ const result={toolsChecked,overlapAngles,guestSettingsFromCover:true,standaloneRoutes:[site+'/safari',site+'/chrome'],installed,chromeBookmarkLaunch:chromeBookmarkLaunch.value.state.shellMode,before,closed,open,homeStays};
  assert.equal(installed[0].opensAsWebApp,false); assert.equal(result.chromeBookmarkLaunch,'ios-safari');
  assert.equal(closed.count,1); assert.equal(open.count,1);
  assert.equal(before.id,closed.id); assert.equal(before.id,open.id);
@@ -141,7 +198,7 @@ server.listen(18771,'127.0.0.1',async()=>{
  fs.writeFileSync(root+'/flows.json',JSON.stringify(result,null,2));console.log('FLOWS_RESULT '+JSON.stringify(result));app.exit(0);
  }catch(e){
    const win=BrowserWindow.getAllWindows()[0];
-   if(win)console.error('Install state',await win.webContents.executeJavaScript('({field:document.querySelector(".ios-address-form input")?.value,focus:document.activeElement?.outerHTML.slice(0,160),sheet:document.querySelector("[role=dialog]")?.getAttribute("aria-label")})'));
+   if(win)console.error('Install state',await win.webContents.executeJavaScript('({field:document.querySelector(".ios-address-form input")?.value,focus:document.activeElement?.outerHTML.slice(0,160),sheet:document.querySelector("[role=dialog]")?.getAttribute("aria-label"),matches:document.querySelector(".browser-find output")?.textContent,angle:document.querySelector(".duo-current-angle")?.textContent})'));
    console.error(e);app.exit(1);
  }
 });

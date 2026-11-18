@@ -6,6 +6,10 @@ This document captures the current architecture, verified state, exact remaining
 
 ## 0. Status update (2026-11-18)
 
+### Browser settings and resting cover build 1.0.5
+
+The resting Duo cover uses a projected, interactive mirror of the live page. The camera rim in the bundled mesh cuts through both the resting page and the animated stencil. The shell uses desktop light/dark materials and keeps website styling under the guest's control. Browser settings and installation regressions are in `tests/electron/flows.cjs`. See the [fold interaction review](docs/fold-interaction-review.md) for the viewing angles.
+
 ### Home and preview build 1.0.4 (2026-11-18)
 
 - Pin holds the current macOS Space at floating level. Unpin restores normal level and enables visibility across Spaces. Windows uses its current-desktop topmost flag.

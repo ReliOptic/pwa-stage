@@ -7,6 +7,7 @@ import {
   resolveSafeAreaInsets
 } from '../../utils/viewport-math.util';
 import { setKeyboardVisible, setSafariBarCollapsed, useSafariBarCollapsed } from '../sim-events';
+import { readPageZoom, ZOOM_CHANGED } from '../browser-preferences';
 import { GuestMirrorPane } from './GuestMirrorPane';
 import { ElectronWebviewElement } from '../../types/renderer.types';
 import { SimulatorState } from '../../types/simulator.types';
@@ -57,6 +58,11 @@ function useWebviewEffects(
     let appliedShell = props.state.shellMode;
     let lastReload = props.reloadTick;
 
+    const applyZoom = (): void => {
+      if (!ready.current || disposed) return;
+      const {state, targetUrl} = latest.current;
+      el.setZoomFactor(readPageZoom(state.shellMode, targetUrl) / 100);
+    };
     const sync = (): void => {
       queue = queue.then(async () => {
         if (disposed || !attached) return;
@@ -71,6 +77,7 @@ function useWebviewEffects(
         appliedShell = next.state.shellMode;
         lastReload = next.reloadTick;
         ready.current = true;
+        applyZoom();
         // src remains inert: even the first real request follows emulation.
         // Skip stale requests when URL/state changed while IPC was in flight.
         if (next.targetUrl !== latest.current.targetUrl || next.state.shellMode !== latest.current.state.shellMode) { sync(); return; }
@@ -89,6 +96,7 @@ function useWebviewEffects(
       if (!ready.current) sync();
     };
     const notifyReady = (): void => {
+      applyZoom();
       if (ready.current && /^https?:/.test(el.getURL())) latest.current.onPageReady?.(el.getWebContentsId());
     };
     const onNavigate = (): void => {
@@ -113,8 +121,10 @@ function useWebviewEffects(
       ['did-navigate-in-page', onInPage], ['did-finish-load', notifyReady],
       ['console-message', onConsole], ['enter-html-full-screen', enterFs], ['leave-html-full-screen', leaveFs]
     ];
+    window.addEventListener(ZOOM_CHANGED, applyZoom);
     listeners.forEach(([name, listener]) => el.addEventListener(name, listener));
     return () => {
+      window.removeEventListener(ZOOM_CHANGED, applyZoom);
       disposed = true;
       ready.current = false;
       synchronize.current = null;
@@ -224,6 +234,7 @@ export function WebviewContainer(props: WebviewContainerProps): React.ReactEleme
           guestId={props.mirrorGuestId}
           coverFrameOffsetX={props.mirrorCoverFrameOffsetX}
           interactive={props.mirrorInteractive}
+          touchInput={!state.touchCursorEnabled}
         />
       </div>
     );

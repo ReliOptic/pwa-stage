@@ -252,14 +252,19 @@ function registerIpcHandlers(ctx: MenuControllerContext): void {
     }
     return { ok: true, value: true };
   });
-  handleTrusted('simulator:guest-input', (_event, rawId, rawEvent) => {
+  handleTrusted('simulator:guest-input', async (_event, rawId, rawEvent) => {
     const id = resolveGuestId(rawId);
     const pointer = sanitizeGuestPointerEvent(rawEvent);
     const guest = id === null ? undefined : webContents.fromId(id);
     if (!guest || !pointer) {
       return { ok: false, value: false };
     }
-    forwardGuestPointerEvent(guest, pointer);
+    try {
+      await forwardGuestPointerEvent(guest, pointer);
+    } catch {
+      // The guest can detach between pointer down and pointer up.
+      return { ok: false, value: false };
+    }
     return { ok: true, value: true };
   });
   handleTrusted('simulator:permission-response', (_event, rawId, rawGranted) => {

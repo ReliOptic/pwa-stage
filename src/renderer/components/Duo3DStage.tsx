@@ -206,6 +206,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const engineRef = useRef<Duo3DHardwareEngine | null>(null);
   const [projection, setProjection] = useState<Duo3DFrameProjection | null>(null);
   const [primaryGuestId, setPrimaryGuestId] = useState<number | null>(null);
+  const [coverSelected, setCoverSelected] = useState(false);
   const dragRef = useRef<{
     readonly startX: number;
     readonly startY: number;
@@ -297,7 +298,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const primaryShiftY = !isOuterPrimary && sliceInner && isHorizontalSplit ? -475.5 : 0;
 
   const rawPrimaryClip = isBentInner ? projection?.rightVisibleClip ?? undefined : undefined;
-  const primaryHidden = rawPrimaryClip === RIGHT_LEAF_HIDDEN;
+  const primaryHidden = rawPrimaryClip === RIGHT_LEAF_HIDDEN || !primarySlice?.active;
   const primaryClip = primaryHidden ? undefined : rawPrimaryClip;
   const mirrorLeft = !split;
   const splitSurface = split ? {
@@ -311,12 +312,20 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   // and runs live while the inner display is bent.
   const transition = projection?.transition ?? null;
   const inTransition = Boolean(transition?.active) && mirrorLeft;
+  // Keep the cover on its own glass when scrubbing or pausing. Its visible
+  // area depends on camera orientation, even at the same hinge angle.
+  const cover = projection?.outer;
+  const showCoverMirror = Boolean(cover?.active && !isOuterPrimary && !inTransition);
+  const modalOnCover = showCoverMirror && (coverSelected || primaryHidden);
+  const coverSourceWidth = split ? primarySlice?.width ?? fullLogicalW : fullLogicalW;
+  const coverSourceHeight = split ? primarySlice?.height ?? fullLogicalH : fullLogicalH;
+  const coverScale = cover ? Math.max(cover.width / coverSourceWidth, cover.height / coverSourceHeight) : 1;
   const innerBrightness = projection?.innerBrightness ?? 1;
   const innerFilter = innerBrightness >= 0.999 ? undefined : `brightness(${innerBrightness.toFixed(3)})`;
   useEffect((): (() => void) | void => {
-    if (!mirrorLeft || primaryGuestId === null) return;
+    if ((!mirrorLeft && !showCoverMirror) || primaryGuestId === null) return;
     return acquireGuestMirror(primaryGuestId);
-  }, [mirrorLeft, primaryGuestId]);
+  }, [mirrorLeft, showCoverMirror, primaryGuestId]);
   const mirrorLive = transitioning || isBentInner;
   useEffect((): void => {
     if (primaryGuestId !== null) {
@@ -331,6 +340,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   return (
     <div
       className="duo-3d-stage-root"
+      data-dual-display={projection?.simultaneous || undefined}
       style={{
         width: `${STAGE_WIDTH}px`,
         height: `${STAGE_HEIGHT}px`,
@@ -416,10 +426,32 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
         </div>
       )}
 
+      {showCoverMirror && cover?.matrix3d && (
+        <div className="duo-interactive-slice duo-cover-mirror" aria-label="Cover display" onPointerDownCapture={() => setCoverSelected(true)}
+          style={{width: cover.width, height: cover.height, transform: cover.matrix3d, zIndex: cover.zIndex}}>
+          <div className="duo-slice-inner-viewport" style={{width: cover.width, height: cover.height, clipPath: cover.apertureClip, maskImage: cover.lensMask}}>
+            <div className="duo-cover-source" style={{width: coverSourceWidth, height: coverSourceHeight,
+              left: cover.width - coverSourceWidth * coverScale, transform: `scale(${coverScale})`}}>
+              <AppSurface>
+                <WebviewContainer state={state} reloadTick={0} isDualUnfolded onRegisterWebContentsId={() => {}}
+                  mirrorGuestId={primaryGuestId} reserveSystemRail={!split} />
+              </AppSurface>
+            </div>
+            <HomeScreen width={cover.width} height={cover.height} safeTop={54} />
+            <SystemOverlayLayer preset={preset} state={state} isOuterActive isTallInner={false}
+              logicalW={cover.width} logicalH={cover.height} tintColor={props.tintColor}
+              onGoHome={props.onGoHome} onReload={props.onReload} onToggleDuoFold={props.onToggleDuoFold} />
+            {modalOnCover && <div className="duo-modal-viewport" style={{inset: 0}}><ScreenModalLayer /></div>}
+            <div className="duo-cover-glass" style={{opacity: projection?.coverReflection}} />
+          </div>
+        </div>
+      )}
+
       {/* 3. Primary Persistent Live Screen Slice (Outer at 0°..28°/Stand, Right/Bottom Leaf when Bent, Full at 180°) */}
       {primarySlice && primarySlice.matrix3d && (
         <div
           className="duo-interactive-slice duo-slice-primary"
+          onPointerDownCapture={() => setCoverSelected(false)}
           style={{
             width: `${primarySlice.width}px`,
             height: `${primarySlice.height}px`,
@@ -438,6 +470,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
               height: `${fullLogicalH}px`,
               left: `${primaryShiftX}px`,
               top: `${primaryShiftY}px`,
+              maskImage: isOuterPrimary ? projection?.outer.lensMask : undefined,
               clipPath: isOuterPrimary ? projection?.outer.apertureClip : projection?.full.apertureClip
             }}
           >
@@ -469,7 +502,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
               onToggleDuoFold={props.onToggleDuoFold}
             />
             <div className="duo-modal-viewport" style={{ left: -primaryShiftX, top: -primaryShiftY, width: primarySlice.width, height: primarySlice.height }}>
-              <ScreenModalLayer />
+              {!modalOnCover && <ScreenModalLayer />}
             </div>
           </div>
           {isBentInner && !inTransition && (

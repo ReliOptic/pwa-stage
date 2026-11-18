@@ -75,6 +75,22 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
   } = props;
 
   const [showPostures, setShowPostures] = React.useState(false);
+  const barRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!showPostures) return;
+    const outside = (event: PointerEvent): void => {
+      if (!barRef.current?.contains(event.target as Node)) setShowPostures(false);
+    };
+    const key = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        setShowPostures(false);
+        barRef.current?.querySelector<HTMLButtonElement>('.duo-settings')?.focus();
+      }
+    };
+    document.addEventListener('pointerdown',outside);
+    document.addEventListener('keydown',key);
+    return () => {document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',key);};
+  }, [showPostures]);
   const roundedAngle = Math.round(foldAngle);
   const phi = sampleFoldCurve(foldAngle / 180);
   const status = resolveDeviceHingeStatus(foldAngle);
@@ -106,7 +122,7 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
   };
 
   return (
-    <div className="duo-bottom-minibar" role="region" aria-label="iPhone Duo 3D Hinge Control" data-posture={posture} data-target={targetAngle ?? "paused"}>
+    <div ref={barRef} className="duo-bottom-minibar" role="region" aria-label="iPhone Duo 3D Hinge Control" data-posture={posture} data-target={targetAngle ?? "paused"}>
       <div className="duo-scrub-deck">
         <button type="button" className="duo-fold-toggle"
           onClick={e => onToggleFold(e.shiftKey)}
@@ -205,6 +221,7 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
       </div>
 
       <div className="duo-telemetry-group">
+        <span className="duo-finish-label">{finish === 'night' ? 'Night Sky' : 'Star White'}</span>
         <span className={`duo-status-pill duo-status-${status}`}>
           {statusBadgeText}
         </span>

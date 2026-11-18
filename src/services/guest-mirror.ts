@@ -83,7 +83,7 @@ export function startGuestMirror(
   void loop();
 }
 
-export type GuestPointerEventType = 'mouseDown' | 'mouseUp' | 'mouseMove' | 'mouseWheel';
+export type GuestPointerEventType = import('../types/ipc-coordinator.types').GuestInputMessage['type'];
 
 export interface GuestPointerEvent {
   readonly type: GuestPointerEventType;
@@ -93,7 +93,7 @@ export interface GuestPointerEvent {
   readonly deltaY?: number;
 }
 
-const POINTER_TYPES: readonly string[] = ['mouseDown', 'mouseUp', 'mouseMove', 'mouseWheel'];
+const POINTER_TYPES: readonly string[] = ['mouseDown', 'mouseUp', 'mouseMove', 'mouseWheel', 'touchStart', 'touchMove', 'touchEnd', 'touchCancel'];
 
 /** Validates an input event forwarded from the mirrored half. */
 export function sanitizeGuestPointerEvent(raw: unknown): GuestPointerEvent | null {
@@ -112,8 +112,14 @@ export function sanitizeGuestPointerEvent(raw: unknown): GuestPointerEvent | nul
   };
 }
 
-export function forwardGuestPointerEvent(guest: WebContents, ev: GuestPointerEvent): void {
+export function forwardGuestPointerEvent(guest: WebContents, ev: GuestPointerEvent): Promise<void> | void {
   if (guest.isDestroyed()) return;
+  if (ev.type === 'touchStart' || ev.type === 'touchMove' || ev.type === 'touchEnd' || ev.type === 'touchCancel') {
+    // Chromium routes emulated touch in embedder coordinates. The mirror
+    // projects the source point through the live webview before sending it.
+    const touchPoints = ev.type === 'touchEnd' || ev.type === 'touchCancel' ? [] : [{x: ev.x, y: ev.y}];
+    return guest.debugger.sendCommand('Input.dispatchTouchEvent', {type: ev.type, touchPoints});
+  }
   if (ev.type === 'mouseWheel') {
     guest.sendInputEvent({
       type: 'mouseWheel',

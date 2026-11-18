@@ -172,7 +172,8 @@ function DuoVerticalSystemRail(props: {
         bottom: 0,
         right: 0,
         width: '84px',
-        paddingTop: isOuter ? '56px' : '20px',
+        // The portrait cover lens ends about 66pt from the top of the glass.
+        paddingTop: isOuter ? '78px' : '20px',
         paddingBottom: '18px',
         color: fgColor
       }}
@@ -578,7 +579,7 @@ export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.Reac
       />
       {props.cutoutType !== HardwareCutoutType.NONE && (
         <HomeIndicatorOverlay
-          darkMode={onHome ? true : lightContent}
+          darkMode={onHome || (isPwa ? lightContent : props.state.darkMode)}
           trailingInset={trailing}
           onGoHome={props.onGoHome}
         />

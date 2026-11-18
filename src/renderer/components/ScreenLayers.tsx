@@ -7,6 +7,8 @@ import {
   X,
   XCircle
 } from 'lucide-react';
+import { BrowserTools } from './BrowserTools';
+import { BrowserShellMode } from '../../types/simulator.types';
 import { InstalledWebApp, PwaCheck } from '../../types/pwa.types';
 import { resolveHomeLayout, resolveHomePage, homeIconClip } from '../../utils/home-layout.util';
 import { PageInspectionReport } from '../../types/ipc-coordinator.types';
@@ -24,7 +26,7 @@ export interface LaunchOrigin {
 }
 
 export interface ScreenSheetState {
-  readonly kind: 'none' | 'browser-menu' | 'share' | 'add-to-home';
+  readonly kind: 'none' | 'browser-menu' | 'settings' | 'find' | 'bookmarks' | 'history' | 'share' | 'add-to-home';
 }
 
 export interface PermissionPromptState {
@@ -39,6 +41,8 @@ export interface HomeNavigation {
 }
 
 export interface ScreenContextValue {
+  readonly browserMode: BrowserShellMode;
+  readonly setAppearance: (dark: boolean) => void;
   readonly homeNavigation: HomeNavigation;
   readonly setHomeNavigation: (next: HomeNavigation) => void;
   readonly phase: ScreenPhase;
@@ -66,6 +70,8 @@ export interface ScreenContextValue {
 const noop = (): void => undefined;
 
 export const ScreenContext = createContext<ScreenContextValue>({
+  browserMode: BrowserShellMode.IOS_SAFARI,
+  setAppearance: noop,
   homeNavigation: { page: 0, searching: false, query: '' },
   setHomeNavigation: noop,
   phase: 'app',
@@ -238,47 +244,6 @@ export function LaunchSplash(): React.ReactElement | null {
 // Sheets & alerts
 // ---------------------------------------------------------------------------
 
-function BrowserMenuSheet(): React.ReactElement {
-  const screen = useScreen();
-  return (
-    <div className="ios-sheet-scrim" onClick={(): void => screen.openSheet('none')}>
-      <div
-        className={`ios-action-sheet ${screen.darkMode ? 'ios-sheet-dark' : 'ios-sheet-light'}`}
-        onClick={(e): void => e.stopPropagation()}
-      >
-        <div className="ios-action-group">
-          <button type="button" onClick={(): void => screen.openSheet('share')}>
-            Share
-          </button>
-          <button
-            type="button"
-            onClick={(): void => {
-              screen.navigate('forward');
-              screen.openSheet('none');
-            }}
-          >
-            Forward
-          </button>
-          <button
-            type="button"
-            onClick={(): void => {
-              screen.reload();
-              screen.openSheet('none');
-            }}
-          >
-            Reload Page
-          </button>
-        </div>
-        <div className="ios-action-group">
-          <button type="button" className="ios-action-cancel" onClick={(): void => screen.openSheet('none')}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ShareSheet(): React.ReactElement {
   const screen = useScreen();
   const identity = screen.report?.identity;
@@ -418,7 +383,7 @@ export function ScreenModalLayer(): React.ReactElement | null {
   const screen = useScreen();
   return (
     <>
-      {screen.sheet.kind === 'browser-menu' && <BrowserMenuSheet />}
+      {['browser-menu','settings','find','bookmarks','history'].includes(screen.sheet.kind) && <BrowserTools key={screen.browserMode + screen.currentUrl} screen={screen} />}
       {screen.sheet.kind === 'share' && <ShareSheet />}
       {screen.sheet.kind === 'add-to-home' && <AddToHomeSheet />}
       <PermissionAlert />

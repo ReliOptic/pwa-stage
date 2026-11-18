@@ -5,6 +5,9 @@ export interface ElectronWebviewElement extends HTMLElement {
   useragent: string;
   reload: () => void;
   reloadIgnoringCache: () => void;
+  setZoomFactor: (factor: number) => void;
+  findInPage: (text: string, options: {forward: boolean; findNext: boolean}) => number;
+  stopFindInPage: (action: 'clearSelection') => void;
   goBack: () => void;
   goForward: () => void;
   getWebContentsId: () => number;

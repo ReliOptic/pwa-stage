@@ -15,6 +15,7 @@ export interface ProjectedSurfaceSlice {
   readonly matrix3d: string | null;
   readonly zIndex: number;
   readonly apertureClip?: string;
+  readonly lensMask?: string;
 }
 
 export interface Duo3DFrameProjection {
@@ -25,6 +26,8 @@ export interface Duo3DFrameProjection {
   readonly isHorizontalSplit: boolean;
   /** Which physical surfaces face the camera right now (lit or not). */
   readonly outerFacing: boolean;
+  readonly simultaneous: boolean;
+  readonly coverReflection: number;
   readonly leftFacing: boolean;
   /**
    * CSS polygon (right-leaf local px) of the part of the right leaf the camera
@@ -176,7 +179,10 @@ export function loadDuoSkinnedAsset(T: any, data: { readonly gltf: any; readonly
     const metalness = pbr.metallicFactor ?? 0.86;
     const roughness = pbr.roughnessFactor ?? 0.28;
     if (idx === 7 || idx === 8) {
-      return new T.MeshBasicMaterial({ color: 0x09090b, side: T.DoubleSide });
+      return new T.MeshPhysicalMaterial({
+        color: 0x060709, metalness: 0, roughness: 0.18, clearcoat: 1,
+        clearcoatRoughness: 0.12, envMapIntensity: 0.32, side: T.FrontSide
+      });
     }
     if (Math.max(factor[0], factor[1], factor[2]) > 0.45) {
       const gray = (factor[0] + factor[1] + factor[2]) / 3;
@@ -195,6 +201,7 @@ export function loadDuoSkinnedAsset(T: any, data: { readonly gltf: any; readonly
 
   const meshes: any[] = [];
   const displays: Partial<Record<'inner' | 'outer', DisplayOutline>> = {};
+  let coverLens: DisplayOutline | undefined;
   const attrMap: Record<string, string> = {
     POSITION: 'position',
     NORMAL: 'normal',
@@ -232,6 +239,7 @@ export function loadDuoSkinnedAsset(T: any, data: { readonly gltf: any; readonly
       if (prim.material === 7 || prim.material === 8) {
         displays[prim.material === 7 ? 'outer' : 'inner'] = readDisplayOutline(geo.attributes.position.array);
       }
+      if (prim.material === 27) coverLens = readDisplayOutline(geo.attributes.position.array);
       mesh.name = n.name;
       mesh.frustumCulled = false;
       mesh.userData.originalColor = mesh.material.color.clone();
@@ -290,6 +298,7 @@ export function loadDuoSkinnedAsset(T: any, data: { readonly gltf: any; readonly
     model,
     meshes,
     displays,
+    coverLens,
     duration: clip.duration,
     setFold(phi: number): void {
       action.time = clamp(phi, 0, 1) * clip.duration;
@@ -313,6 +322,7 @@ export class Duo3DHardwareEngine {
   private readonly asset: any;
   private renderer: any = null;
   private isSoftware = false;
+  private environmentTarget: any = null;
   private lastW = 0;
   private lastH = 0;
   private lastDpr = 0;
@@ -343,13 +353,13 @@ export class Duo3DHardwareEngine {
       this.renderer.setClearColor(0x000000, 0);
       this.renderer.outputColorSpace = T.SRGBColorSpace;
       this.renderer.toneMapping = T.ACESFilmicToneMapping;
-      this.renderer.toneMappingExposure = 1.24;
+      this.renderer.toneMappingExposure = 1.04;
 
-      this.scene.add(new T.HemisphereLight(0xf9faff, 0x5c6472, 2.5));
+      this.scene.add(new T.HemisphereLight(0xfff8ef, 0x464958, 0.92));
       const lights: readonly [number, readonly [number, number, number]][] = [
-        [2.6, [-15, 20, -10]],
-        [2.1, [8, 11, 14]],
-        [2.5, [4, 7, -18]]
+        [2.0, [-15, 20, -10]],
+        [0.75, [8, 11, 14]],
+        [1.2, [4, 7, -18]]
       ];
       lights.forEach(([intensity, pos]) => {
         const dirLight = new T.DirectionalLight(0xffffff, intensity);
@@ -358,7 +368,7 @@ export class Duo3DHardwareEngine {
       });
 
       const studio = new T.Scene();
-      studio.background = new T.Color(0x8e949e);
+      studio.background = new T.Color(0x515259);
       const panels: readonly [
         readonly [number, number, number],
         number,
@@ -366,8 +376,8 @@ export class Duo3DHardwareEngine {
         readonly [number, number, number]
       ][] = [
         [[-10, 8, 0], 10, 26, [0, Math.PI / 2, 0]],
-        [[7, 9, 0], 6, 22, [0, -Math.PI / 2, 0]],
-        [[0, 16, 0], 25, 24, [-Math.PI / 2, 0, 0]]
+        [[7, 9, 0], 3, 22, [0, -Math.PI / 2, 0]],
+        [[0, 16, 0], 16, 20, [-Math.PI / 2, 0, 0]]
       ];
       panels.forEach(([p, w, h, r]) => {
         const plane = new T.Mesh(
@@ -380,7 +390,9 @@ export class Duo3DHardwareEngine {
       });
       const pmrem = new T.PMREMGenerator(this.renderer);
       const envTarget = pmrem.fromScene(studio, 0.06);
+      this.environmentTarget = envTarget;
       this.scene.environment = envTarget.texture;
+      studio.children.forEach((panel: any) => { panel.geometry.dispose(); panel.material.dispose(); });
       pmrem.dispose();
     } catch {
       this.isSoftware = true;
@@ -613,12 +625,20 @@ export class Duo3DHardwareEngine {
 
     // Displays are either lit or off; the wake fade is time-based (see
     // Duo3DStage), not a function of the hinge angle.
-    const outerOpacity = isOuterPrimary ? 1 : 0;
     const innerOpacity = isOuterPrimary ? 0 : 1;
     const leftFacing = signedQuadArea(leftCorners) > 10;
     const outerFacing = signedQuadArea(outerCorners) > 10;
     const rightVisibleClip =
       isStanding || leftFacing ? null : this.computeRightLeafVisibleClip(isRotatedRig);
+
+    const rightFacing = signedQuadArea(rightCorners) > 10;
+    const simultaneous = !isOuterPrimary && outerFacing && rightFacing && rightVisibleClip !== RIGHT_LEAF_HIDDEN;
+    const outerQuad = quads3D.outer;
+    const glassNormal = outerQuad[1].clone().sub(outerQuad[0]).cross(outerQuad[3].clone().sub(outerQuad[0])).normalize();
+    const view = this.camera.position.clone().sub(outerQuad[0]).normalize();
+    // Schlick angular response, deliberately attenuated over emissive content.
+    const grazing = 1 - Math.min(1, Math.abs(glassNormal.dot(view)));
+    const coverReflection = 0.035 + 0.17 * grazing ** 5;
 
     // --- opening / closing transition ---------------------------------------
     const angleDeg = u * 180;
@@ -657,6 +677,8 @@ export class Duo3DHardwareEngine {
       isFlatSinglePlane,
       isHorizontalSplit: isRotatedRig,
       outerFacing,
+      simultaneous,
+      coverReflection,
       leftFacing,
       rightVisibleClip,
       transition: {
@@ -682,8 +704,9 @@ export class Duo3DHardwareEngine {
       innerBrightness,
       outer: {
         apertureClip: displayOutlineCss(this.asset.displays.outer, true, isStanding),
-        active: outerOpacity > 0.02 && signedQuadArea(outerCorners) > 10,
-        opacity: outerOpacity,
+        lensMask: this.coverLensMask(isStanding),
+        active: outerFacing,
+        opacity: 1,
         width: outerW,
         height: outerH,
         corners: outerCorners,
@@ -700,7 +723,7 @@ export class Duo3DHardwareEngine {
         zIndex: 14
       },
       right: {
-        active: innerOpacity > 0.02 && signedQuadArea(rightCorners) > 10,
+        active: innerOpacity > 0.02 && rightFacing,
         opacity: innerOpacity,
         width: leafW,
         height: leafH,
@@ -710,7 +733,7 @@ export class Duo3DHardwareEngine {
       },
       full: {
         apertureClip: displayOutlineCss(this.asset.displays.inner, false, isRotatedRig),
-        active: innerOpacity > 0.02,
+        active: innerOpacity > 0.02 && signedQuadArea(fullCorners) > 10,
         opacity: innerOpacity,
         width: fullW,
         height: fullH,
@@ -795,11 +818,30 @@ export class Duo3DHardwareEngine {
     return this.projectPointsOntoFlatPlane(samples)?.map((p) => p.x) ?? [];
   }
 
+  private coverLensMask(rotated: boolean): string | undefined {
+    const lens: DisplayOutline | undefined = this.asset.coverLens;
+    if (!lens) return undefined;
+    const d: DisplayOutline = this.asset.displays.outer;
+    const w = d.maxX - d.minX, h = d.maxZ - d.minZ;
+    const x = 100 * (d.maxX - (lens.maxX + lens.minX) / 2) / w;
+    const y = 100 * ((lens.maxZ + lens.minZ) / 2 - d.minZ) / h;
+    const rx = 50 * (lens.maxX - lens.minX) / w;
+    const ry = 50 * (lens.maxZ - lens.minZ) / h;
+    return `radial-gradient(ellipse ${rotated ? ry : rx}% ${rotated ? rx : ry}% at ${rotated ? 100 - y : x}% ${rotated ? x : y}%, transparent 96%, black 100%)`;
+  }
+
   private projectScreenOntoFlatPlane(name: 'outer' | 'left'): string | null {
     const d: DisplayOutline = this.asset.displays[name === 'outer' ? 'outer' : 'inner'];
     const contour = name === 'outer' ? d.points : leftDisplayContour(d);
     const pts = this.projectPointsOntoFlatPlane(contour.map(([x, z]) => this.asset.point(x, d.y, z, 24)));
-    return pts ? `polygon(${pts.map(p => `${p.x.toFixed(3)}px ${p.y.toFixed(3)}px`).join(',')})` : null;
+    if (!pts) return null;
+    const point = (p: Point2D): string => `${p.x.toFixed(3)}px ${p.y.toFixed(3)}px`;
+    const lens: DisplayOutline | undefined = this.asset.coverLens;
+    if (name === 'outer' && lens) {
+      const hole = this.projectPointsOntoFlatPlane(lens.points.map(([x,z]) => this.asset.point(x, d.y, z, 24)));
+      if (hole) return `polygon(evenodd, ${[...pts, pts[0], ...hole, hole[0], pts[0]].map(point).join(',')})`;
+    }
+    return `polygon(${pts.map(point).join(',')})`;
   }
 
   private projectPointsOntoFlatPlane(quad: any[]): Point2D[] | null {
@@ -826,6 +868,7 @@ export class Duo3DHardwareEngine {
   }
 
   public dispose(): void {
+    this.environmentTarget?.dispose();
     if (this.renderer && typeof this.renderer.dispose === 'function') {
       this.renderer.dispose();
     }

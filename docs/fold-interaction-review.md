@@ -52,3 +52,11 @@ timing, or physical-device pixel calibration. Explicit posture selection changes
 the presentation rig; manual hinge adjustment does not select a new posture.
 
 Local verification: 112 unit/integration tests pass. All 19 resting compositor cases pass at 2× density: 90,023 sampled boundary pixels, zero page-color leaks outside the 2-output-pixel antialiasing allowance. Original 34 registered assets pass the unchanged-content audit.
+
+## Paused cover and partial inner display in 1.0.5
+
+Apple’s opening sequence shows the lit outside face passing in front of an already visible portion of the inner display. The display overlap in the simulator is calculated from front-facing projected glass and the moving housing’s occlusion of the fixed panel, including when playback is paused or manually scrubbed.
+
+A 1° sweep with zero extra orbit and pitch gives simultaneous visibility at 33–89° in the Open rig, 26–44° in Book and 2–48° in Tabletop. Stand has its own cover-facing camera. These are readings of the supplied mesh and simulator camera. The film establishes the appearance of the overlap without supplying a calibrated physical ignition angle or iOS 27.3 timing.
+
+The hot page stays in one guest in Span mode. The outside view forwards mouse and scroll input to it, while browser menus open on the touched display. The lens aperture uses the bound cover camera rim. A broad warm key, cooler fill and muted reflections preserve the contrast of page content across viewing angles.
