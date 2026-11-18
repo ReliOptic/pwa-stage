@@ -36,11 +36,13 @@ export function HomeGesture(props: { width: number; height: number; trailing: nu
       id: event.pointerId, x: event.clientX, y: event.clientY, start: event.timeStamp,
       scale: Math.max(.1, button.getBoundingClientRect().height / button.offsetHeight), host, moved: false
     };
+    host.dataset.homePressed = 'true';
     button.setPointerCapture(event.pointerId);
     const release = () => {
       if (releaseOwner.get(host) !== release) return;
       active.current = null;
       releaseOwner.delete(host);
+      delete host.dataset.homePressed;
       delete host.dataset.homeDrag;
       host.style.removeProperty('--home-lift');
       host.style.removeProperty('--home-scale');
@@ -68,6 +70,7 @@ export function HomeGesture(props: { width: number; height: number; trailing: nu
     const drag = active.current;
     if (!drag || event.pointerId !== drag.id) return;
     active.current = null;
+    delete drag.host.dataset.homePressed;
     const up = (drag.y - event.clientY) / drag.scale;
     const side = Math.abs(event.clientX - drag.x) / drag.scale;
     suppressClick.current = cancel || drag.moved || Math.max(side, Math.abs(up)) > 6;

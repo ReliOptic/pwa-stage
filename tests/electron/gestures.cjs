@@ -110,7 +110,15 @@ server.listen(0,'127.0.0.1',async()=>{
     await until(()=>js("!!document.querySelector('.duo-slice-primary webview')"),'Duo');
     if(await home()){await click('.duo-slice-primary .home-grid [aria-label="Notebook 0"]');}
     await until(()=>js("!!document.querySelector('.duo-slice-primary .app-surface-app')"),'Duo app');
-    await swipe(0,-75,'.duo-slice-primary .ios-home-indicator');await until(home,'Duo Home');
+    await until(()=>js("!!document.querySelector('.duo-3d-stage-root[data-motion-ready]') && document.querySelector('.duo-hinge-slider')?.value==='180'"),'open Duo hardware');
+    await capture('duo-before-swipe');
+    const duoEdge='.duo-slice-primary .ios-home-indicator';
+    const start=await center(duoEdge);
+    mouse('mouseDown',start);
+    await until(()=>js("!!document.querySelector('[data-home-pressed]')"),'Duo edge pointer capture');
+    for (const dy of [20,48,75]) {mouse('mouseMove',{x:start.x,y:start.y-dy});await sleep(45);}
+    await until(()=>js("!!document.querySelector('[data-home-drag=tracking]')"),'Duo drag follows the pointer');
+    mouse('mouseUp',{x:start.x,y:start.y-75});await until(home,'Duo Home');
     await click('.duo-slice-primary .home-grid [aria-label=Settings]');
     await swipe(0,-75,'.duo-slice-primary .ios-home-indicator');await until(()=>js("!document.querySelector('.home-utility')"),'Duo Settings dismissal');
     await capture('gesture-duo-home');
