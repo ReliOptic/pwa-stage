@@ -5,12 +5,23 @@ import { applyEmulationToTarget, buildEmulationProfile } from './emulation';
 import type { EmulationProfileInput } from '../types/emulation.types';
 import type { PageChoices } from './journey-planner';
 
+type PageOperation = 'observe' | 'tap' | 'scroll' | 'scroll-position' | 'finish-scroll';
+
 // Runs in an isolated JS world. Only this fixed observer/action implementation
 // enters the guest; model output can select an existing index or a scroll.
-function interact(origin: string, action: 'observe' | 'tap' | 'scroll', index: number) {
+function interact(origin: string, action: PageOperation, index: number) {
   if (location.origin !== origin) throw Error('The page left the chosen origin.');
   type Control = {el: HTMLElement; name: string; href: string | null};
-  const state = window as Window & {journeyControls?: Control[]};
+  const state = window as Window & {
+    journeyControls?: Control[];
+    journeyScroll?: {target: Element; start: number; goal: number};
+  };
+  if (action === 'scroll-position' || action === 'finish-scroll') {
+    const scroll = state.journeyScroll;
+    if (!scroll?.target.isConnected) return null;
+    if (action === 'finish-scroll') scroll.target.scrollTo({top: scroll.goal, behavior: 'instant'});
+    return {top: scroll.target.scrollTop, start: scroll.start, goal: scroll.goal};
+  }
   // Map a visible point through same-origin embedded documents into the mobile
   // viewport. Every ancestor must actually expose this pixel to a finger.
   const tapPoint = (el: HTMLElement, box=el.getBoundingClientRect()) => {
@@ -71,7 +82,13 @@ function interact(origin: string, action: 'observe' | 'tap' | 'scroll', index: n
   if(action==='scroll'){
     const target=scrollTarget();
     if(!target)return false;
-    target.scrollBy({top:target.clientHeight*.78,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});return true;
+    const height = target === document.scrollingElement ? innerHeight : target.clientHeight;
+    const start = target.scrollTop;
+    const goal = Math.min(target.scrollHeight - height, start + height * .78);
+    if (goal <= start + 1) return false;
+    state.journeyScroll = {target, start, goal};
+    target.scrollTo({top: goal, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'});
+    return true;
   }
   // A visible <pre> or paragraph can span many screens. Read rendered text
   // ranges, so scrolling cannot leave an offscreen quote in the observation.
@@ -181,7 +198,7 @@ export class JourneyInteraction {
     });
     wc.on('dom-ready',()=>{this.documentReady=true;});
   }
-  private async execute(action:'observe'|'tap'|'scroll', index=-1) {
+  private async execute(action:PageOperation, index=-1) {
     this.signal.throwIfAborted();
     if (this.blocked()) throw Error('The page attempted to leave the selected origin.');
     // webContents.executeJavaScript waits for the whole document tree to finish
@@ -226,6 +243,26 @@ export class JourneyInteraction {
     }
     return {page,image:'data:image/jpeg;base64,'+jpeg};
   }
+  private async waitForScroll(): Promise<boolean> {
+    const deadlineAt = performance.now() + 1500;
+    let lastTop = NaN;
+    let lastChange = performance.now();
+    while (performance.now() < deadlineAt) {
+      const position = await this.execute('scroll-position');
+      if (!position || Math.abs(position.goal - position.top) <= 2) return true;
+      if (position.top !== lastTop) {
+        lastTop = position.top;
+        lastChange = performance.now();
+      } else if (position.top > position.start + 2 && performance.now() - lastChange > 180) {
+        // A snap container can finish at a different offset from the requested one.
+        return true;
+      }
+      await delay(60, undefined, {signal: this.signal});
+    }
+    // A hidden compositor may never schedule the smooth animation.
+    const position = await this.execute('finish-scroll');
+    return !position || position.top > position.start + 1;
+  }
   async act(action:'tap'|'scroll'|'wait', index:number, sent:(kind:'tap'|'scroll'|'wait'|'navigate')=>void) {
     if (action==='wait') {
       sent('wait');
@@ -241,7 +278,11 @@ export class JourneyInteraction {
       await cdp.sendCommand('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     }
     sent(action==='tap' && point===true?'navigate':action);
-    await delay(380,undefined,{signal:this.signal});
+    if (action === 'scroll') {
+      if (!await this.waitForScroll()) return false;
+    } else {
+      await delay(380,undefined,{signal:this.signal});
+    }
     const end=Date.now()+10000;
     while(!this.documentReady && Date.now()<end) await delay(100,undefined,{signal:this.signal});
     if(!this.documentReady) throw Error('The next document did not become ready.');
