@@ -13,11 +13,10 @@ function interact(origin: string, action: 'observe' | 'tap' | 'scroll', index: n
   const state = window as Window & {journeyControls?: Control[]};
   // Map a visible point through same-origin embedded documents into the mobile
   // viewport. Every ancestor must actually expose this pixel to a finger.
-  const tapPoint = (el: HTMLElement) => {
+  const tapPoint = (el: HTMLElement, box=el.getBoundingClientRect()) => {
     let doc = el.ownerDocument;
     let win = doc.defaultView;
     if (!win) return null;
-    const box = el.getBoundingClientRect();
     if (!box.width || !box.height || box.bottom <= 0 || box.right <= 0 || box.left >= win.innerWidth || box.top >= win.innerHeight) return null;
     let x = (Math.max(0,box.left) + Math.min(win.innerWidth,box.right))/2;
     let y = (Math.max(0,box.top) + Math.min(win.innerHeight,box.bottom))/2;
@@ -74,6 +73,32 @@ function interact(origin: string, action: 'observe' | 'tap' | 'scroll', index: n
     if(!target)return false;
     target.scrollBy({top:target.clientHeight*.78,behavior:'instant'});return true;
   }
+  // A visible <pre> or paragraph can span many screens. Read rendered text
+  // ranges, so scrolling cannot leave an offscreen quote in the observation.
+  function viewportText(el:HTMLElement,only?:Text):string {
+    const doc=el.ownerDocument,win=doc.defaultView;
+    if(!win || !tapPoint(el))return '';
+    const walker=doc.createTreeWalker(el,NodeFilter.SHOW_TEXT);
+    const range=doc.createRange();
+    let excerpt='',budget=480;
+    const sample=(node:Text,from:number,to:number):void=>{
+      if(from>=to || excerpt.length>=180 || --budget<0)return;
+      range.setStart(node,from);range.setEnd(node,to);
+      const bounds=range.getBoundingClientRect();
+      if(!bounds.width || !bounds.height || bounds.right<=0 || bounds.bottom<=0 || bounds.left>=win.innerWidth || bounds.top>=win.innerHeight)return;
+      if((to-from>64 || bounds.left<0 || bounds.right>win.innerWidth || bounds.top<0 || bounds.bottom>win.innerHeight) && to-from>1){
+        const middle=from+Math.floor((to-from)/2);
+        sample(node,from,middle);sample(node,middle,to);return;
+      }
+      const parent=node.parentElement;
+      const rects=Array.from(range.getClientRects()).filter(r=>r.width>0 && r.height>0);
+      if(parent && rects.length && rects.every(r=>!!tapPoint(parent,r)))excerpt+=node.data.slice(from,to);
+    };
+    for(let n=only??walker.nextNode() as Text|null;n && budget>0 && excerpt.length<180;n=only?null:walker.nextNode() as Text|null){
+      sample(n,0,n.length);excerpt+=' ';
+    }
+    return excerpt.trim().replace(/\s+/g,' ').slice(0,180);
+  }
   const controls: Control[] = [];
   const snippets: string[]=[];
   const documents=[document];
@@ -86,7 +111,8 @@ function interact(origin: string, action: 'observe' | 'tap' | 'scroll', index: n
     }
     for (const el of doc.querySelectorAll<HTMLElement>('h1,h2,h3,h4,p,legend,li,dt,dd,td,blockquote,figcaption,pre,article [role=heading]')) {
       if (snippets.length>=10) break;
-      if (tapPoint(el)) snippets.push(el.innerText.trim().slice(0,180));
+      const excerpt=viewportText(el);
+      if(excerpt)snippets.push(excerpt);
     }
     if (controls.length>=35) break;
     for (const frame of doc.querySelectorAll('iframe')) {
@@ -111,7 +137,9 @@ function interact(origin: string, action: 'observe' | 'tap' | 'scroll', index: n
     const walker=document.createTreeWalker(document.body || document.documentElement,NodeFilter.SHOW_TEXT);
     for(let i=0,node=walker.nextNode();node && i<600 && snippets.length<10;node=walker.nextNode(),i++){
       const el=node.parentElement,text=node.textContent?.trim();
-      if(text && el && !el.closest('script,style,noscript,[hidden],[aria-hidden="true"]') && tapPoint(el))snippets.push(text.slice(0,180));
+      if(text && el && !el.closest('script,style,noscript,[hidden],[aria-hidden="true"]')  ){
+        const excerpt=viewportText(el,node as Text);if(excerpt)snippets.push(excerpt);
+      }
     }
   }
   state.journeyControls=controls;

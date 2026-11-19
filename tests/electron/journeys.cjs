@@ -14,6 +14,10 @@ const server=http.createServer((req,res)=>{
     res.end('<!doctype html><meta name="viewport" content="width=device-width"><style>body{padding:8px;font:18px system-ui}</style><a href="/classes" target="_top">Class times</a>');
     return;
   }
+  if(req.url==='/document'){
+    res.setHeader('Content-Type','text/plain; charset=utf-8');
+    res.end('TOP ONLY\n'+Array.from({length:300},(_,i)=>'Line '+i).join('\n'));return;
+  }
   if(req.url==='/scroll'){
     res.end('<!doctype html><meta name="viewport" content="width=device-width"><style>*{margin:0}section{height:100vh;background:#bf272e}section+section{background:#259341}</style><section>First screen</section><section>Second screen</section>');
     return;
@@ -105,6 +109,12 @@ server.listen(0,'127.0.0.1',async()=>{
     const pixel=thumb.toBitmap().subarray(16,20);
     assert.equal(pixel[1]>pixel[2],f.action==='Scroll down','Middle pixel should turn from red to green after scroll');
   }
+  await js('window.journeyStudio.start('+JSON.stringify({...req,address:site+'/document'})+')');
+  await until(async()=>(await status()).status!=='running','visible document excerpts');
+  const documentFrames=(await status()).visits[0].frames;
+  assert(documentFrames[0].observation.text.includes('TOP ONLY'),JSON.stringify(documentFrames.map(f=>f.observation)));
+  assert(documentFrames[1].observation.text.includes('Line'));
+  assert(!documentFrames[1].observation.text.includes('TOP ONLY'));
   mode='bad-key';await start();await until(async()=>(await status()).status==='error','provider error');
   assert((await status()).message.includes('401'));
   mode='slow';const before=apiCalls;await start();await until(()=>apiCalls>before,'pending request');
