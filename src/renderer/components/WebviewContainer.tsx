@@ -149,7 +149,9 @@ function useWebviewEffects(
       // Home Screen deep link is being selected. Keep the requested launch.
       if (committedUrl && desired !== committedUrl && url !== desired && navigationStart !== desired) return;
       committedUrl = url;
-      if (pendingNavigation?.url === url) pendingNavigation = null;
+      // A redirect also commits the outstanding request. Reissuing its final
+      // URL would interrupt the page and discard its newly initialized state.
+      pendingNavigation = null;
       setSafariBarCollapsed(false);
       setKeyboardVisible(false);
       latest.current.onNavigate?.(url);
