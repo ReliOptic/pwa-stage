@@ -1,4 +1,4 @@
-import { BrowserWindow, nativeImage, session } from 'electron';
+import { BrowserWindow, session } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { applyEmulationToTarget, buildEmulationProfile } from './emulation';
@@ -176,17 +176,28 @@ export class JourneyPage {
   }
   async observe(): Promise<{page:PageChoices; image:string}> {
     const page=await this.execute('observe') as PageChoices;
-    const snap=await this.deadline(this.win.webContents.capturePage(),6000).catch(async () => {
+    const wc=this.win.webContents;
+    let jpeg:string;
+    try {
+      // Native capture wakes a hidden static page even if it has no new frames.
+      const snap=await this.deadline(wc.capturePage(),1800);
+      if(snap.isEmpty()) throw Error('The page did not produce a frame.');
+      jpeg=snap.resize({width:Math.min(460,snap.getSize().width)}).toJPEG(72).toString('base64');
+    } catch {
       this.signal.throwIfAborted();
-      // GPU-backed pages can outlive a hidden window's last compositor frame.
-      const {data} = await this.deadline(this.win.webContents.debugger.sendCommand('Page.captureScreenshot', {
-        format:'jpeg',quality:72,captureBeyondViewport:false
-      }),8000);
-      return nativeImage.createFromBuffer(Buffer.from(data,'base64'));
-    });
-    if(snap.isEmpty()) throw Error('The page did not produce a frame.');
-    const width=Math.min(460,snap.getSize().width);
-    return {page,image:'data:image/jpeg;base64,'+snap.resize({width}).toJPEG(72).toString('base64')};
+      // Sample the current visible viewport at the report resolution. Reading
+      // back a full Retina compositor surface can stall animated WebGL pages.
+      const {cssVisualViewport:viewport}=await this.deadline(wc.debugger.sendCommand('Page.getLayoutMetrics'),5000);
+      const {deviceScaleFactor}=buildEmulationProfile(this.profile).metrics;
+      const {data}=await this.deadline(wc.debugger.sendCommand('Page.captureScreenshot',{
+        format:'jpeg',quality:72,captureBeyondViewport:false,
+        clip:{x:viewport.pageX,y:viewport.pageY,width:viewport.clientWidth,height:viewport.clientHeight,
+          scale:Math.min(1,460/(viewport.clientWidth*deviceScaleFactor))}
+      }),40000);
+      if(!data) throw Error('The compositor did not produce a frame.');
+      jpeg=data;
+    }
+    return {page,image:'data:image/jpeg;base64,'+jpeg};
   }
   async act(action:'tap'|'scroll'|'wait', index:number) {
     if (action==='wait') {

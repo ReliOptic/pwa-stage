@@ -1,6 +1,6 @@
 // Real isolated mobile pages. Only the model transport is replaced for repeatable CI without paid credentials.
 const assert=require('node:assert/strict'),http=require('node:http'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {app,BrowserWindow,dialog,session}=require('electron');
+const {app,BrowserWindow,dialog,nativeImage,session}=require('electron');
 const out=process.env.SIMULATOR_TEST_OUTPUT || fs.mkdtempSync(path.join(os.tmpdir(),'journey-proof-'));
 fs.mkdirSync(out,{recursive:true});app.setPath('userData',fs.mkdtempSync(path.join(os.tmpdir(),'journey-user-')));
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -12,6 +12,10 @@ const server=http.createServer((req,res)=>{
   res.setHeader('Content-Type','text/html; charset=utf-8');
   if(req.url==='/drawer'){
     res.end('<!doctype html><meta name="viewport" content="width=device-width"><style>body{padding:8px;font:18px system-ui}</style><a href="/classes" target="_top">Class times</a>');
+    return;
+  }
+  if(req.url==='/scroll'){
+    res.end('<!doctype html><meta name="viewport" content="width=device-width"><style>*{margin:0}section{height:100vh;background:#bf272e}section+section{background:#259341}</style><section>First screen</section><section>Second screen</section>');
     return;
   }
   if(req.url==='/touch-surface'){
@@ -31,7 +35,9 @@ async function modelResponse(request){
   if(mode==='slow')return new Promise(resolve=>setTimeout(()=>resolve(new Response('{}')),1200));
   let answer;
   if(!input.persona)answer={audiences:['Morning lap swimmer','First-time visitor','Weekend visitor']};
-  else if(mode==='surface'){
+  else if(mode==='scroll'){
+    answer=input.history.length===1?{action:'scroll',reason:'Look further down the page.'}:{action:'finish',reason:'The next section is visible.'};
+  }else if(mode==='surface'){
     answer=input.page.controls.includes('Film details')?{action:'finish',reason:'The player controls are visible.'}:
       {action:'tap',target:input.page.controls.indexOf('Film preview'),reason:'Tap to reveal the controls.'};
   }else{
@@ -60,6 +66,7 @@ server.listen(0,'127.0.0.1',async()=>{
   await set('.journey-fields input',site);await set('textarea','Find morning swim times');await set('[type=password]','fixture-key');await set('[type=number]','2');
   async function capture(name){await sleep(180);fs.writeFileSync(path.join(out,name+'.png'),(await studio.webContents.capturePage()).toPNG());}
   await capture('journey-setup');
+  assert.equal(await js("document.querySelector('.journey-fields input').value"),site,'Loading the device settings must preserve a typed URL');
   const status=()=>js('window.journeyStudio.initial().then(x=>x.report)');
   await js("document.querySelector('[type=submit]').click()");
   const report=await until(async()=>{const r=await status();return r && r.status!=='running' && r;},'finished run');
@@ -82,6 +89,15 @@ server.listen(0,'127.0.0.1',async()=>{
   mode='surface';await js('window.journeyStudio.start('+JSON.stringify({...req,address:site+'/touch-surface'})+')');
   await until(async()=>(await status()).status!=='running','touch surface');
   const surface=(await status()).visits[0];assert.equal(surface.outcome,'finished');assert.equal(surface.frames[1].action,'Film preview');
+  mode='scroll';await js('window.journeyStudio.start('+JSON.stringify({...req,address:site+'/scroll'})+')');
+  await until(async()=>(await status()).status!=='running','scrolled capture');
+  const scrolled=await status();assert.equal(scrolled.visits[0].outcome,'finished');
+  for(const f of scrolled.visits[0].frames){
+    const url=await js('window.journeyStudio.image('+JSON.stringify(scrolled.id)+','+f.id+')');
+    const thumb=nativeImage.createFromDataURL(url).resize({width:3,height:3});
+    const pixel=thumb.toBitmap().subarray(16,20);
+    assert.equal(pixel[1]>pixel[2],f.action==='Scroll down','Middle pixel should turn from red to green after scroll');
+  }
   mode='bad-key';await start();await until(async()=>(await status()).status==='error','provider error');
   assert((await status()).message.includes('401'));
   mode='slow';const before=apiCalls;await start();await until(()=>apiCalls>before,'pending request');

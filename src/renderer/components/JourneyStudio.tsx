@@ -61,12 +61,14 @@ export function JourneyStudio({bridge}: {bridge:JourneyStudioApi}) {
   const [tab,setTab]=useState<'setup'|'review'>('setup'),[error,setError]=useState(''),[pending,setPending]=useState(false);
   const [saved,setSaved]=useState(false);
   const received=useRef(false);
+  const addressEdited=useRef(false);
   useEffect(()=>{
     let current=true;
     const unsubscribe=bridge.subscribe(next=>{received.current=true;setReport(next);});
     void bridge.initial().then(initial=>{
       if(!current)return;
-      setAddress(initial.address);setDevice(initial.device);setEnvKey(initial.environmentKey);
+      if(!addressEdited.current) setAddress(initial.address);
+      setDevice(initial.device);setEnvKey(initial.environmentKey);
       if(!received.current && initial.report){setReport(initial.report);setTab('review');}
     }).catch(()=>{if(current)setError('Could not read the simulator settings.');});
     return ()=>{current=false;unsubscribe();};
@@ -91,7 +93,7 @@ export function JourneyStudio({bridge}: {bridge:JourneyStudioApi}) {
     {error && <p role="alert" className="journey-error">{error}</p>}
     {tab==='setup'?<form className="journey-form" onSubmit={start}><fieldset disabled={running || pending}>
       <div className="journey-fields"><section><h2>Visit brief</h2>
-        <label>Start address<input required maxLength={2048} value={address} onChange={e=>setAddress(e.target.value)} placeholder="https://your-pwa.com"/></label>
+        <label>Start address<input required maxLength={2048} value={address} onChange={e=>{addressEdited.current=true;setAddress(e.target.value);}} placeholder="https://your-pwa.com"/></label>
         <label>Customer goal<textarea required rows={3} maxLength={500} value={goal} onChange={e=>setGoal(e.target.value)} placeholder="What should a visitor try to accomplish?"/></label>
         <label>Target audiences <small>Optional</small><textarea rows={3} value={audiences} onChange={e=>setAudiences(e.target.value)} placeholder="One audience per line"/></label>
         <p>Leave empty to suggest audiences from the start page. Each visit draws from a shuffled list.</p>
