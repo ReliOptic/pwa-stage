@@ -19,6 +19,9 @@ export function mobileChildTargets(connection: DebuggerCommandSender, initial: E
   const children = new Map<string, ChildSession>();
   let profile = initial;
   let enabled = false;
+  const childSettings = (p:EmulationProfile) => JSON.stringify([
+    p.userAgent,p.platform,p.standalone,p.metrics.screenWidth,p.metrics.screenHeight,p.touch,p.mediaFeatures
+  ]);
 
   async function configure(id: string, child: ChildSession, first: boolean, paused: boolean) {
     const current = profile;
@@ -89,12 +92,17 @@ export function mobileChildTargets(connection: DebuggerCommandSender, initial: E
   connection.on('message', onMessage);
   return {
     async update(next: EmulationProfile) {
+      const previous = profile;
       profile = next;
       if (!enabled) {
         await connection.sendCommand('Target.setAutoAttach', autoAttach);
         enabled = true;
-      } else {
-        await Promise.all(Array.from(children, ([id, child]) => schedule(id, child)));
+      } else if (childSettings(previous) !== childSettings(next)) {
+        const updates = Promise.all(Array.from(children, ([id, child]) => schedule(id, child)));
+        // Switching browser shells navigates to a new document. The frames
+        // being replaced must not block that navigation. New targets still
+        // wait for their own mobile profile before any site script runs.
+        if (previous.userAgent === next.userAgent && previous.standalone === next.standalone) await updates;
       }
     },
     dispose() {

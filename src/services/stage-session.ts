@@ -115,8 +115,8 @@ export class StageSession {
     return {preset:this.preset,orientation:this.state.orientation,shellMode:this.state.shellMode,darkMode:this.state.darkMode,
       safariIosVersion:this.env.safariIosVersion,chromeIosVersion:this.env.chromeIosVersion};
   }
-  private async until<T>(read:()=>Promise<T>|T,label:string):Promise<NonNullable<T>> {
-    const end=Date.now()+22000;
+  private async until<T>(read:()=>Promise<T>|T,label:string,timeout=22000):Promise<NonNullable<T>> {
+    const end=Date.now()+timeout;
     while(Date.now()<end){
       this.signal.throwIfAborted();
       if(this.failure) throw Error(this.failure);
@@ -176,7 +176,7 @@ export class StageSession {
         expression:'navigator.standalone === true && matchMedia("(display-mode: standalone)").matches',returnByValue:true
       }),5000);
       return result.result?.value===true;
-    },'the installed app to reopen in standalone mode');
+    },'the installed app to reopen in standalone mode',60000);
     await this.record(frame,'Reopen from Home Screen',name);
     const actual=new URL(this.guest!.getURL());
     return {name,path:actual.pathname,manifest:!!page.inspection.manifest, manifestError:page.inspection.manifestError || undefined};
