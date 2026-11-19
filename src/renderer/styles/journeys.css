@@ -189,7 +189,18 @@
 .journey-observation p { user-select:text; }
 .journey-review[data-compact=true][data-view=screen] .journey-log, .journey-review[data-compact=true][data-view=steps] .journey-screen { display:none; }
 .journey-review[data-compact=true] .journey-screen { margin:8px; }
-.journey-compact-tabs { margin-bottom:12px; }
+.journey-compact-tabs { margin-bottom:8px; }
+.journeys:has(.journey-review[data-compact=true]) .journey-heading {
+  display:flex; align-items:center; gap:8px; justify-content:space-between; padding-top:0;
+}
+.journeys:has(.journey-review[data-compact=true][data-view=screen]) .journey-heading h2 {
+  display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; font-size:16px; line-height:1.25;
+}
+.journeys:has(.journey-review[data-compact=true]) .journey-secondary { flex:none; margin:0; }
+.journey-review[data-compact=true][data-view=screen] { display:flex; flex:1; flex-direction:column; min-height:180px; }
+.journey-review[data-compact=true][data-view=screen] .journey-screen {
+  display:flex; flex:1; flex-direction:column; margin-top:0;
+}
 .capturing-screen .agent-screen-slot { visibility:hidden; }
 @container agent (max-width:300px) {
   .journey-header { min-height:50px; padding:7px 11px; }
