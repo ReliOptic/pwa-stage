@@ -1,4 +1,4 @@
-import { BrowserWindow, session } from 'electron';
+import { BrowserWindow, session, type WebContents, type Session } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { applyEmulationToTarget, buildEmulationProfile } from './emulation';
@@ -54,18 +54,25 @@ function interact(origin: string, action: 'observe' | 'tap' | 'scroll', index: n
       location.assign(ref.href);
       return true;
     }
-    return tapPoint(ref.el);
+    const point=tapPoint(ref.el);
+    if(!point)return false;
+    const view=visualViewport;
+    return {...point,u:(point.x-(view?.offsetLeft??0))/(view?.width??innerWidth),v:(point.y-(view?.offsetTop??0))/(view?.height??innerHeight)};
+
   }
-  if (action === 'scroll') {
-    let el = document.elementFromPoint(innerWidth/2, innerHeight/2) as HTMLElement | null;
-    while (el && el !== document.body && el !== document.documentElement) {
-      if (/(auto|scroll)/.test(getComputedStyle(el).overflowY) && el.scrollHeight-el.scrollTop > el.clientHeight+2) {
-        el.scrollBy({top:el.clientHeight*.78,behavior:'instant'}); return true;
-      }
+  function scrollTarget():Element|null {
+    let el=document.elementFromPoint(innerWidth/2,innerHeight/2);
+    while(el && el!==document.body && el!==document.documentElement){
+      if(/(auto|scroll)/.test(getComputedStyle(el).overflowY) && el.scrollHeight-el.scrollTop>el.clientHeight+2)return el;
       el=el.parentElement;
     }
-    if (!document.scrollingElement || scrollY + innerHeight >= document.scrollingElement.scrollHeight-2) return false;
-    scrollBy({top:innerHeight*.78,behavior:'instant'}); return true;
+    const root=document.scrollingElement;
+    return root && root.scrollHeight-root.scrollTop>innerHeight+2?root:null;
+  }
+  if(action==='scroll'){
+    const target=scrollTarget();
+    if(!target)return false;
+    target.scrollBy({top:target.clientHeight*.78,behavior:'instant'});return true;
   }
   const controls: Control[] = [];
   const snippets: string[]=[];
@@ -77,7 +84,7 @@ function interact(origin: string, action: 'observe' | 'tap' | 'scroll', index: n
       if (name && usable(el)) controls.push({el,name,href:href(el)});
       if (controls.length>=35) break;
     }
-    for (const el of doc.querySelectorAll<HTMLElement>('h1,h2,h3,p,legend,main li')) {
+    for (const el of doc.querySelectorAll<HTMLElement>('h1,h2,h3,h4,p,legend,li,dt,dd,td,blockquote,figcaption,pre,article [role=heading]')) {
       if (snippets.length>=10) break;
       if (tapPoint(el)) snippets.push(el.innerText.trim().slice(0,180));
     }
@@ -100,44 +107,21 @@ function interact(origin: string, action: 'observe' | 'tap' | 'scroll', index: n
       }
     }
   }
+  if(!snippets.some(Boolean)){
+    const walker=document.createTreeWalker(document.body || document.documentElement,NodeFilter.SHOW_TEXT);
+    for(let i=0,node=walker.nextNode();node && i<600 && snippets.length<10;node=walker.nextNode(),i++){
+      const el=node.parentElement,text=node.textContent?.trim();
+      if(text && el && !el.closest('script,style,noscript,[hidden],[aria-hidden="true"]') && tapPoint(el))snippets.push(text.slice(0,180));
+    }
+  }
   state.journeyControls=controls;
   return {path:location.pathname + (location.hash.startsWith('#/') ? location.hash.split('?')[0] : ''),
+    canScroll:!!scrollTarget(), loading:document.readyState!=='complete' || !!document.querySelector('[aria-busy="true"],progress:not([value])') ||
+      document.getAnimations().some(a=>a.playState==='running' && a.effect?.getTiming().iterations!==Infinity),
     title:document.title.slice(0,150), text:snippets.join(' ').slice(0,950), controls:controls.map(ref=>ref.name)};
 }
 
-export class JourneyPage {
-  private readonly win: BrowserWindow;
-  private readonly detach: () => void;
-  private blockedNavigation = false;
-  private closed = false;
-  constructor(private readonly origin: string, private readonly profile: EmulationProfileInput, private readonly signal: AbortSignal) {
-    signal.throwIfAborted();
-    const partition=session.fromPartition('journey-'+randomUUID(),{cache:false});
-    const {width,height}=buildEmulationProfile(profile).metrics;
-    this.win=new BrowserWindow({width,height,useContentSize:true,show:false,skipTaskbar:true,paintWhenInitiallyHidden:true,
-      webPreferences:{session:partition,sandbox:true,contextIsolation:true,nodeIntegration:false,backgroundThrottling:false,
-        disableDialogs:true,webSecurity:true,webviewTag:false}});
-    const wc=this.win.webContents;
-    const allowed=(value:string) => {
-      const url=URL.parse(value);
-      return url?.origin===origin && /^https?:$/.test(url.protocol) && !url.username && !url.password;
-    };
-    wc.setWindowOpenHandler(()=>({action:'deny'}));
-    wc.on('will-navigate',(event,url)=>{if(!allowed(url)){this.blockedNavigation=true;event.preventDefault();}});
-    partition.webRequest.onBeforeRequest((d, reply)=>{
-      const outside=d.resourceType==='mainFrame' && d.url!=='about:blank' && !allowed(d.url);
-      if (outside) this.blockedNavigation=true;
-      reply({cancel:this.closed || outside || !['GET','HEAD','OPTIONS'].includes(d.method) || d.resourceType==='webSocket'});
-    });
-    partition.setPermissionRequestHandler((_w,_p,done)=>done(false));
-    partition.setPermissionCheckHandler(()=>false);
-    partition.on('will-download',event=>event.preventDefault());
-    const stop=()=>this.close();
-    signal.addEventListener('abort',stop,{once:true});
-    this.detach=()=>signal.removeEventListener('abort',stop);
-  }
-
-  private async deadline<T>(work: Promise<T>, ms: number): Promise<T> {
+export async function deadline<T>(work: Promise<T>, ms: number): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       return await Promise.race([work,new Promise<never>((_,reject)=>{
@@ -145,21 +129,30 @@ export class JourneyPage {
       })]);
     } finally { clearTimeout(timer); }
   }
-  async open(address:string) {
-    const wc=this.win.webContents;
-    await this.deadline(wc.loadURL('about:blank'),5000);
-    const applied=await this.deadline(applyEmulationToTarget(wc,this.profile),10000);
-    if (!applied.ok) throw Error('Mobile emulation could not start.');
-    try { await this.deadline(wc.loadURL(address),20000); }
-    catch { throw Error(this.blockedNavigation?'The site redirected outside the selected origin. Enter its final address.':'The start page could not be loaded.'); }
-    await delay(350,undefined,{signal:this.signal});
-  }
+
+export function limitJourneySession(partition:Session,origin:string,onBlocked:()=>void) {
+  partition.webRequest.onBeforeRequest((request,reply)=>{
+    const url=URL.parse(request.url);
+    const outside=request.resourceType==='mainFrame' && request.url!=='about:blank' &&
+      (!url || url.origin!==origin || !!url.username || !!url.password || !['http:','https:'].includes(url.protocol));
+    if(outside) onBlocked();
+    reply({cancel:outside || !['GET','HEAD','OPTIONS'].includes(request.method) || request.resourceType==='webSocket'});
+  });
+  partition.setPermissionRequestHandler((_wc,_permission,done)=>done(false));
+  partition.setPermissionCheckHandler(()=>false);
+  partition.on('will-download',event=>event.preventDefault());
+}
+
+export class JourneyInteraction {
+  constructor(private readonly wc:WebContents, private readonly origin:string, private readonly profile:EmulationProfileInput,
+    private readonly signal:AbortSignal, private readonly blocked:()=>boolean,
+    private readonly project?:(u:number,v:number)=>Promise<{x:number;y:number}>) {}
   private async execute(action:'observe'|'tap'|'scroll', index=-1) {
     this.signal.throwIfAborted();
-    if (this.blockedNavigation) throw Error('The page attempted to leave the selected origin.');
+    if (this.blocked()) throw Error('The page attempted to leave the selected origin.');
     // webContents.executeJavaScript waits for the whole document tree to finish
     // loading. A streaming iframe can keep that barrier open indefinitely.
-    const cdp=this.win.webContents.debugger;
+    const cdp=this.wc.debugger;
     const evaluation=async () => {
       const {frameTree}=await cdp.sendCommand('Page.getFrameTree');
       const {executionContextId}=await cdp.sendCommand('Page.createIsolatedWorld',{
@@ -172,24 +165,24 @@ export class JourneyPage {
       if(result.exceptionDetails) throw Error('The current screen changed during observation.');
       return result.result.value;
     };
-    return this.deadline(evaluation(),15000);
+    return deadline(evaluation(),15000);
   }
   async observe(): Promise<{page:PageChoices; image:string}> {
     const page=await this.execute('observe') as PageChoices;
-    const wc=this.win.webContents;
+    const wc=this.wc;
     let jpeg:string;
     try {
       // Native capture wakes a hidden static page even if it has no new frames.
-      const snap=await this.deadline(wc.capturePage(),1800);
+      const snap=await deadline(wc.capturePage(),1800);
       if(snap.isEmpty()) throw Error('The page did not produce a frame.');
       jpeg=snap.resize({width:Math.min(460,snap.getSize().width)}).toJPEG(72).toString('base64');
     } catch {
       this.signal.throwIfAborted();
       // Sample the current visible viewport at the report resolution. Reading
       // back a full Retina compositor surface can stall animated WebGL pages.
-      const {cssVisualViewport:viewport}=await this.deadline(wc.debugger.sendCommand('Page.getLayoutMetrics'),5000);
+      const {cssVisualViewport:viewport}=await deadline(wc.debugger.sendCommand('Page.getLayoutMetrics'),5000);
       const {deviceScaleFactor}=buildEmulationProfile(this.profile).metrics;
-      const {data}=await this.deadline(wc.debugger.sendCommand('Page.captureScreenshot',{
+      const {data}=await deadline(wc.debugger.sendCommand('Page.captureScreenshot',{
         format:'jpeg',quality:72,captureBeyondViewport:false,
         clip:{x:viewport.pageX,y:viewport.pageY,width:viewport.clientWidth,height:viewport.clientHeight,
           scale:Math.min(1,460/(viewport.clientWidth*deviceScaleFactor))}
@@ -207,15 +200,49 @@ export class JourneyPage {
     const point=await this.execute(action,index);
     if (!point) return false;
     if (action==='tap' && typeof point==='object') {
-      const cdp=this.win.webContents.debugger;
-      await cdp.sendCommand('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:point.x,y:point.y}]});
+      const cdp=this.wc.debugger;
+      const target=this.project?await this.project(point.u,point.v):{x:point.x,y:point.y};
+      await cdp.sendCommand('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[target]});
       await cdp.sendCommand('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     }
     await delay(380,undefined,{signal:this.signal});
     const end=Date.now()+10000;
-    while(this.win.webContents.isLoadingMainFrame() && Date.now()<end) await delay(100,undefined,{signal:this.signal});
-    if(this.win.webContents.isLoadingMainFrame()) throw Error('The next screen did not finish loading.');
+    while(this.wc.isLoadingMainFrame() && Date.now()<end) await delay(100,undefined,{signal:this.signal});
+    if(this.wc.isLoadingMainFrame()) throw Error('The next screen did not finish loading.');
     return true;
+  }
+}
+
+export class JourneyPage {
+  readonly interaction:JourneyInteraction;
+  private readonly win: BrowserWindow;
+  private readonly detach: () => void;
+  private blockedNavigation = false;
+  private closed = false;
+  constructor(origin: string, private readonly profile: EmulationProfileInput, private readonly signal: AbortSignal) {
+    signal.throwIfAborted();
+    const partition=session.fromPartition('journey-'+randomUUID(),{cache:false});
+    const {width,height}=buildEmulationProfile(profile).metrics;
+    this.win=new BrowserWindow({width,height,useContentSize:true,show:false,skipTaskbar:true,paintWhenInitiallyHidden:true,
+      webPreferences:{session:partition,sandbox:true,contextIsolation:true,nodeIntegration:false,backgroundThrottling:false,
+        disableDialogs:true,webSecurity:true,webviewTag:false}});
+    const wc=this.win.webContents;
+    wc.setWindowOpenHandler(()=>({action:'deny'}));
+    limitJourneySession(partition,origin,()=>{this.blockedNavigation=true;});
+    this.interaction=new JourneyInteraction(wc,origin,profile,signal,()=>this.blockedNavigation);
+    const stop=()=>this.close();
+    signal.addEventListener('abort',stop,{once:true});
+    this.detach=()=>signal.removeEventListener('abort',stop);
+  }
+
+  async open(address:string) {
+    const wc=this.win.webContents;
+    await deadline(wc.loadURL('about:blank'),5000);
+    const applied=await deadline(applyEmulationToTarget(wc,this.profile),10000);
+    if (!applied.ok) throw Error('Mobile emulation could not start.');
+    try { await deadline(wc.loadURL(address),20000); }
+    catch { throw Error(this.blockedNavigation?'The site redirected outside the selected origin. Enter its final address.':'The start page could not be loaded.'); }
+    await delay(350,undefined,{signal:this.signal});
   }
   close() {
     if (this.closed) return;

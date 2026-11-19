@@ -3,6 +3,8 @@ import type { JourneyReport, JourneyStudioApi } from './types/journey.types';
 const bridge: JourneyStudioApi = {
   initial:()=>ipcRenderer.invoke('journey:initial'),
   start:req=>ipcRenderer.invoke('journey:start',req),
+  pickSource:kind=>ipcRenderer.invoke('journey:source',kind),
+  check:req=>ipcRenderer.invoke('journey:check',req),
   stop:()=>ipcRenderer.invoke('journey:stop'),
   image:(reportId,id)=>ipcRenderer.invoke('journey:image',reportId,id),
   save:()=>ipcRenderer.invoke('journey:save'),

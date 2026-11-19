@@ -184,7 +184,7 @@ const GUEST_ID_REJECTED = {
 
 function registerIpcHandlers(ctx: MenuControllerContext): void {
   const { deps } = ctx;
-  handleTrusted('simulator:open-journeys',registerJourneyStudio(ctx));
+  handleTrusted('simulator:open-journeys',registerJourneyStudio(ctx,inspectGuestPage));
   handleTrusted('simulator:get-initial-payload', () => handleGetInitialPayload(deps));
   handleTrusted('simulator:update-state', (_event, rawState) => {
     const res = handleUpdateSimulatorState(deps, sanitizeIncomingState(ctx, rawState));
@@ -295,7 +295,7 @@ function registerIpcHandlers(ctx: MenuControllerContext): void {
 }
 
 // --- PWA inspection & screenshots -----------------------------------------
-async function inspectGuestPage(id: number): Promise<unknown> {
+async function inspectGuestPage(id: number) {
   const guest = webContents.fromId(id);
   if (!guest || guest.isDestroyed()) {
     return GUEST_ID_REJECTED;

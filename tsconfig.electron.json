@@ -16,6 +16,7 @@
     "src/index.ts",
     "src/preload.ts",
     "src/journey-preload.ts",
+    "src/stage-preload.ts",
     "src/config/**/*",
     "src/services/**/*",
     "src/types/**/*",

@@ -1,9 +1,16 @@
+import type { DeviceModelId } from './device.types';
+
 export const MAX_VISITS = 12;
 export const MAX_ACTIONS = 6;
 export const DEFAULT_JOURNEY_MODEL = 'openai/gpt-4.1-mini';
 
 export interface JourneyRequest {
   address: string;
+  localEndpoint?: string;
+  material?: string;
+  installFirst?: boolean;
+  planDevice?: boolean;
+  shareScreen?: boolean;
   goal: string;
   audiences: string[];
   iterations: number;
@@ -17,18 +24,22 @@ export interface JourneyFrame {
   title: string;
   action: string;
   reason: string;
+  observation?: {text:string; controls:string[]};
 }
 
 export interface JourneyVisit {
   persona: string;
+  source?: string;
+  installation?: {name:string; path:string; manifest:boolean; manifestError?:string};
   frames: JourneyFrame[];
-  outcome: 'exploring' | 'finished' | 'blocked' | 'limit' | 'stopped' | 'error';
+  outcome: 'exploring' | 'finished' | 'verified' | 'unconfirmed' | 'blocked' | 'limit' | 'stopped' | 'error';
   note: string;
 }
 
 export interface JourneyReport {
   id: string;
   origin: string;
+  kind?: 'install' | 'audience';
   goal: string;
   model: string;
   iterations: number;
@@ -38,9 +49,17 @@ export interface JourneyReport {
   visits: JourneyVisit[];
 }
 
+export interface StageCheckRequest {
+  addresses: string[];
+  devices: DeviceModelId[];
+  browsers: ('ios-safari' | 'ios-chrome')[];
+}
+
 export interface JourneyStudioApi {
   initial: () => Promise<{address: string; device: string; environmentKey: boolean; report: JourneyReport | null}>;
   start: (request: JourneyRequest) => Promise<void>;
+  pickSource: (kind:'file'|'folder') => Promise<string|null>;
+  check: (request:StageCheckRequest) => Promise<void>;
   stop: () => Promise<void>;
   image: (reportId: string, id: number) => Promise<string | null>;
   save: () => Promise<boolean>;

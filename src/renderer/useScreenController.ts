@@ -25,6 +25,7 @@ function loadInstalledApps(): InstalledWebApp[] {
   try {
     const raw = window.localStorage.getItem(INSTALLED_APPS_KEY);
     if (raw === null) {
+      if (getSimulatorBridge().guestPartition) return [];
       return webAppCatalog.filter(app => app.starter).map(app => createCatalogApp(app, Date.now()));
     }
     const parsed: unknown = JSON.parse(raw);

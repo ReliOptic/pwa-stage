@@ -1,3 +1,4 @@
+import { projectGuestPoint } from '../../utils/guest-point.util';
 import React, { useLayoutEffect, useRef } from 'react';
 import { GuestInputMessage } from '../../types/ipc-coordinator.types';
 import { getSimulatorBridge } from '../../utils/renderer-bridge.util';
@@ -175,15 +176,7 @@ export function GuestMirrorPane(props: {
         const guest = document.querySelector<HTMLElement>('.duo-slice-primary webview');
         const pane = canvasRef.current;
         if (!guest?.parentElement || !pane) return;
-        // A point in the live element's containing block inherits the exact
-        // homography, page scale and viewport offsets of that element.
-        const point = document.createElement('i');
-        point.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none';
-        point.style.left = `${guest.offsetLeft + x * guest.clientWidth / pane.clientWidth}px`;
-        point.style.top = `${guest.offsetTop + y * guest.clientHeight / pane.clientHeight}px`;
-        guest.parentElement.append(point);
-        const bounds = point.getBoundingClientRect();
-        point.remove();
+        const bounds=projectGuestPoint(guest,x/pane.clientWidth,y/pane.clientHeight);
         x = bounds.x;
         y = bounds.y;
       }

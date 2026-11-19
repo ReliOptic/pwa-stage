@@ -242,7 +242,7 @@ export function BrowserTools({ screen }: { screen: ScreenContextValue }): React.
         ) : (
           <>
             <div className="browser-menu-tiles">
-              <button onClick={() => screen.openSheet('share')}>
+              <button aria-label="Share" onClick={() => screen.openSheet('share')}>
                 <Share />
                 Share
               </button>

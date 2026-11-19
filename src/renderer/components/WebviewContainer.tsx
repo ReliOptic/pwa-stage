@@ -194,6 +194,7 @@ function SingleViewportPane(props: SingleViewportPaneProps): React.ReactElement 
     return React.createElement('webview', {
       ref: webviewRef,
       src: 'about:blank',
+      partition: getSimulatorBridge().guestPartition,
       allowpopups: 'true',
       style: {
         display: 'inline-flex',

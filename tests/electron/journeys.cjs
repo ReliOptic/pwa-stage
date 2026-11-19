@@ -38,13 +38,13 @@ async function modelResponse(request){
   else if(mode==='scroll'){
     answer=input.history.length===1?{action:'scroll',reason:'Look further down the page.'}:{action:'finish',reason:'The next section is visible.'};
   }else if(mode==='surface'){
-    answer=input.page.controls.includes('Film details')?{action:'finish',reason:'The player controls are visible.'}:
+    answer=input.page.controls.includes('Film details')?{action:'finish',evidence:'Film details',reason:'The player controls are visible.'}:
       {action:'tap',target:input.page.controls.indexOf('Film preview'),reason:'Tap to reveal the controls.'};
   }else{
     assert(!input.page.controls.includes('External'));
-    if(!input.history.some(f=>f.action!=='Arrived'))assert(input.page.text.includes('Fresh visitor'));
+    if(!input.history.some(f=>f.action!=='Arrived'))assert(input.page.text.includes(mode==='installed'?'Returning':'Fresh visitor'));
     const next=mode==='offsite'?'Partner':input.page.controls.includes('Class times')?'Class times':'Find a session';
-    answer=input.page.path==='/classes'?{action:'finish',reason:'I can see when public lanes open.'}:
+    answer=input.page.path==='/classes'?{action:'finish',evidence:'07:00',reason:'I can see when public lanes open.'}:
       {action:'tap',target:input.page.controls.indexOf(next),reason:'I want to see the opening time.'};
   }
   return Response.json({choices:[{message:{content:JSON.stringify(answer)}}]});
@@ -84,6 +84,13 @@ server.listen(0,'127.0.0.1',async()=>{
   assert(await js('window.journeyStudio.save()'));assert(fs.readFileSync(file,'utf8').includes('data:image/jpeg;base64,'));
   const req={address:site,goal:'Find opening times',audiences:['Swimmer'],iterations:1,apiKey:'fixture-key',model:'openai/gpt-4.1-mini'};
   const start=()=>js('window.journeyStudio.start('+JSON.stringify(req)+')');
+  mode='installed';
+  await js('window.journeyStudio.start('+JSON.stringify({...req,installFirst:true})+')');
+  await until(async()=>(await status()).status!=='running','installed guest journey');
+  const installed=(await status()).visits[0];
+  assert.equal(installed.outcome,'finished',installed.note);
+  assert.deepEqual(installed.frames.slice(-3).map(f=>f.action),['Arrived','Find a session','Class times']);
+  assert.equal(installed.frames.at(-1).path,'/classes');
   mode='offsite';await start();await until(async()=>(await status()).status==='completed','scope block');
   assert.equal((await status()).visits[0].outcome,'blocked');assert.equal(outside,0);
   mode='surface';await js('window.journeyStudio.start('+JSON.stringify({...req,address:site+'/touch-surface'})+')');
@@ -91,7 +98,7 @@ server.listen(0,'127.0.0.1',async()=>{
   const surface=(await status()).visits[0];assert.equal(surface.outcome,'finished');assert.equal(surface.frames[1].action,'Film preview');
   mode='scroll';await js('window.journeyStudio.start('+JSON.stringify({...req,address:site+'/scroll'})+')');
   await until(async()=>(await status()).status!=='running','scrolled capture');
-  const scrolled=await status();assert.equal(scrolled.visits[0].outcome,'finished');
+  const scrolled=await status();assert.equal(scrolled.visits[0].outcome,'unconfirmed');
   for(const f of scrolled.visits[0].frames){
     const url=await js('window.journeyStudio.image('+JSON.stringify(scrolled.id)+','+f.id+')');
     const thumb=nativeImage.createFromDataURL(url).resize({width:3,height:3});

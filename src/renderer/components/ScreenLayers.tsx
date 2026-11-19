@@ -194,6 +194,7 @@ function AppIcon(props: {
   readonly size?: number;
   readonly onOpen?: (origin: LaunchOrigin) => void;
   readonly onRemove?: () => void;
+  readonly launchUrl?:string;
 }): React.ReactElement {
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [props.iconUrl]);
@@ -204,6 +205,7 @@ function AppIcon(props: {
       <button
         type="button"
         className="home-app-icon"
+        data-launch-url={props.launchUrl}
         style={{ background: props.tone, width: props.size, height: props.size, clipPath }}
         onClick={(e): void => props.onOpen?.(originFromEvent(e))}
         onContextMenu={(e): void => {
@@ -280,7 +282,7 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
           ? <AppIcon key={item.tool.kind} label={item.name} size={layout.icon} hideLabel={screen.largeIcons}
               tone={item.tool.background} glyph={<item.tool.icon size="61%" strokeWidth={1.65} aria-hidden="true"/>}
               onOpen={() => screen.openSheet(item.tool.kind)} />
-          : <AppIcon key={item.app.id} label={item.name} iconUrl={chooseTouchIcon(item.app.touchIcons,layout.icon*screen.iconDpr) ?? item.app.iconUrl} size={layout.icon} hideLabel={screen.largeIcons}
+          : <AppIcon key={item.app.id} launchUrl={item.app.launchUrl} label={item.name} iconUrl={chooseTouchIcon(item.app.touchIcons,layout.icon*screen.iconDpr) ?? item.app.iconUrl} size={layout.icon} hideLabel={screen.largeIcons}
               onOpen={origin => screen.launchApp(item.app, origin)} onRemove={() => screen.removeApp(item.app.id)} />)}
       </div>
       {(rail > 0 || pages > 1) && <div className="home-page-dots" aria-label="Home Screen pages">{Array.from({length: pages}, (_, i) => <button key={i} aria-label={`Page ${i + 1}`} aria-current={page === i ? 'page' : undefined} onClick={() => updateNavigation({ page: i })} />)}</div>}
