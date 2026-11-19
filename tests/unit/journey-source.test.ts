@@ -15,7 +15,9 @@ describe('local and neutral sources',()=>{
     await writeFile(path.join(site,'index.html'),'<p>Actual content</p>');
     await writeFile(path.join(site,'문서.txt'),'설치 안내');
     const file=await serveJourneySource(path.join(site,'문서.txt'),false);cleanup.push(file.close);
-    expect(await (await fetch(file.url)).text()).toBe('설치 안내');
+    const response=await fetch(file.url);
+    expect(response.headers.get('content-type')).toBe('text/plain; charset=utf-8');
+    expect(await response.text()).toBe('설치 안내');
     expect((await fetch(new URL('/index.html',file.url))).status).toBe(404);
     const folder=await serveJourneySource(site,true);cleanup.push(folder.close);
     expect(await (await fetch(folder.url)).text()).toContain('Actual content');

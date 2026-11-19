@@ -52,10 +52,15 @@ server.listen(0,'127.0.0.1',async()=>{
   const mainState=await shell("JSON.parse(localStorage.getItem('pwa-stage.installed-web-apps.v1')||'[]')");
   assert(!mainState.some(x=>x.launchUrl.startsWith(base)));
   const filename=path.join(out,'Field notes.txt');
-  fs.writeFileSync(filename,'Thursday closing time is 16:45.');
+  const note='목요일 마감은 16:45입니다. ⇧⌘H';
+  fs.writeFileSync(filename,note);
   dialog.showOpenDialog=async()=>({canceled:false,filePaths:[filename]});
   const localSource=await js("window.journeyStudio.pickSource('file')");
-  assert.equal(await (await fetch(localSource)).text(),'Thursday closing time is 16:45.');
+  const preview=new BrowserWindow({show:false,webPreferences:{sandbox:true,contextIsolation:true}});
+  try{
+    await preview.loadURL(localSource);
+    assert.equal(await preview.webContents.executeJavaScript('document.body.innerText'),note);
+  }finally{preview.destroy();}
   const openStage=(request)=>js('window.journeyStudio.check('+JSON.stringify(request)+')');
   await openStage({addresses:[localSource],devices:['iphone-17-pro'],browsers:['ios-chrome']});
   const fileReport=await done();assert.equal(fileReport.visits[0].outcome,'verified',fileReport.visits[0].note);
