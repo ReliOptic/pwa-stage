@@ -57,6 +57,7 @@ async function modelResponse(request){
 server.listen(0,'127.0.0.1',async()=>{
  try{
   site='http://127.0.0.1:'+server.address().port;
+  delete process.env.OPENROUTER_API_KEY;
   require(process.env.SIMULATOR_TEST_ENTRY || path.resolve(__dirname,'../../dist-electron/index.js'));await app.whenReady();
   session.fromPartition('journey-openrouter',{cache:false}).protocol.handle('https',modelResponse);
   const shell=await until(()=>BrowserWindow.getAllWindows()[0],'shell');
@@ -69,7 +70,14 @@ server.listen(0,'127.0.0.1',async()=>{
   const js=code=>studio.webContents.executeJavaScript(code);
   await until(()=>js("!!document.querySelector('.journey-form')"),'brief form');
   const set=(selector,value)=>js(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-  await set('.journey-fields input',site);await set('.journeys textarea','Find morning swim times');await set('[type=password]','fixture-key');await set('[type=number]','2');
+  await set('#agent-address',site);await set('#agent-goal','Find morning swim times');
+  assert.equal(await js("document.querySelector('.journey-model').open"),false);
+  await js("document.querySelector('.journey-primary').click()");
+  await until(()=>js("document.querySelector('.journey-model').open && document.activeElement.type==='password'"),'missing key reveals and focuses its field');
+  await set('[type=password]','fixture-key');
+  await js("document.querySelector('.journey-model summary').click()");
+  await js("document.querySelector('[aria-label=\"Remove one visit\"]').click()");
+  assert.equal(await js("document.querySelector('#agent-visits').value"),'2');
   async function capture(name){await sleep(180);fs.writeFileSync(path.join(out,name+'.png'),(await studio.webContents.capturePage()).toPNG());}
   await capture('journey-setup');
   assert.equal(BrowserWindow.getAllWindows().filter(w=>w.isVisible()).length,1);
