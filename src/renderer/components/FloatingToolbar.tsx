@@ -11,6 +11,7 @@ import {
   FolderOpen,
   SlidersHorizontal,
   PanelTopClose,
+  Route,
   GripHorizontal,
   House,
   Minus,
@@ -55,6 +56,8 @@ export interface FloatingToolbarProps {
   readonly onClose: () => void;
   readonly onGoHome?: () => void;
   readonly onJourneys?: () => void;
+  readonly agentOpen?: boolean;
+  readonly agentRunning?: boolean;
   readonly onScreenshot?: () => void;
   readonly screenshotDirectory: string;
   readonly lastCapture: string;
@@ -429,6 +432,10 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
     {state.alwaysOnTop ? <Pin size={15}/> : <PinOff size={15}/>}</button>;
   const controlsButton = <button ref={trigger} type="button" className="tool-icon" aria-label="Device controls" title="Device controls"
     aria-controls="device-controls" aria-expanded={toolsOpen} onClick={() => setToolsOpen(!toolsOpen)}><SlidersHorizontal size={16}/></button>;
+  const agentButton = props.onJourneys && <button type="button" className="tool-icon agent-toggle"
+    aria-label="Agent" aria-expanded={props.agentOpen} title={props.agentRunning ? 'Agent visit in progress' : 'Agent'}
+    data-running={props.agentRunning} onClick={() => {setToolsOpen(false);props.onJourneys?.();}}>
+    <Route size={15}/><span>Agent</span></button>;
   const panel = toolsOpen && <section id="device-controls" className="device-controls" role="dialog" aria-label="Device controls">
     <div className="device-control-heading">
       <div className="control-sections" role="group" aria-label="Control sections">
@@ -440,7 +447,6 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
     {section === 'device' ? <>
       <div className="control-display"><span>Scale</span><DisplayScale {...props}/>{!state.hudCollapsed && pin}</div>
       <HardwareRow {...props}/>
-      {props.onJourneys && <ActionButton label="Audience journeys" title="Run OpenRouter customer journeys" icon={<Sparkles size={14}/>} onClick={() => {setToolsOpen(false);props.onJourneys?.();}}/>}
       {isDuo(props.activePreset) && state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON && <ComparisonUrlRow {...props}/>}
     </> : <div className="capture-controls">
       <div><span>Save location</span><code title={props.screenshotDirectory}>{props.screenshotDirectory || 'Desktop'}</code></div>
@@ -458,6 +464,7 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
       <GripHorizontal size={14} className="preview-grip" aria-hidden="true" />
       <button type="button" className="handle-expand" title={platformLabel("Show Toolbar (⌘B)")}
         onClick={() => onUpdateState({hudCollapsed:false})}>{deviceLabel(props.activePreset)}<ChevronDown size={12}/></button>
+      {agentButton}
       {controlsButton}
       {pin}
       <button type="button" className="tool-icon" title="Switch touch or mouse input" aria-label="Switch touch or mouse input"
@@ -472,7 +479,8 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
       <BrowserRow {...props}/>
       <div className="tool-shortcuts">
         <button type="button" className="tool-icon" aria-label="Home" title={platformLabel("Home (⇧⌘H)")} onClick={props.onGoHome}><House size={16}/></button>
-        {controlsButton}
+        {agentButton}
+      {controlsButton}
         <button type="button" className="tool-icon" aria-label="Hide toolbar" title={platformLabel("Hide toolbar (⌘B)")}
           onClick={() => onUpdateState({hudCollapsed:true})}><PanelTopClose size={16}/></button>
       </div>

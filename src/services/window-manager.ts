@@ -39,23 +39,28 @@ export function applyDeviceWindowBounds(
       request.hudCollapsed ?? false
     );
 
+    const area = request.agentWorkArea;
+    const deviceWidth = metrics.scaledOuterWidth;
+    const deviceHeight = metrics.scaledOuterHeight;
+    const windowWidth = area ? Math.max(deviceWidth, Math.min(deviceWidth + 368, area.width - 16)) : deviceWidth;
+    const windowHeight = area ? Math.max(deviceHeight, Math.min(580, area.height - 16)) : deviceHeight;
     const [width, height] = win.getSize();
-    if (width !== metrics.scaledOuterWidth || height !== metrics.scaledOuterHeight) {
-      win.setSize(metrics.scaledOuterWidth, metrics.scaledOuterHeight, request.animate ?? false);
+    if (width !== windowWidth || height !== windowHeight) {
+      win.setSize(windowWidth, windowHeight, request.animate ?? false);
       logStructured('info', 'window-manager.service', 'window_bounds_updated', {
         deviceId: request.preset.id,
         orientation: request.orientation,
         scale: request.scale,
-        width: metrics.scaledOuterWidth,
-        height: metrics.scaledOuterHeight
+        width: windowWidth,
+        height: windowHeight
       });
     }
 
     return {
       ok: true,
       value: {
-        width: metrics.scaledOuterWidth,
-        height: metrics.scaledOuterHeight,
+        width: windowWidth,
+        height: windowHeight,
         alwaysOnTop: win.isAlwaysOnTop(),
         metrics
       }

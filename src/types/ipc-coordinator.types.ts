@@ -31,7 +31,8 @@ export interface MoveWindowPayload {
 export interface SimulatorBridgeApi {
   readonly platform?: string;
   readonly guestPartition?: string;
-  readonly openJourneys?: () => Promise<void>;
+  readonly openJourneys?: (open?: boolean) => Promise<void>;
+  readonly onAgentPanel?: (fn: (open: boolean) => void) => () => void;
   readonly getInitialPayload: () => Promise<Result<SimulatorInitPayload, SimulatorError>>;
   readonly updateSimulatorState: (
     nextState: SimulatorState
@@ -92,6 +93,7 @@ export interface CoordinatorDependencies {
   readonly envConfig: SimulatorEnvConfig;
   readonly storageOptions: StorageServiceOptions;
   readonly getMainWindow: () => NativeFloatingWindow | null;
+  readonly getAgentWorkArea?: () => { width: number; height: number } | undefined;
   readonly resolveWebContentsById: (
     id: number
   ) =>

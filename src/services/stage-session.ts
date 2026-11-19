@@ -49,7 +49,7 @@ export class StageSession {
       hudCollapsed:true,scale:.72,alwaysOnTop:false,duoDisplayMode:DuoDisplayMode.SINGLE_SPAN};
     const size=computeViewportMetrics(preset,this.state.orientation,this.state.scale,true,true);
     this.win=new BrowserWindow({title:'PWA Stage · Installation check',width:size.scaledOuterWidth,height:size.scaledOuterHeight,
-      useContentSize:true,show:false,skipTaskbar:true,frame:false,backgroundColor:'#eceee9',autoHideMenuBar:true,
+      useContentSize:true,show:false,paintWhenInitiallyHidden:true,skipTaskbar:true,frame:false,backgroundColor:'#eceee9',autoHideMenuBar:true,
       webPreferences:{session:this.shellSession,preload:path.join(__dirname,'../stage-preload.js'),
         additionalArguments:['--stage-guest='+guestName],webviewTag:true,sandbox:true,contextIsolation:true,
         nodeIntegration:false,backgroundThrottling:false}});
@@ -133,7 +133,12 @@ export class StageSession {
     await this.ui(expression+'.click()');
   }
   private async record(frame:StageFrame,action:string,title:string) {
-    await delay(220,undefined,{signal:this.signal});
+    // Hidden windows only composite on request. Keep drawing through the
+    // sheet transition so the saved image matches the completed shell step.
+    for(let i=0;i<4;i++){
+      await this.win.webContents.capturePage().catch(()=>null);
+      await delay(100,undefined,{signal:this.signal});
+    }
     const snap=await this.until(async()=>{
       const image=await this.win.webContents.capturePage().catch(()=>null);
       return image && !image.isEmpty()?image:null;
@@ -144,7 +149,6 @@ export class StageSession {
     const win=this.win, browser=this.state.shellMode;
     if(this.env.devServerUrl) await win.loadURL(this.env.devServerUrl);
     else await win.loadFile(path.join(__dirname,'../../dist/index.html'));
-    win.showInactive();
     await this.until(()=>this.guest && URL.parse(this.guest.getURL())?.origin===this.origin &&
       this.inspection?.inspection.url===this.guest.getURL(),'website details');
     const page=this.inspection!;

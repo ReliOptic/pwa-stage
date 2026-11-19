@@ -76,6 +76,7 @@ import {
 let mainFloatingWindow: BrowserWindow | null = null;
 let menuBarTray: Tray | null = null;
 let isQuittingApp = false;
+let agentPanelOpen = false;
 
 function buildCoordinatorDependencies(rebootServerUrl?: string): CoordinatorDependencies {
   const envOverrides = rebootServerUrl
@@ -108,11 +109,13 @@ function buildCoordinatorDependencies(rebootServerUrl?: string): CoordinatorDepe
       }
     },
     getMainWindow: () => mainFloatingWindow,
+    getAgentWorkArea: () => agentPanelOpen && mainFloatingWindow
+      ? screen.getDisplayMatching(mainFloatingWindow.getBounds()).workArea : undefined,
     resolveWebContentsById: (id: number) => webContents.fromId(id) ?? null
   };
 }
 
-function keepWindowInWorkArea(win: BrowserWindow | null): void {
+function keepWindowInWorkArea(win: BrowserWindow | null, animate = true): void {
   if (!win || win.isDestroyed() || typeof screen?.getDisplayMatching !== 'function') {
     return;
   }
@@ -128,7 +131,7 @@ function keepWindowInWorkArea(win: BrowserWindow | null): void {
       nextY = Math.max(area.y + 8, area.y + area.height - bounds.height - 8);
     }
     if (nextX !== bounds.x || nextY !== bounds.y) {
-      win.setPosition(nextX, nextY, true);
+      win.setPosition(nextX, nextY, animate);
     }
   } catch {
     // Ignore screen query failures in headless test environments
@@ -184,7 +187,23 @@ const GUEST_ID_REJECTED = {
 
 function registerIpcHandlers(ctx: MenuControllerContext): void {
   const { deps } = ctx;
-  handleTrusted('simulator:open-journeys',registerJourneyStudio(ctx,inspectGuestPage));
+  registerJourneyStudio(ctx, inspectGuestPage);
+  let anchor: { original: number[]; expanded: number[] } | undefined;
+  handleTrusted('simulator:open-journeys', (_event, open = true) => {
+    const win = ctx.getWindow();
+    if (!win || typeof open !== 'boolean') return;
+    if (open !== agentPanelOpen) {
+      const position = win.getPosition();
+      agentPanelOpen = open;
+      handleGetInitialPayload(deps);
+      if (!open && anchor && position[0] === anchor.expanded[0] && position[1] === anchor.expanded[1]) {
+        win.setPosition(anchor.original[0], anchor.original[1]);
+      }
+      keepWindowInWorkArea(win, false);
+      anchor = open ? { original: position, expanded: win.getPosition() } : undefined;
+    }
+    win.webContents.send('simulator:agent-panel', open);
+  });
   handleTrusted('simulator:get-initial-payload', () => handleGetInitialPayload(deps));
   handleTrusted('simulator:update-state', (_event, rawState) => {
     const res = handleUpdateSimulatorState(deps, sanitizeIncomingState(ctx, rawState));
@@ -553,8 +572,12 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
     );
     const chromeOverheadH = baseMetrics.scaledOuterHeight - baseMetrics.outerFrameHeight;
     const chromeOverheadW = baseMetrics.scaledOuterWidth - baseMetrics.outerFrameWidth;
-    const scaleByH = (newBounds.height - chromeOverheadH) / baseMetrics.outerFrameHeight;
-    const scaleByW = (newBounds.width - chromeOverheadW) / baseMetrics.outerFrameWidth;
+    const currentMetrics = computeViewportMetrics(activePreset, current.orientation, current.scale, current.isFramed, current.hudCollapsed);
+    const [hostWidth, hostHeight] = win.getSize();
+    const panelWidth = agentPanelOpen ? hostWidth - currentMetrics.scaledOuterWidth : 0;
+    const panelHeight = agentPanelOpen ? hostHeight - currentMetrics.scaledOuterHeight : 0;
+    const scaleByH = (newBounds.height - panelHeight - chromeOverheadH) / baseMetrics.outerFrameHeight;
+    const scaleByW = (newBounds.width - panelWidth - chromeOverheadW) / baseMetrics.outerFrameWidth;
     const nextScale = clampSimulatorScale((scaleByH + scaleByW) / 2);
     if (nextScale === current.scale) {
       return;
@@ -566,6 +589,10 @@ export function createFloatingSimulatorWindow(ctx: MenuControllerContext): Brows
     }
   });
 
+  win.webContents.on('did-start-navigation', event => {
+    if (event.isMainFrame && !event.isSameDocument) agentPanelOpen = false;
+  });
+  win.on('closed', () => { agentPanelOpen = false; });
   win.on('close', (e) => {
     if (!isQuittingApp) {
       e.preventDefault();

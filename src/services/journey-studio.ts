@@ -1,7 +1,6 @@
-import { BrowserWindow, dialog, ipcMain, session } from 'electron';
+import { app, dialog, ipcMain, session } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
-import * as path from 'node:path';
 import { getDevicePresetById } from '../config/device-presets.config';
 import { isTrustedShellSender } from './security';
 import { MenuControllerContext, readCurrentState } from './menubar';
@@ -31,12 +30,11 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
   // in a separate session from both the shell and the website under test.
   const router = session.fromPartition('journey-openrouter', {cache:false});
   const sendToRouter: ModelTransport = (url, options) => router.fetch(url, options);
-  let studio: BrowserWindow | null=null;
   let controller: AbortController | null=null;
   let report: JourneyReport | null=null;
   const localSources=new Map<string,Awaited<ReturnType<typeof serveJourneySource>>>();
   const images=new Map<number,string>();
-  const publish=()=>{if(studio && !studio.isDestroyed()) studio.webContents.send('journey:report',report);};
+  const publish=()=>{const win=ctx.getWindow();if(win && !win.isDestroyed()) win.webContents.send('journey:report',report);};
   const device=()=>{
     const state=readCurrentState(ctx.deps);
     return {state,preset:getDevicePresetById(state.selectedDeviceId)};
@@ -134,6 +132,7 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
   }
   function handle(channel:string, fn:(...args:unknown[])=>unknown) {
     ipcMain.handle('journey:'+channel,(e,...args)=>{
+      const studio=ctx.getWindow();
       if(!studio || !isTrustedShellSender(e,studio) || e.senderFrame!==studio.webContents.mainFrame) throw Error('Studio window required.');
       return fn(...args);
     });
@@ -153,16 +152,16 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
     launch(current,signal=>run(req,current,profile,state,signal));
   });
   handle('source',async kind=>{
-    const owner=studio;
+    const owner=ctx.getWindow();
     if(!owner || (kind!=='file' && kind!=='folder'))throw Error('Choose a local source.');
     const selection=await dialog.showOpenDialog(owner,{properties:[kind==='folder'?'openDirectory':'openFile']});
-    if(selection.canceled || studio!==owner || !selection.filePaths[0])return null;
+    if(selection.canceled || ctx.getWindow()!==owner || !selection.filePaths[0])return null;
     const filename=selection.filePaths[0];
     const previous=localSources.get(filename);
     if(previous)return previous.url;
     if(localSources.size>=12)throw Error('Close the studio to clear the current local sources.');
     const source=await serveJourneySource(filename,kind==='folder');
-    if(studio!==owner){source.close();return null;}
+    if(ctx.getWindow()!==owner){source.close();return null;}
     const concurrent=localSources.get(filename);
     if(concurrent){source.close();return concurrent.url;}
     localSources.set(filename,source);return source.url;
@@ -182,6 +181,7 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
   handle('stop',()=>controller?.abort());
   handle('image',(runId,id)=>runId===report?.id && typeof id==='number' ? images.get(id) ?? null : null);
   handle('save',async()=>{
+    const studio=ctx.getWindow();
     if (!studio || !report || controller) return false;
     const html=reportHtml(report,images);
     const result=await dialog.showSaveDialog(studio,{defaultPath:'audience-journeys.html',filters:[{name:'HTML report',extensions:['html']}]});
@@ -189,20 +189,9 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
     await writeFile(result.filePath,html,'utf8');return true;
   });
 
-  return async function openStudio() {
-    if(studio && !studio.isDestroyed()){studio.show();studio.focus();return;}
-    const win=new BrowserWindow({title:'Audience journeys',parent:ctx.getWindow() ?? undefined,width:1040,height:800,minWidth:690,minHeight:500,show:false,
-      autoHideMenuBar:true,backgroundColor:'#f6f5f0',webPreferences:{preload:path.join(__dirname,'../journey-preload.js'),
-        contextIsolation:true,nodeIntegration:false,sandbox:true,webviewTag:false}});
-    studio=win;
-    win.webContents.on('will-navigate',event=>event.preventDefault());
-    win.webContents.setWindowOpenHandler(()=>({action:'deny'}));
-    win.on('closed',()=>{controller?.abort();for(const source of localSources.values())source.close();localSources.clear();studio=null;});
-    win.once('ready-to-show',()=>win.show());
-    try {
-      const dev=ctx.deps.envConfig.devServerUrl;
-      if(dev) {const url=new URL(dev);url.searchParams.set('studio','journeys');await win.loadURL(url.href);}
-      else await win.loadFile(path.join(__dirname,'../../dist/index.html'),{query:{studio:'journeys'}});
-    } catch(error) {if(!win.isDestroyed())win.destroy();throw error;}
-  };
+  app.once('before-quit', () => {
+    controller?.abort();
+    for (const source of localSources.values()) source.close();
+    localSources.clear();
+  });
 }

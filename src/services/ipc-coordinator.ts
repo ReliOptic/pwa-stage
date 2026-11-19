@@ -52,6 +52,7 @@ export function handleGetInitialPayload(
       scale: state.scale,
       isFramed: state.isFramed,
       hudCollapsed: state.hudCollapsed,
+      agentWorkArea: deps.getAgentWorkArea?.(),
       animate: false
     });
     setFloatingPin(win, state.alwaysOnTop);
@@ -80,6 +81,7 @@ export function handleUpdateSimulatorState(
       scale: nextState.scale,
       isFramed: nextState.isFramed,
       hudCollapsed: nextState.hudCollapsed,
+      agentWorkArea: deps.getAgentWorkArea?.(),
       animate: false
     });
     if (!resizeRes.ok) {

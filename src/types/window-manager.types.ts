@@ -30,6 +30,7 @@ export interface WindowResizeRequest {
   readonly isFramed: boolean;
   readonly hudCollapsed?: boolean;
   readonly animate?: boolean;
+  readonly agentWorkArea?: NativeWindowBounds;
 }
 
 export interface WindowStateSnapshot {

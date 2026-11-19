@@ -8,6 +8,7 @@ import { getSimulatorBridge, isElectronRuntime } from '../utils/renderer-bridge.
 import { clampSimulatorScale, computeViewportMetrics } from '../utils/viewport-math.util';
 import { DeviceModelId, DevicePreset, Orientation } from '../types/device.types';
 import { BrowserShellMode, QuickUrlBookmark, SimulatorState } from '../types/simulator.types';
+import { JourneyStudio } from './components/JourneyStudio';
 import { FloatingToolbar } from './components/FloatingToolbar';
 import { IphoneFrame } from './components/IphoneFrame';
 import { PwaInspectorPanel, ScreenContext } from './components/ScreenLayers';
@@ -84,6 +85,7 @@ function useSimulatorShortcuts(
         return;
       }
       const target = e.target as HTMLElement | null;
+      if (target?.closest('.agent-panel,.agent-screen-slot')) return;
       const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
       const key = e.key.toLowerCase();
       if (typing && (key === 'arrowleft' || key === 'arrowright' || key === 'a')) {
@@ -209,6 +211,25 @@ export function App(): React.ReactElement {
     state.hudCollapsed
   );
   const screen = useScreenController(state, ctrl.handleUpdateState, ctrl.triggerReload);
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentMounted, setAgentMounted] = useState(false);
+  const [agentRunning, setAgentRunning] = useState(false);
+  const [hostWidth, setHostWidth] = useState(window.innerWidth);
+  const [agentScreen, setAgentScreen] = useState<HTMLDivElement | null>(null);
+  const docked = hostWidth - metrics.scaledOuterWidth >= 298;
+  useEffect(() => {
+    const resize = () => setHostWidth(window.innerWidth);
+    window.addEventListener('resize', resize);
+    const off = getSimulatorBridge().onAgentPanel?.(open => {
+      setAgentOpen(open);
+      if (open) setAgentMounted(true);
+      else requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.agent-toggle')?.focus());
+    });
+    return () => { window.removeEventListener('resize', resize); off?.(); };
+  }, []);
+  const showAgent = (open: boolean) => {
+    void getSimulatorBridge().openJourneys?.(open).catch(() => screen.showToast('Could not open Agent.'));
+  };
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
   const { showToast } = screen;
 
@@ -266,7 +287,10 @@ export function App(): React.ReactElement {
 
   return (
     <ScreenContext.Provider value={screen.value}>
-      <main className="simulator-root">
+      <div className="simulator-workspace" data-agent-open={agentOpen} data-docked={docked}
+        style={{'--device-width':metrics.scaledOuterWidth+'px',
+          '--agent-preview-top':(state.hudCollapsed ? 44 : metrics.scaledOuterWidth<=623 ? 94 : 60)+'px'} as React.CSSProperties}>
+      <main className="simulator-root" data-narrow={metrics.scaledOuterWidth <= 623}>
         <FloatingToolbar
           state={state}
           presets={ctrl.ctx.presets}
@@ -276,7 +300,8 @@ export function App(): React.ReactElement {
           onReload={ctrl.triggerReload}
           onOpenDevTools={ctrl.handleOpenDevTools}
           onGoHome={screen.value.goHome}
-          onJourneys={isElectronRuntime() ? () => { void getSimulatorBridge().openJourneys?.().catch(()=>screen.showToast('Could not open Audience journeys.')); } : undefined}
+          onJourneys={window.journeyStudio ? () => showAgent(!agentOpen) : undefined}
+          agentOpen={agentOpen} agentRunning={agentRunning}
           onScreenshot={takeScreenshot}
           screenshotDirectory={screenshotDirectory}
           lastCapture={lastCapture}
@@ -323,7 +348,13 @@ export function App(): React.ReactElement {
             {screen.toast}
           </div>
         )}
+        <div ref={setAgentScreen} className="agent-screen-slot" />
       </main>
+      {agentMounted && window.journeyStudio && <aside className="agent-panel" hidden={!agentOpen} aria-label="PWA Stage Agent">
+        <JourneyStudio bridge={window.journeyStudio} open={agentOpen} currentUrl={state.currentUrl}
+          preview={agentOpen && docked ? agentScreen : null} onClose={() => showAgent(false)} onRunning={setAgentRunning}/>
+      </aside>}
+      </div>
     </ScreenContext.Provider>
   );
 }

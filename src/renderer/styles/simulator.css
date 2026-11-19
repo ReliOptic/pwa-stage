@@ -1184,12 +1184,10 @@ html, body, #root {
 .preview-handle .tool-icon { width:26px;height:26px; }
 .preview-grip {margin:0 3px;color:var(--shell-secondary);}
 .handle-expand {font-weight:600;font-size:12px;padding:3px 6px;height:26px;border-radius:7px;}
-@media (max-width:623px) {
-  .preview-toolbar {display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:30px 32px;gap:4px 8px;height:78px;padding:5px 8px;}
-  .tool-device-picker {max-width:100%;}
-  .tool-location {grid-row:2;grid-column:1/-1;}
-  .tool-shortcuts {grid-row:1;grid-column:3;}
-}
+.simulator-root[data-narrow=true] .preview-toolbar {display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:30px 32px;gap:4px 8px;height:78px;padding:5px 8px;}
+  .simulator-root[data-narrow=true] .tool-device-picker {max-width:100%;}
+  .simulator-root[data-narrow=true] .tool-location {grid-row:2;grid-column:1/-1;}
+  .simulator-root[data-narrow=true] .tool-shortcuts {grid-row:1;grid-column:3;}
 
 .device-controls { width: min(320px, calc(100vw - 16px)); max-height: calc(100vh - 62px); overflow: auto; overscroll-behavior: contain; }
 .preview-handle .device-controls { right: auto; left: 50%; transform: translateX(-50%); }

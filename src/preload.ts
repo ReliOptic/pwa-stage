@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { JourneyReport, JourneyStudioApi } from './types/journey.types';
 import {
   ApplyWebviewEmulationPayload,
   GuestFrameMessage,
@@ -13,7 +14,12 @@ import { Result, SimulatorError, SimulatorState } from './types/simulator.types'
 
 export const simulatorBridge: SimulatorBridgeApi = {
   platform: process.platform,
-  openJourneys: () => ipcRenderer.invoke('simulator:open-journeys'),
+  openJourneys: (open = true) => ipcRenderer.invoke('simulator:open-journeys', open),
+  onAgentPanel: fn => {
+    const listener = (_event: unknown, open: boolean) => fn(open);
+    ipcRenderer.on('simulator:agent-panel', listener);
+    return () => ipcRenderer.removeListener('simulator:agent-panel', listener);
+  },
   getInitialPayload: (): Promise<Result<SimulatorInitPayload, SimulatorError>> =>
     ipcRenderer.invoke('simulator:get-initial-payload'),
   updateSimulatorState: (
@@ -90,3 +96,19 @@ export const simulatorBridge: SimulatorBridgeApi = {
 };
 
 contextBridge.exposeInMainWorld('simulatorBridge', simulatorBridge);
+
+const bridge: JourneyStudioApi = {
+  initial:()=>ipcRenderer.invoke('journey:initial'),
+  start:req=>ipcRenderer.invoke('journey:start',req),
+  pickSource:kind=>ipcRenderer.invoke('journey:source',kind),
+  check:req=>ipcRenderer.invoke('journey:check',req),
+  stop:()=>ipcRenderer.invoke('journey:stop'),
+  image:(reportId,id)=>ipcRenderer.invoke('journey:image',reportId,id),
+  save:()=>ipcRenderer.invoke('journey:save'),
+  subscribe:fn=>{
+    const listener=(_event:unknown,report:JourneyReport)=>fn(report);
+    ipcRenderer.on('journey:report',listener);
+    return ()=>ipcRenderer.removeListener('journey:report',listener);
+  }
+};
+contextBridge.exposeInMainWorld('journeyStudio',bridge);

@@ -62,18 +62,27 @@ server.listen(0,'127.0.0.1',async()=>{
   const shell=await until(()=>BrowserWindow.getAllWindows()[0],'shell');
   const shellJS=code=>shell.webContents.executeJavaScript(code);
   await until(()=>shellJS("!!document.querySelector('[aria-label=\"Device controls\"]')"),'device controls');
-  await shellJS("document.querySelector('[aria-label=\"Device controls\"]').click()");
-  await shellJS("document.querySelector('[aria-label=\"Audience journeys\"]').click()");
-  const studio=await until(()=>BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('studio=journeys')),'studio');
+  const original=shell.getSize();
+  const guestId=await until(()=>shellJS("(()=>{try{return document.querySelector('webview')?.getWebContentsId();}catch{return null;}})()"),'attached device guest');
+  await shellJS("document.querySelector('.agent-toggle').click()");
+  const studio=shell;
   const js=code=>studio.webContents.executeJavaScript(code);
   await until(()=>js("!!document.querySelector('.journey-form')"),'brief form');
   const set=(selector,value)=>js(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-  await set('.journey-fields input',site);await set('textarea','Find morning swim times');await set('[type=password]','fixture-key');await set('[type=number]','2');
+  await set('.journey-fields input',site);await set('.journeys textarea','Find morning swim times');await set('[type=password]','fixture-key');await set('[type=number]','2');
   async function capture(name){await sleep(180);fs.writeFileSync(path.join(out,name+'.png'),(await studio.webContents.capturePage()).toPNG());}
   await capture('journey-setup');
+  assert.equal(BrowserWindow.getAllWindows().filter(w=>w.isVisible()).length,1);
+  assert(studio.getSize()[0]>=original[0]);
+  await js("document.querySelector('[aria-label=\"Close Agent\"]').click()");
+  await until(()=>js("document.querySelector('.agent-panel').hidden"),'collapse panel');
+  assert.deepEqual(shell.getSize(),original);
+  assert.equal(await js("document.querySelector('webview').getWebContentsId()"),guestId);
+  await js("document.querySelector('.agent-toggle').click()");
+  await until(()=>js("!document.querySelector('.agent-panel').hidden"),'reopen panel');
   assert.equal(await js("document.querySelector('.journey-fields input').value"),site,'Loading the device settings must preserve a typed URL');
   const status=()=>js('window.journeyStudio.initial().then(x=>x.report)');
-  await js("document.querySelector('[type=submit]').click()");
+  await js("document.querySelector('.journey-primary').click()");
   const report=await until(async()=>{const r=await status();return r && r.status!=='running' && r;},'finished run');
   assert.equal(report.status,'completed',report.message);assert.equal(report.visits.length,2);assert.notEqual(report.visits[0].persona,report.visits[1].persona);
   for(const v of report.visits){assert.deepEqual(v.frames.map(f=>f.action),['Arrived','Find a session','Class times']);assert.equal(v.outcome,'finished');}
@@ -119,9 +128,13 @@ server.listen(0,'127.0.0.1',async()=>{
   mode='bad-key';await start();await until(async()=>(await status()).status==='error','provider error');
   assert((await status()).message.includes('401'));
   mode='slow';const before=apiCalls;await start();await until(()=>apiCalls>before,'pending request');
+  await js("document.querySelector('[aria-label=\"Close Agent\"]').click()");
+  await until(()=>js("document.querySelector('.agent-panel').hidden"),'collapse during run');
+  assert.equal((await status()).status,'running');
+  await js("document.querySelector('.agent-toggle').click()");
+  await until(()=>js("!document.querySelector('.agent-panel').hidden"),'resume monitoring');
   await js('window.journeyStudio.stop()');await until(async()=>(await status()).status==='stopped','cancellation');
-  assert.equal(BrowserWindow.getAllWindows().length,2);
-  studio.close();
+  assert.equal(BrowserWindow.getAllWindows().length,1);
   fs.writeFileSync(path.join(out,'journey-result.json'),JSON.stringify({modelTransport:'local OpenRouter response fixture',report,posts,outside,providerError:true,stopped:true},null,2));
   console.log('PASS audience journeys: real SPA tap, same-origin link, shuffled isolated visits, captured frames, replay, export, stop and provider error');app.exit(0);
  }catch(e){console.error(e);app.exit(1);}

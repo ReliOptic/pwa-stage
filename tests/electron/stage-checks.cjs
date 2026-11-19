@@ -1,6 +1,6 @@
 // Stage checks use the production shell and no model transport. The optional
 // local model run uses an actual OpenAI-compatible server supplied by the caller.
-const {app,BrowserWindow,dialog}=require('electron');
+const {app,BrowserWindow,dialog,nativeImage}=require('electron');
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http=require('node:http');
 const out=process.env.SIMULATOR_TEST_OUTPUT || fs.mkdtempSync(path.join(os.tmpdir(),'stage-checks-'));
 fs.mkdirSync(out,{recursive:true});app.setPath('userData',fs.mkdtempSync(path.join(os.tmpdir(),'stage-profile-')));
@@ -27,7 +27,9 @@ server.listen(0,'127.0.0.1',async()=>{
   const shell=q=>win.webContents.executeJavaScript(q);
   await wait(()=>shell("!!document.querySelector('[aria-label=\"Device controls\"]')"),'shell toolbar');
   await shell('window.simulatorBridge.openJourneys()');
-  const studio=await wait(()=>BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('studio=journeys')),'studio');
+  const studio=win;
+  let extraVisible=false;
+  app.on('browser-window-created',(_event,worker)=>worker.on('show',()=>{extraVisible=true;}));
   const js=q=>studio.webContents.executeJavaScript(q);
   async function captureStudio(name){
     const image=await wait(async()=>{
@@ -43,8 +45,8 @@ server.listen(0,'127.0.0.1',async()=>{
   await wait(()=>js('!!document.querySelector(".journey-form")'),'form');
   await js("document.querySelector('.journey-modes button:nth-child(2)').click()");
   const set=(selector,value,ev='input')=>js(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event(${JSON.stringify(ev)},{bubbles:true}));})()`);
-  await set('textarea',[base+'/',base+'/missing',base+'/article'].join('\n'));
-  await set('select','iphone-se-3','change');
+  await set('.journey-form textarea',[base+'/',base+'/missing',base+'/article'].join('\n'));
+  await set('.journey-form select','iphone-se-3','change');
   await sleep(150);
   await captureStudio('stage-setup');
   await js("document.querySelector('.journey-primary').click()");
@@ -56,6 +58,17 @@ server.listen(0,'127.0.0.1',async()=>{
   for(const v of report.visits.filter(v=>v.outcome==='verified')){
     assert.equal(v.frames.length,5);
     assert.equal(v.installation.path,v.installation.manifest?'/today':'/article');
+    // The beige test page must disappear for Home and return after launching.
+    // A hidden compositor can otherwise return the previous step's pixels.
+    for (const index of [0,3,4]) {
+      const data=await js('window.journeyStudio.image('+JSON.stringify(report.id)+','+v.frames[index].id+')');
+      const pixels=nativeImage.createFromDataURL(data).resize({width:40,height:64}).toBitmap();
+      let beige=0;
+      for(let i=0;i<pixels.length;i+=4) {
+        if(Math.abs(pixels[i]-236)<12 && Math.abs(pixels[i+1]-244)<12 && Math.abs(pixels[i+2]-248)<12)beige++;
+      }
+      assert.equal(beige/(pixels.length/4)>.25,index!==3,'Capture must show '+v.frames[index].action+' for '+v.persona);
+    }
   }
   assert(report.visits[2].note.includes('404'));
   const save=async(name)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:path.join(out,name+'.html')});assert(await js('window.journeyStudio.save()'));};
@@ -91,6 +104,7 @@ server.listen(0,'127.0.0.1',async()=>{
     await save('local-model');await sleep(300);
     await captureStudio('local-review');
   }
+  assert.equal(extraVisible,false,'Background checks must keep the simulator as the only visible window');
   console.log('PASS neutral installation checks');app.exit(0);
  }catch(e){console.error(e);app.exit(1);}
 });
