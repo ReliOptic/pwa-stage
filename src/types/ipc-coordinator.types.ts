@@ -30,6 +30,7 @@ export interface MoveWindowPayload {
 
 export interface SimulatorBridgeApi {
   readonly platform?: string;
+  readonly openJourneys?: () => Promise<void>;
   readonly getInitialPayload: () => Promise<Result<SimulatorInitPayload, SimulatorError>>;
   readonly updateSimulatorState: (
     nextState: SimulatorState

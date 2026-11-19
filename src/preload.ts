@@ -13,6 +13,7 @@ import { Result, SimulatorError, SimulatorState } from './types/simulator.types'
 
 export const simulatorBridge: SimulatorBridgeApi = {
   platform: process.platform,
+  openJourneys: () => ipcRenderer.invoke('simulator:open-journeys'),
   getInitialPayload: (): Promise<Result<SimulatorInitPayload, SimulatorError>> =>
     ipcRenderer.invoke('simulator:get-initial-payload'),
   updateSimulatorState: (

@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './styles/simulator.css';
+import { JourneyStudio } from './components/JourneyStudio';
 
 export function mountSimulatorApp(rootElement: HTMLElement | null): void {
   if (!rootElement) {
@@ -10,7 +11,7 @@ export function mountSimulatorApp(rootElement: HTMLElement | null): void {
   const root = createRoot(rootElement);
   root.render(
     <React.StrictMode>
-      <App />
+      {window.journeyStudio ? <JourneyStudio bridge={window.journeyStudio}/> : <App />}
     </React.StrictMode>
   );
 }

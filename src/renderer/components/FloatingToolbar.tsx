@@ -54,6 +54,7 @@ export interface FloatingToolbarProps {
   readonly onMinimize: () => void;
   readonly onClose: () => void;
   readonly onGoHome?: () => void;
+  readonly onJourneys?: () => void;
   readonly onScreenshot?: () => void;
   readonly screenshotDirectory: string;
   readonly lastCapture: string;
@@ -439,6 +440,7 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
     {section === 'device' ? <>
       <div className="control-display"><span>Scale</span><DisplayScale {...props}/>{!state.hudCollapsed && pin}</div>
       <HardwareRow {...props}/>
+      {props.onJourneys && <ActionButton label="Audience journeys" title="Run OpenRouter customer journeys" icon={<Sparkles size={14}/>} onClick={() => {setToolsOpen(false);props.onJourneys?.();}}/>}
       {isDuo(props.activePreset) && state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON && <ComparisonUrlRow {...props}/>}
     </> : <div className="capture-controls">
       <div><span>Save location</span><code title={props.screenshotDirectory}>{props.screenshotDirectory || 'Desktop'}</code></div>

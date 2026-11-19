@@ -276,6 +276,7 @@ export function App(): React.ReactElement {
           onReload={ctrl.triggerReload}
           onOpenDevTools={ctrl.handleOpenDevTools}
           onGoHome={screen.value.goHome}
+          onJourneys={isElectronRuntime() ? () => { void getSimulatorBridge().openJourneys?.().catch(()=>screen.showToast('Could not open Audience journeys.')); } : undefined}
           onScreenshot={takeScreenshot}
           screenshotDirectory={screenshotDirectory}
           lastCapture={lastCapture}

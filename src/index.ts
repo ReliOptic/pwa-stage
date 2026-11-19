@@ -30,6 +30,7 @@ import {
   isTrustedShellSender
 } from './services/security';
 import { createDefaultSimulatorState, mergeStoredStateWithDefaults } from './services/storage';
+import { registerJourneyStudio } from './services/journey-studio';
 import { installMobileNavigation } from './services/mobile-navigation';
 import { buildMobileUserAgent, forgetEmulationTarget, readGuestViewportSize, resizeGuestViewport } from './services/emulation';
 import {
@@ -183,6 +184,7 @@ const GUEST_ID_REJECTED = {
 
 function registerIpcHandlers(ctx: MenuControllerContext): void {
   const { deps } = ctx;
+  handleTrusted('simulator:open-journeys',registerJourneyStudio(ctx));
   handleTrusted('simulator:get-initial-payload', () => handleGetInitialPayload(deps));
   handleTrusted('simulator:update-state', (_event, rawState) => {
     const res = handleUpdateSimulatorState(deps, sanitizeIncomingState(ctx, rawState));

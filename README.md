@@ -24,6 +24,14 @@ The Electron preview negotiates a mobile site on the first request. Cross-site p
 
 On macOS, for the final pixel check use real WebKit: tray menu → **Open URL in Xcode iOS Simulator**.
 
+## Run simulated customer journeys
+
+Open **Device controls → Audience journeys** in the desktop app. Enter the final start address, a customer goal, the visit count (1–12), an OpenRouter model with JSON output, and an API key. You can also supply the key through `OPENROUTER_API_KEY`. The studio uses the currently selected device, orientation and browser profile. Enter target audiences one per line, or let the model propose them from the first screen. A shuffled deck uses each candidate once before repeating.
+
+Every visit starts in a fresh, in-memory mobile browser and attempts up to six actions. The agent can tap visible links and controls in the page or its same-origin frames, scroll or wait for content. Main-page navigation stays on the starting origin, including redirects. A site that redirects from its bare domain to www needs its final address. Forms, downloads, popups and network writes are restricted. Signed-in flows, native dialogs and unlabelled canvas controls and cross-origin embedded controls need manual testing.
+
+The model receives the domain, goal, persona, page title, visible text excerpts, control labels and recent steps. Keys stay in memory. Model calls use your OpenRouter credits. **Visit review** shows actual local page captures and the agent’s interpretation. Select a step to revisit it, play a visit, or save a self-contained HTML report. Closing the studio stops the run. Its latest result is available until the next run or until the simulator quits.
+
 ## Install the page on the simulated Home Screen
 
 Open **Web Apps** on the Home Screen to add Instagram, X, Threads, TikTok, YouTube or Reddit. **Add all** installs the remaining entries. Profiles with no saved app list start with Instagram and X. Each icon opens the official website in standalone mode. Manage or remove it in **Settings → Installed web apps**. Site access and sign-in depend on the service.
