@@ -29,13 +29,24 @@ server.listen(0,'127.0.0.1',async()=>{
   await shell('window.simulatorBridge.openJourneys()');
   const studio=await wait(()=>BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('studio=journeys')),'studio');
   const js=q=>studio.webContents.executeJavaScript(q);
+  async function captureStudio(name){
+    const image=await wait(async()=>{
+      try{
+        const shot=await studio.webContents.capturePage();
+        return !shot.isEmpty() && shot;
+      }catch(error){
+        if(error.message!=='UnknownVizError')throw error;
+      }
+    },'Studio compositor did not produce '+name,12000);
+    fs.writeFileSync(path.join(out,name+'.png'),image.toPNG());
+  }
   await wait(()=>js('!!document.querySelector(".journey-form")'),'form');
   await js("document.querySelector('.journey-modes button:nth-child(2)').click()");
   const set=(selector,value,ev='input')=>js(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event(${JSON.stringify(ev)},{bubbles:true}));})()`);
   await set('textarea',[base+'/',base+'/missing',base+'/article'].join('\n'));
   await set('select','iphone-se-3','change');
   await sleep(150);
-  fs.writeFileSync(path.join(out,'stage-setup.png'),(await studio.webContents.capturePage()).toPNG());
+  await captureStudio('stage-setup');
   await js("document.querySelector('.journey-primary').click()");
   const status=()=>js('window.journeyStudio.initial().then(s=>s.report)');
   async function done(){return wait(async()=>{const r=await status();return r && r.status!=='running' && r;},'run completion',220000);}
@@ -49,7 +60,7 @@ server.listen(0,'127.0.0.1',async()=>{
   assert(report.visits[2].note.includes('404'));
   const save=async(name)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:path.join(out,name+'.html')});assert(await js('window.journeyStudio.save()'));};
   await save('stage-checks');
-  await sleep(250);fs.writeFileSync(path.join(out,'stage-review.png'),(await studio.webContents.capturePage()).toPNG());
+  await sleep(250);await captureStudio('stage-review');
   const mainState=await shell("JSON.parse(localStorage.getItem('pwa-stage.installed-web-apps.v1')||'[]')");
   assert(!mainState.some(x=>x.launchUrl.startsWith(base)));
   const filename=path.join(out,'서고 이용 안내.txt');
@@ -78,7 +89,7 @@ server.listen(0,'127.0.0.1',async()=>{
     console.log('LOCAL',run.visits.map(v=>[v.frames.map(f=>f.action),v.note,v.outcome]),run.message);
     assert.equal(run.visits[0].installation.path,'/today');assert.equal(run.visits[0].outcome,'finished');assert(run.visits[0].note.includes('16:45'));
     await save('local-model');await sleep(300);
-    fs.writeFileSync(path.join(out,'local-review.png'),(await studio.webContents.capturePage()).toPNG());
+    await captureStudio('local-review');
   }
   console.log('PASS neutral installation checks');app.exit(0);
  }catch(e){console.error(e);app.exit(1);}
