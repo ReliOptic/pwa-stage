@@ -37,6 +37,12 @@ export interface JourneyInput {
   to?: number;
 }
 
+export interface VisitRecording {
+  frames: {at: number; jpeg: string}[];
+  duration: number;
+  clipped: boolean;
+}
+
 export interface JourneyVisit {
   startedAt?: number;
   inputs?: JourneyInput[];
@@ -78,6 +84,7 @@ export interface JourneyStudioApi {
   check: (request:StageCheckRequest) => Promise<void>;
   stop: () => Promise<void>;
   image: (reportId: string, id: number) => Promise<string | null>;
+  recording: (reportId: string, visit: number) => Promise<VisitRecording | null>;
   watch: (reportId:string,visit:number,onFrame:(jpeg:string)=>void,onError:()=>void) => () => void;
   save: () => Promise<boolean>;
   subscribe: (fn: (report: JourneyReport) => void) => () => void;

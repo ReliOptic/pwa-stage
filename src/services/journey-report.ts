@@ -30,6 +30,13 @@ function playRecordings(){
     function tick(){const ms=Math.min(end,performance.now()-anchor);render(ms);if(ms<end)raf=requestAnimationFrame(tick);else pause();}
     slider.oninput=()=>{pause();render(Number(slider.value));};
     button.onclick=()=>{if(raf){pause();return;}const from=Number(slider.value);anchor=performance.now()-(from>=end?0:from);button.textContent='Pause';tick();};
+    for(const cue of player.closest('section')!.querySelectorAll<HTMLButtonElement>('button[data-input-time]')){
+      cue.onclick=()=>{
+        pause();
+        anchor=performance.now()-Math.max(frames[0].at,Number(cue.dataset.inputTime)-600);
+        button.textContent='Pause';tick();player.scrollIntoView({block:'center'});
+      };
+    }
     render(frames[0].at);
   }
 }
@@ -40,16 +47,18 @@ function escapeHtml(value:string) {
 
 export function reportHtml(report:JourneyReport, images:Map<number,string>, recordings:Map<number,VisitRecording>) {
   const e=escapeHtml;
-  function trace(visit:JourneyVisit){
+  function trace(visit:JourneyVisit,recording:VisitRecording|undefined){
     if(!visit.inputs)return '';
     const inputs=visit.inputs.map(input=>{
       const before=visit.frames.find(f=>f.id===input.from);
       const after=visit.frames.find(f=>f.id===input.to);
-      return '<li><strong>'+e(elapsedTime(input.elapsedMs))+' · '+e(input.kind)+' · '+e(input.label)+'</strong><p>Visible choices before input · '+e(before?.observation?.controls.join(' · ') || 'None')+'</p><p><a href="#capture-'+input.from+'">Before input</a> · '+(after?'<a href="#capture-'+after.id+'">After input</a> · '+e(after.title+' · '+after.path):'No observation captured')+'</p></li>';
+      const cue=recording?.frames.length && input.elapsedMs<=recording.duration
+        ? '<p><button type="button" data-input-time="'+input.elapsedMs+'">Watch input</button></p>' : '';
+      return '<li><strong>'+e(elapsedTime(input.elapsedMs))+' · '+e(input.kind)+' · '+e(input.label)+'</strong>'+cue+'<p>Controls observed before input · '+e(before?.observation?.controls.join(' · ') || 'None')+'</p><p><a href="#capture-'+input.from+'">Previous observation</a> · '+(after?'<a href="#capture-'+after.id+'">Next observation</a> · '+e(after.title+' · '+after.path):'No observation captured')+'</p></li>';
     }).join('');
     return '<h3>Recorded inputs ('+visit.inputs.length+')</h3><ol>'+inputs+'</ol>'+observedRevisits(visit).map(note=>'<p>'+e(note)+'</p>').join('');
   }
-  const visits=report.visits.map((visit,i)=>`<section><h2>${i+1}. ${e(visit.persona)}</h2><p>${e(readableJourneyLocation(visit.source || report.origin))}</p>${visit.installation ? `<p>Home Screen launch · ${e(readableJourneyLocation(visit.installation.path))} · ${visit.installation.manifest?"Manifest read":"Website shortcut"}</p>` : ""}<p>${e(journeyOutcome[visit.outcome])} · ${e(visit.note)}</p>${recordingPlayer(recordings.get(i))}${trace(visit)}<h3>Captured screens</h3><ol>${visit.frames.map(f=>
+  const visits=report.visits.map((visit,i)=>`<section><h2>${i+1}. ${e(visit.persona)}</h2><p>${e(readableJourneyLocation(visit.source || report.origin))}</p>${visit.installation ? `<p>Home Screen launch · ${e(readableJourneyLocation(visit.installation.path))} · ${visit.installation.manifest?"Manifest read":"Website shortcut"}</p>` : ""}<p>${e(journeyOutcome[visit.outcome])} · ${e(visit.note)}</p>${recordingPlayer(recordings.get(i))}${trace(visit,recordings.get(i))}<h3>Captured screens</h3><ol>${visit.frames.map(f=>
     `<li id="capture-${f.id}"><h3>${f.elapsedMs===undefined?'':elapsedTime(f.elapsedMs)+' · '}${e(f.action)}</h3><p>${e(f.title)} · ${e(readableJourneyLocation(f.path))}</p><img alt="Captured page" src="${images.get(f.id) ?? ''}"><p>${e(f.reason)}</p>${f.observation?'<details><summary>Page observations</summary><p>'+e(f.observation.text)+'</p><p>'+f.observation.controls.map(e).join(' · ')+'</p></details>':''}</li>`).join('')}</ol></section>`).join('');
   const script='('+playRecordings.toString()+')()';
   const scriptHash=createHash('sha256').update(script).digest('base64');

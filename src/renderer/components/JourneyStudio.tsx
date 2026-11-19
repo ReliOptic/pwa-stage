@@ -4,9 +4,10 @@ import { X, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, Pause,
 import { DEFAULT_JOURNEY_MODEL, MAX_ACTIONS, MAX_VISITS, type JourneyReport, type JourneyStudioApi } from '../../types/journey.types';
 import { DEVICE_PRESETS } from '../../config/device-presets.config';
 import { DeviceModelId } from '../../types/device.types';
-import type { StageCheckRequest } from '../../types/journey.types';
+import type { StageCheckRequest, VisitRecording } from '../../types/journey.types';
 import { readableJourneyLocation } from '../../utils/journey-location.util';
 import { LiveVisit } from './LiveVisit';
+import { RecordedVisit, type PlaybackStart } from './RecordedVisit';
 import { elapsedTime, journeyOutcome as outcome, observedRevisits } from '../../utils/journey-evidence.util';
 import '../styles/journeys.css';
 
@@ -16,6 +17,9 @@ declare global { interface Window { readonly journeyStudio?: JourneyStudioApi } 
 function VisitReview({report,bridge,preview,aperture,open}: {aperture:HTMLElement|null;open:boolean;report:JourneyReport; bridge:JourneyStudioApi; preview:HTMLElement|null}) {
   const [picked,setPicked]=useState<{visit:number;step:number}|null>(null);
   const [playing,setPlaying]=useState(false);
+  const [film,setFilm]=useState<{visit:number;recording:VisitRecording}|null>(null);
+  const [playback,setPlayback]=useState<PlaybackStart>({at:0,play:false});
+  const [inspectStep,setInspectStep]=useState(false);
   const [history,setHistory]=useState(false);
   const [compactView,setCompactView]=useState<'screen'|'steps'>('screen');
   const [picture,setPicture]=useState<{id:number;url:string}|null>(null);
@@ -30,6 +34,18 @@ function VisitReview({report,bridge,preview,aperture,open}: {aperture:HTMLElemen
   const reviewing=!following || history;
   const observations=visit?observedRevisits(visit):[];
   const lastInput=visit?.inputs?.at(-1);
+  const recording=film?.visit===visitIndex ? film.recording : null;
+  useEffect(()=>{
+    let current=true;
+    if(open && report.kind==='audience' && report.status!=='running')
+      void bridge.recording(report.id,visitIndex).then(data=>{
+        if(current)setFilm(data?.frames.length?{visit:visitIndex,recording:data}:null);
+      }).catch(()=>{if(current)setFilm(null);});
+    return ()=>{current=false;};
+  },[bridge,open,report.id,report.kind,report.status,visitIndex]);
+  function watchRecording(at:number) {
+    setPlaying(false);setInspectStep(false);setCompactView('screen');setPlayback({at,play:true});
+  }
   useEffect(()=>{
     let current=true;
     if(frame && !following) void bridge.image(report.id,frame.id).then(url=>{if(current && url)setPicture({id:frame.id,url});}).catch(()=>{});
@@ -43,15 +59,18 @@ function VisitReview({report,bridge,preview,aperture,open}: {aperture:HTMLElemen
     },Math.max(0,(visit.frames[step+1]?.elapsedMs??0)-(visit.frames[step]?.elapsedMs??0)));
     return ()=>window.clearTimeout(timer);
   },[playing,step,visitIndex,visit?.frames.length]);
-  const select=(v:number,s:number)=>{setPlaying(false);setPicked({visit:v,step:s});};
+  const select=(v:number,s:number)=>{setPlaying(false);setInspectStep(true);setPicked({visit:v,step:s});};
   const screen = following ? (live && (preview || compactView==='screen')
     ? <LiveVisit key={report.id+visitIndex} bridge={bridge} run={report.id} visit={visitIndex}/>
-    : <section className="journey-live-screen"><p role="status">{report.message}</p></section>) : <section className="journey-screen" aria-label="Captured screen">
+    : <section className="journey-live-screen"><p role="status">{report.message}</p></section>)
+    : recording && !inspectStep ? (open && <RecordedVisit film={recording} start={playback}/>)
+    : <section className="journey-screen" aria-label="Captured screen">
       {frame ? <>
         <div className="journey-location"><small>{playing?'Replaying captured steps':'Captured step'}</small><span>{readableJourneyLocation(visit?.source || new URL(report.origin).host)}</span><strong>{frame.title || readableJourneyLocation(frame.path)}</strong></div>
         <div className="journey-photo">{picture?.id===frame.id && <img src={picture.url} alt={'Screen after '+frame.action}/>}</div>
         <div className="journey-playback"><button aria-label="Previous step" disabled={step===0} onClick={()=>select(visitIndex,step-1)}><ChevronLeft size={17}/></button>
-          <button aria-label={playing?'Pause replay':'Replay visit'} disabled={visit.frames.length<2} onClick={()=>{if(playing)setPlaying(false);else {setPicked({visit:visitIndex,step:0});setPlaying(true);}}}>{playing?<Pause size={15}/>:<Play size={15}/>}</button>
+          <button aria-label={recording?'Replay visit':playing?'Pause captured steps':'Play captured steps'} disabled={!recording && visit.frames.length<2}
+            onClick={()=>{if(recording)watchRecording(frame.elapsedMs??0);else if(playing)setPlaying(false);else {setPicked({visit:visitIndex,step:0});setPlaying(true);}}}>{playing?<Pause size={15}/>:<Play size={15}/>}</button>
           <span>{step+1} / {visit.frames.length}</span><button aria-label="Next step" disabled={step+1>=visit.frames.length} onClick={()=>select(visitIndex,step+1)}><ChevronRight size={17}/></button></div>
         {frame.reason && <p>{frame.reason}</p>}
         {frame.observation && <details className="journey-observation"><summary>What the model saw</summary><p>{frame.observation.text}</p><p>{frame.observation.controls.join(' · ')}</p></details>}
@@ -70,7 +89,7 @@ function VisitReview({report,bridge,preview,aperture,open}: {aperture:HTMLElemen
       </>}
       {(reviewing || (!preview && compactView==='steps')) && <>
       <h2>Visits <small>{report.visits.length} / {report.iterations}</small></h2>
-      {report.visits.map((v,i)=><button className="journey-visit" key={i} aria-pressed={i===visitIndex} onClick={()=>select(i,0)}>
+      {report.visits.map((v,i)=><button className="journey-visit" key={i} aria-pressed={i===visitIndex} onClick={()=>{select(i,0);setInspectStep(false);setPlayback({at:0,play:false});}}>
         <span>Visit {i+1} · {outcome[v.outcome]}</span><strong>{v.persona}</strong>{v.source && <small>{readableJourneyLocation(v.source)}</small>}
       </button>)}
       {!visit && <p role="status">{report.message}</p>}
@@ -80,7 +99,7 @@ function VisitReview({report,bridge,preview,aperture,open}: {aperture:HTMLElemen
       {visit?.inputs && <section className="journey-trace"><h3>Recorded inputs · {visit.inputs.length}</h3>
         {visit.inputs.map(input=><div className="journey-input" key={input.from}>
           <span>{elapsedTime(input.elapsedMs)} · {input.kind} · {input.label}</span>
-          <div>{[input.from,input.to].map((id,side)=>{
+          <div>{recording && input.elapsedMs<=recording.duration && <button onClick={()=>watchRecording(Math.max(0,input.elapsedMs-600))}>Watch</button>}{[input.from,input.to].map((id,side)=>{
             const index=visit.frames.findIndex(f=>f.id===id);
             return <button key={side} disabled={index<0} onClick={()=>{select(visitIndex,index);setCompactView('screen');}}>{side?'After':'Before'}</button>;
           })}</div></div>)}

@@ -106,12 +106,15 @@ server.listen(0,'127.0.0.1',async()=>{
     for(const input of v.inputs){assert(v.frames.some(f=>f.id===input.from));assert(v.frames.some(f=>f.id===input.to));}
   }
   assert.equal(posts,0);assert.equal(apiCalls,7);assert(!JSON.stringify(report).includes('fixture-key'));
-  await until(()=>js("!!document.querySelector('.journey-photo img')"),'compositor preview');
+  await until(()=>js("!!document.querySelector('.journey-photo img[alt=\"Recorded visitor viewport\"]')?.naturalWidth"),'recorded visit');
   await capture('journey-review');
-  await js("document.querySelector('[aria-label=\"Previous step\"]').click()");
+  await js("Array.from(document.querySelectorAll('.journey-log ol button')).find(b=>b.innerText.includes('Find a session')).click()");
   await until(()=>js("document.querySelector('.journey-photo img')?.alt==='Screen after Find a session'"),'step review');
   await js("document.querySelector('[aria-label=\"Replay visit\"]').click()");
-  await until(()=>js("document.querySelector('.journey-photo img')?.alt==='Screen after Class times'"),'replay');
+  await until(()=>js("!!document.querySelector('.journey-screen [aria-label=\"Pause replay\"]')"),'recording playback from observation');
+  await js("Array.from(document.querySelectorAll('.journey-input button')).find(b=>b.textContent==='Watch').click()");
+  const firstInput=report.visits[1].inputs[0].elapsedMs;
+  await until(()=>js("Number(document.querySelector('[aria-label=\"Recording position\"]')?.value)").then(t=>t>=firstInput-600 && t<=firstInput+500),'seek to actual input');
   const file=path.join(out,'journey-report.html');
   dialog.showSaveDialog=async()=>({canceled:false,filePath:file});
   assert(await js('window.journeyStudio.save()'));assert(fs.readFileSync(file,'utf8').includes('data:image/jpeg;base64,'));
@@ -121,14 +124,14 @@ server.listen(0,'127.0.0.1',async()=>{
   await js('window.journeyStudio.start('+JSON.stringify({...req,address:site+'/moving',recordScreen:true})+')');
   const held=await until(async()=>{const r=await status();return releaseDecision && r?.status==='running' && r.visits[0]?.frames.length===1 && r;},'model waiting');
   const colors=new Set();
-  async function sampleLive(){
-    const rgb=await js(`(()=>{const image=document.querySelector('.journey-live-screen img');
+  async function sampleColors(selector){
+    const rgb=await js(`(()=>{const image=document.querySelector(${JSON.stringify(selector)});
       if(!image?.naturalWidth || !image.complete)return null;
       const c=document.createElement('canvas');c.width=c.height=3;const ctx=c.getContext('2d');ctx.drawImage(image,0,0,3,3);return [...ctx.getImageData(1,1,1,1).data];})()`);
     if(rgb && Math.abs(rgb[0]-rgb[2])>80)colors.add(rgb[0]>rgb[2]?'red':'blue');
     return colors.size===2;
   }
-  await until(sampleLive,'live visitor pixels must change before the next model decision');
+  await until(()=>sampleColors('.journey-live-screen img'),'live visitor pixels must change before the next model decision');
   assert.equal((await status()).visits[0].inputs.length,0);
   await js("document.querySelector('[aria-label=\"Close Agent\"]').click()");
   const hiddenAt=Date.now();await sleep(850);const reopenedAt=Date.now();
@@ -143,6 +146,11 @@ server.listen(0,'127.0.0.1',async()=>{
   const began=held.visits[0].startedAt;
   assert(samples.some(f=>f.at+began>hiddenAt && f.at+began<reopenedAt),'recording must continue with the panel closed');
   assert(new Set(samples.map(f=>f.jpeg)).size>1);
+  assert.equal(await js('window.journeyStudio.recording("other-run",0)'),null);
+  await until(()=>js("!!document.querySelector('.journey-film-controls [aria-label=\"Replay visit\"]')"),'review available with only one observation');
+  await js("document.querySelector('.journey-film-controls button').click()");
+  colors.clear();
+  await until(()=>sampleColors('.journey-photo img'),'both recorded colors must replay in the app with zero inputs');
   mode='installed';
   await js('window.journeyStudio.start('+JSON.stringify({...req,installFirst:true})+')');
   await until(async()=>(await status()).status!=='running','installed guest journey');

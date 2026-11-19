@@ -231,6 +231,8 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
   handle('unwatch',token=>{if(token===viewer){viewer=null;updateCapture();}});
   handle('stop',()=>controller?.abort());
   handle('image',(runId,id)=>runId===report?.id && typeof id==='number' ? images.get(id) ?? null : null);
+  handle('recording',(runId,index)=>report && runId===report.id && report.status!=='running' && typeof index==='number' && Number.isInteger(index)
+    ? recordings.get(index) ?? null : null);
   handle('save',async()=>{
     const studio=ctx.getWindow();
     if (!studio || !report || controller) return false;

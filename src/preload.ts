@@ -104,6 +104,7 @@ const bridge: JourneyStudioApi = {
   check:req=>ipcRenderer.invoke('journey:check',req),
   stop:()=>ipcRenderer.invoke('journey:stop'),
   image:(reportId,id)=>ipcRenderer.invoke('journey:image',reportId,id),
+  recording:(reportId,visit)=>ipcRenderer.invoke('journey:recording',reportId,visit),
   watch:(reportId,visit,onFrame,onError)=>{
     const token=crypto.randomUUID();
     const listener=(_event:unknown,id:string,jpeg:string)=>{if(id===token)onFrame(jpeg);};

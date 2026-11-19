@@ -1,10 +1,7 @@
 // The buffer contains compositor samples, including site motion between inputs.
 // Transmit it only on export, never in the incremental visit status messages.
-export interface VisitRecording {
-  frames:{at:number;jpeg:string}[];
-  duration:number;
-  clipped:boolean;
-}
+import type { VisitRecording } from '../types/journey.types';
+export type { VisitRecording } from '../types/journey.types';
 
 export function createVisitRecording(started:number, reserve:(bytes:number)=>boolean){
   const recording:VisitRecording={frames:[],duration:0,clipped:false};
