@@ -7,6 +7,7 @@ fs.mkdirSync(out,{recursive:true});app.setPath('userData',fs.mkdtempSync(path.jo
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function wait(check,label,timeout=120000){const end=Date.now()+timeout;while(Date.now()<end){const value=await check();if(value)return value;await sleep(90);}throw Error(label);}
 const server=http.createServer((req,res)=>{
+  if(req.url==='/pending-image'){res.writeHead(200,{'Content-Type':'image/png'});res.flushHeaders();return;}
   if(req.url==='/missing'){res.writeHead(404);res.end('Missing item');return;}
   if(req.url==='/manifest.webmanifest'){res.setHeader('Content-Type','application/manifest+json');res.end(JSON.stringify({name:'Settings',start_url:'/today',display:'standalone'}));return;}
   res.setHeader('Content-Type','text/html; charset=utf-8');
@@ -16,7 +17,7 @@ const server=http.createServer((req,res)=>{
     '<h1>작업 노트</h1><p>인쇄 판형과 편집 기록.</p>';
   res.end('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+(standalone?'Archive':'작업 노트')+'</title>'+
     (standalone?'<link rel="manifest" href="/manifest.webmanifest">':'')+
-    '<style>body{padding:24px 16px;background:#f8f4ec;color:#253d35;font:18px system-ui}h1{font:36px Georgia}a{display:block;color:#1a5e57;padding:13px 0}</style>'+body);
+    '<style>body{padding:24px 16px;background:#f8f4ec;color:#253d35;font:18px system-ui}h1{font:36px Georgia}a{display:block;color:#1a5e57;padding:13px 0}</style>'+body+'<img src="/pending-image" alt="">');
 });
 server.listen(0,'127.0.0.1',async()=>{
  try{

@@ -22,8 +22,9 @@ const server=http.createServer((req,res)=>{
     res.end('<!doctype html><meta name="viewport" content="width=device-width"><style>*{margin:0}section{height:100vh;background:#bf272e}section+section{background:#259341}</style><section>First screen</section><section>Second screen</section>');
     return;
   }
+  if(req.url==='/pending-image'){res.writeHead(200,{'Content-Type':'image/png'});res.flushHeaders();return;}
   if(req.url==='/touch-surface'){
-    res.end(`<!doctype html><meta name="viewport" content="width=device-width"><style>body{margin:0}main{height:100dvh;background:teal}</style><main role="group" aria-label="Film preview"><div>Short film</div></main><script>document.querySelector('main').addEventListener('click',e=>{if(e.isTrusted)e.currentTarget.innerHTML='<button>Film details</button>'})</script>`);
+    res.end(`<!doctype html><meta name="viewport" content="width=device-width"><style>body{margin:0}main{height:100dvh;background:teal}</style><main role="group" aria-label="Film preview"><div>Short film</div></main><img src="/pending-image" alt=""><script>document.querySelector('main').addEventListener('click',e=>{if(e.isTrusted)e.currentTarget.innerHTML='<button>Film details</button>'})</script>`);
     return;
   }
   const details=req.url==='/classes';

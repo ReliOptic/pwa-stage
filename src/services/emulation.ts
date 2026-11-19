@@ -90,6 +90,7 @@ export function buildStandaloneInitScript(
     shell: shellMode,
     inputMode,
     safe: safeArea,
+    safeAreaCss: buildSafeAreaCss(safeArea),
     keyboardInset
   });
   return `(() => {
@@ -117,6 +118,12 @@ export function buildStandaloneInitScript(
     window.matchMedia = (q) => nativeMatchMedia(rewriteQuery(q));
     window.__simMatchMediaPatched = true;
   }
+
+  // Chromium can defer webContents.insertCSS until after window.load. Install
+  // the same simulator stylesheet with the profile so media cannot block navigation.
+  const sheet = window.__simViewportSheet || (window.__simViewportSheet = new CSSStyleSheet());
+  sheet.replaceSync(cfg.safeAreaCss);
+  if (!document.adoptedStyleSheets.includes(sheet)) document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
 
   const applyDom = () => {
     const root = document.documentElement;
@@ -336,7 +343,6 @@ interface AppliedGuestState {
   viewport?: GuestViewportSize;
   metrics?: CdpDeviceMetricsPayload;
   children?: ReturnType<typeof mobileChildTargets>;
-  cssKey: string | null;
   initScriptId: string | null;
 }
 const appliedByGuest = new Map<number, AppliedGuestState>();
@@ -382,17 +388,6 @@ async function replaceInitScript(
   await target.debugger
     .sendCommand('Runtime.evaluate', { expression: source, awaitPromise: false })
     .catch(() => undefined);
-}
-
-async function replaceInjectedCss(
-  target: EmulationTargetWebContents,
-  bookkeeping: AppliedGuestState,
-  css: string
-): Promise<void> {
-  if (bookkeeping.cssKey && target.removeInsertedCSS) {
-    await target.removeInsertedCSS(bookkeeping.cssKey).catch(() => undefined);
-  }
-  bookkeeping.cssKey = await target.insertCSS(css);
 }
 
 async function applyEmulationNow(
@@ -454,7 +449,6 @@ async function applyEmulationNow(
         .catch(() => undefined)
     ]);
 
-    await replaceInjectedCss(target, bookkeeping, profile.safeAreaCss);
     await replaceInitScript(target, bookkeeping, profile.standaloneInitScript);
 
     logStructured('info', 'emulation.service', 'emulation_applied', {
@@ -491,7 +485,7 @@ export function applyEmulationToTarget(
   target: EmulationTargetWebContents,
   input: EmulationProfileInput
 ): Promise<Result<EmulationProfile, EmulationFailureError>> {
-  const bookkeeping: AppliedGuestState = appliedByGuest.get(target.id) ?? {cssKey:null, initScriptId:null};
+  const bookkeeping: AppliedGuestState = appliedByGuest.get(target.id) ?? {initScriptId:null};
   if (input.viewportSize) bookkeeping.viewport = input.viewportSize;
   appliedByGuest.set(target.id, bookkeeping);
   const pending = (pendingByGuest.get(target.id) ?? Promise.resolve())

@@ -172,9 +172,15 @@ export function limitJourneySession(partition:Session,origin:string,onBlocked:()
 }
 
 export class JourneyInteraction {
+  private documentReady = true;
   constructor(private readonly wc:WebContents, private readonly origin:string, private readonly profile:EmulationProfileInput,
     private readonly signal:AbortSignal, private readonly blocked:()=>boolean,
-    private readonly project?:(u:number,v:number)=>Promise<{x:number;y:number}>) {}
+    private readonly project?:(u:number,v:number)=>Promise<{x:number;y:number}>) {
+    wc.on('did-start-navigation',event=>{
+      if(event.isMainFrame && !event.isSameDocument)this.documentReady=false;
+    });
+    wc.on('dom-ready',()=>{this.documentReady=true;});
+  }
   private async execute(action:'observe'|'tap'|'scroll', index=-1) {
     this.signal.throwIfAborted();
     if (this.blocked()) throw Error('The page attempted to leave the selected origin.');
@@ -235,8 +241,8 @@ export class JourneyInteraction {
     }
     await delay(380,undefined,{signal:this.signal});
     const end=Date.now()+10000;
-    while(this.wc.isLoadingMainFrame() && Date.now()<end) await delay(100,undefined,{signal:this.signal});
-    if(this.wc.isLoadingMainFrame()) throw Error('The next screen did not finish loading.');
+    while(!this.documentReady && Date.now()<end) await delay(100,undefined,{signal:this.signal});
+    if(!this.documentReady) throw Error('The next document did not become ready.');
     return true;
   }
 }
@@ -268,8 +274,12 @@ export class JourneyPage {
     await deadline(wc.loadURL('about:blank'),5000);
     const applied=await deadline(applyEmulationToTarget(wc,this.profile),10000);
     if (!applied.ok) throw Error('Mobile emulation could not start.');
-    try { await deadline(wc.loadURL(address),20000); }
+    // Media and embedded documents may continue loading after the page is interactive.
+    let onReady!:()=>void;
+    const ready=new Promise<void>(resolve=>{onReady=resolve;wc.once('dom-ready',onReady);});
+    try { await deadline(Promise.race([wc.loadURL(address),ready]),20000); }
     catch { throw Error(this.blockedNavigation?'The site redirected outside the selected origin. Enter its final address.':'The start page could not be loaded.'); }
+    finally {wc.removeListener('dom-ready',onReady);}
     await delay(350,undefined,{signal:this.signal});
   }
   close() {

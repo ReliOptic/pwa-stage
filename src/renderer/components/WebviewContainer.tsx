@@ -57,6 +57,9 @@ function useWebviewEffects(
     let disposed = false;
     let attached = false;
     let queue = Promise.resolve();
+    let pendingNavigation: {url:string} | null = null;
+    let committedUrl = '';
+    let navigationStart = '';
     let appliedShell = props.state.shellMode;
     let lastReload = props.reloadTick;
     let sentWidth = 0, sentHeight = 0;
@@ -107,8 +110,15 @@ function useWebviewEffects(
         // src remains inert: even the first real request follows emulation.
         // Skip stale requests when URL/state changed while IPC was in flight.
         if (next.targetUrl !== latest.current.targetUrl || next.state.shellMode !== latest.current.state.shellMode) { sync(); return; }
-        if (el.getURL() !== next.targetUrl) {
-          await el.loadURL?.(next.targetUrl);
+        if ((pendingNavigation?.url ?? el.getURL()) !== next.targetUrl || (pendingNavigation && (shellChanged || reloadChanged))) {
+          // Keep profile updates and Home Screen launches responsive while media is still loading.
+          const request = {url:next.targetUrl};
+          pendingNavigation = request;
+          void el.loadURL?.(request.url).catch(error => {
+            if (!disposed && pendingNavigation === request) console.error('Could not load the page', error);
+          }).finally(() => {
+            if (pendingNavigation === request) pendingNavigation = null;
+          });
         } else if (shellChanged || reloadChanged) {
           el.reloadIgnoringCache();
         }
@@ -120,19 +130,31 @@ function useWebviewEffects(
     const onDomReady = (): void => {
       attached = true;
       if (!ready.current) sync();
+      else notifyReady();
     };
     const notifyReady = (): void => {
       applyZoom();
       if (ready.current && /^https?:/.test(el.getURL())) latest.current.onPageReady?.(el.getWebContentsId());
     };
-    const onNavigate = (): void => {
-      const url = el.getURL();
+    type NavigationEvent = Event & {url?:string;isMainFrame?:boolean};
+    const onNavigationStart = (event:NavigationEvent):void => {
+      if (event.isMainFrame !== false) navigationStart = event.url || '';
+    };
+    const onNavigate = (event:NavigationEvent): void => {
+      if (event.isMainFrame === false) return;
+      const url = event.url || el.getURL();
       if (!ready.current || !/^https?:/.test(url)) return;
+      const desired = latest.current.targetUrl;
+      // Changing a mobile profile can reload the previous document while a
+      // Home Screen deep link is being selected. Keep the requested launch.
+      if (committedUrl && desired !== committedUrl && url !== desired && navigationStart !== desired) return;
+      committedUrl = url;
+      if (pendingNavigation?.url === url) pendingNavigation = null;
       setSafariBarCollapsed(false);
       setKeyboardVisible(false);
       latest.current.onNavigate?.(url);
     };
-    const onInPage = (): void => { onNavigate(); notifyReady(); };
+    const onInPage = (event:NavigationEvent): void => { onNavigate(event); notifyReady(); };
     const onConsole = (evt: Event): void => {
       const message = (evt as Event & { message?: string }).message ?? '';
       if (message === '__sim:safari-bar:collapse') setSafariBarCollapsed(true);
@@ -143,7 +165,7 @@ function useWebviewEffects(
     const enterFs = (): void => setGuestFullscreen(pane, el, true);
     const leaveFs = (): void => setGuestFullscreen(pane, el, false);
     const listeners: [string, EventListener][] = [
-      ['dom-ready', onDomReady], ['did-navigate', onNavigate], ['did-navigate', leaveFs], ['render-process-gone', leaveFs],
+      ['dom-ready', onDomReady], ['did-start-navigation', onNavigationStart], ['did-navigate', onNavigate], ['did-navigate', leaveFs], ['render-process-gone', leaveFs],
       ['did-navigate-in-page', onInPage], ['did-finish-load', notifyReady],
       ['console-message', onConsole], ['enter-html-full-screen', enterFs], ['leave-html-full-screen', leaveFs]
     ];

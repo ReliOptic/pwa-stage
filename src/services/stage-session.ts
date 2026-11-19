@@ -24,7 +24,8 @@ export class StageSession {
   private guest?:WebContents;
   private failure='';
   private httpStatus=0;
-  private completedLoads=0;
+  private readyDocuments=0;
+  private readyNavigation='';
   private readonly stop=()=>this.close();
   private readonly guestSession;
   private readonly shellSession;
@@ -61,7 +62,11 @@ export class StageSession {
     host.on('did-attach-webview',(_event,guest)=>{
       if(guest.session!==this.guestSession){this.failure='Unexpected browser session.';this.close();return;}
       this.guest=guest;
-      guest.on('did-finish-load',()=>{this.completedLoads++;});
+      let navigation='';
+      guest.on('did-start-navigation',event=>{
+        if(event.isMainFrame && !event.isSameDocument)navigation=event.url;
+      });
+      guest.on('dom-ready',()=>{this.readyNavigation=navigation;this.readyDocuments++;});
       guest.setWindowOpenHandler(()=>({action:'deny'}));
       guest.on('did-fail-load',(_e,code,description,_url,main)=>{
         if(main && code!==-3) this.failure='The page could not load ('+description+').';
@@ -129,8 +134,10 @@ export class StageSession {
   }
   private async record(frame:StageFrame,action:string,title:string) {
     await delay(220,undefined,{signal:this.signal});
-    const snap=await deadline(this.win.webContents.capturePage(),10000);
-    if(snap.isEmpty())throw Error('No simulator frame was painted.');
+    const snap=await this.until(async()=>{
+      const image=await this.win.webContents.capturePage().catch(()=>null);
+      return image && !image.isEmpty()?image:null;
+    },'a painted simulator frame');
     frame(action,title,this.guest?.getURL() || this.address,'data:image/jpeg;base64,'+snap.resize({width:Math.min(560,snap.getSize().width)}).toJPEG(76).toString('base64'));
   }
   async install(frame:StageFrame) {
@@ -139,7 +146,7 @@ export class StageSession {
     else await win.loadFile(path.join(__dirname,'../../dist/index.html'));
     win.showInactive();
     await this.until(()=>this.guest && URL.parse(this.guest.getURL())?.origin===this.origin &&
-      !this.guest.isLoadingMainFrame() && this.inspection,'website details');
+      this.inspection?.inspection.url===this.guest.getURL(),'website details');
     const page=this.inspection!;
     await this.record(frame,'Open website',page.inspection.title);
     if(browser===BrowserShellMode.IOS_SAFARI)await this.click('[aria-label="More"]');
@@ -157,14 +164,18 @@ export class StageSession {
     const findInstalled='Array.from(document.querySelectorAll('+JSON.stringify(icon)+')).find(el=>el.dataset.launchUrl==='+JSON.stringify(launch)+')';
     await this.until(()=>this.ui('Boolean('+findInstalled+')'),'the installed Home Screen icon');
     await this.record(frame,'Find installed icon',name);
-    const beforeLaunch=this.completedLoads;
+    const beforeLaunch=this.readyDocuments;
     await this.ui(findInstalled+'.click()');
     await this.until(async()=>{
       const guest=this.guest;
-      if(!guest || this.completedLoads<=beforeLaunch || this.state.shellMode!==BrowserShellMode.PWA_STANDALONE || guest.isLoadingMainFrame() ||
+      if(!guest || this.readyDocuments<=beforeLaunch || (this.readyNavigation!==launch && guest.getURL()!==launch) ||
+         this.state.shellMode!==BrowserShellMode.PWA_STANDALONE ||
          this.httpStatus<200 || this.httpStatus>=400 || URL.parse(guest.getURL())?.origin!==this.origin) return false;
       if(!await this.ui('!!document.querySelector(".app-surface-app") && !document.querySelector(".ios-address-form")'))return false;
-      return guest.executeJavaScript('navigator.standalone === true && matchMedia("(display-mode: standalone)").matches');
+      const result=await deadline(guest.debugger.sendCommand('Runtime.evaluate',{
+        expression:'navigator.standalone === true && matchMedia("(display-mode: standalone)").matches',returnByValue:true
+      }),5000);
+      return result.result?.value===true;
     },'the installed app to reopen in standalone mode');
     await this.record(frame,'Reopen from Home Screen',name);
     const actual=new URL(this.guest!.getURL());
