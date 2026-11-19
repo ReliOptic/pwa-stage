@@ -6,43 +6,49 @@ import { DEVICE_PRESETS } from '../../config/device-presets.config';
 import { DeviceModelId } from '../../types/device.types';
 import type { StageCheckRequest } from '../../types/journey.types';
 import { readableJourneyLocation } from '../../utils/journey-location.util';
+import { LiveVisit } from './LiveVisit';
+import { elapsedTime, journeyOutcome as outcome, observedRevisits } from '../../utils/journey-evidence.util';
 import '../styles/journeys.css';
 
 declare global { interface Window { readonly journeyStudio?: JourneyStudioApi } }
 
-const outcome = {exploring:'In progress',finished:'Model cited screen evidence',verified:'Launch verified',unconfirmed:'Goal unconfirmed',blocked:'Blocked',limit:'Step limit',stopped:'Stopped',error:'Error'};
 
-function runningLabel(status:JourneyReport['status'], selected:boolean, playing:boolean) {
-  if(playing)return 'Replaying captured steps';
-  return status==='running' && !selected ? 'Latest agent capture' : 'Captured step';
-}
-
-function VisitReview({report,bridge,preview}: {report:JourneyReport; bridge:JourneyStudioApi; preview:HTMLElement|null}) {
+function VisitReview({report,bridge,preview,aperture,open}: {aperture:HTMLElement|null;open:boolean;report:JourneyReport; bridge:JourneyStudioApi; preview:HTMLElement|null}) {
   const [picked,setPicked]=useState<{visit:number;step:number}|null>(null);
   const [playing,setPlaying]=useState(false);
+  const [history,setHistory]=useState(false);
   const [compactView,setCompactView]=useState<'screen'|'steps'>('screen');
   const [picture,setPicture]=useState<{id:number;url:string}|null>(null);
   const visitIndex=picked?.visit ?? Math.max(0,report.visits.length-1);
   const visit=report.visits[visitIndex];
   const step=picked?.step ?? Math.max(0,(visit?.frames.length ?? 1)-1);
   const frame=visit?.frames[step];
+  const following=report.kind==='audience' && report.status==='running' && !picked;
+  const live=following && open && report.liveVisit===visitIndex;
+  const target=live && aperture && aperture.dataset.device===report.liveDevice &&
+    aperture?.dataset.orientation===report.orientation?aperture:preview;
+  const reviewing=!following || history;
+  const observations=visit?observedRevisits(visit):[];
+  const lastInput=visit?.inputs?.at(-1);
   useEffect(()=>{
     let current=true;
-    if(frame) void bridge.image(report.id,frame.id).then(url=>{if(current && url)setPicture({id:frame.id,url});}).catch(()=>{});
+    if(frame && !following) void bridge.image(report.id,frame.id).then(url=>{if(current && url)setPicture({id:frame.id,url});}).catch(()=>{});
     return ()=>{current=false;};
-  },[bridge,report.id,frame?.id]);
+  },[bridge,report.id,frame?.id,following]);
   useEffect(()=>{
     if(!playing || !visit) return;
     const timer=window.setTimeout(()=>{
       if(step+1<visit.frames.length) setPicked({visit:visitIndex,step:step+1});
       else setPlaying(false);
-    },1600);
+    },Math.max(0,(visit.frames[step+1]?.elapsedMs??0)-(visit.frames[step]?.elapsedMs??0)));
     return ()=>window.clearTimeout(timer);
   },[playing,step,visitIndex,visit?.frames.length]);
   const select=(v:number,s:number)=>{setPlaying(false);setPicked({visit:v,step:s});};
-  const screen = <section className="journey-screen" aria-label="Captured screen">
+  const screen = following ? (live && (preview || compactView==='screen')
+    ? <LiveVisit key={report.id+visitIndex} bridge={bridge} run={report.id} visit={visitIndex}/>
+    : <section className="journey-live-screen"><p role="status">{report.message}</p></section>) : <section className="journey-screen" aria-label="Captured screen">
       {frame ? <>
-        <div className="journey-location"><small>{runningLabel(report.status, picked!==null, playing)}</small><span>{readableJourneyLocation(visit?.source || new URL(report.origin).host)}</span><strong>{frame.title || readableJourneyLocation(frame.path)}</strong></div>
+        <div className="journey-location"><small>{playing?'Replaying captured steps':'Captured step'}</small><span>{readableJourneyLocation(visit?.source || new URL(report.origin).host)}</span><strong>{frame.title || readableJourneyLocation(frame.path)}</strong></div>
         <div className="journey-photo">{picture?.id===frame.id && <img src={picture.url} alt={'Screen after '+frame.action}/>}</div>
         <div className="journey-playback"><button aria-label="Previous step" disabled={step===0} onClick={()=>select(visitIndex,step-1)}><ChevronLeft size={17}/></button>
           <button aria-label={playing?'Pause replay':'Replay visit'} disabled={visit.frames.length<2} onClick={()=>{if(playing)setPlaying(false);else {setPicked({visit:visitIndex,step:0});setPlaying(true);}}}>{playing?<Pause size={15}/>:<Play size={15}/>}</button>
@@ -53,10 +59,16 @@ function VisitReview({report,bridge,preview}: {report:JourneyReport; bridge:Jour
     </section>;
   return <div className="journey-review" data-compact={!preview} data-view={compactView}>
     {!preview && <nav className="journey-compact-tabs" aria-label="Review content">
-      <button aria-pressed={compactView==='screen'} onClick={()=>setCompactView('screen')}>Captured screen</button>
+      <button aria-pressed={compactView==='screen'} onClick={()=>setCompactView('screen')}>{following?'Live screen':'Captured screen'}</button>
       <button aria-pressed={compactView==='steps'} onClick={()=>setCompactView('steps')}>Visit steps</button>
     </nav>}
     <aside className="journey-log">
+      {following && <>
+        <p className="journey-watching"><b>Visit {visitIndex+1} of {report.iterations}</b>{visit?.persona}</p>
+        {lastInput && <p className="journey-last-input">{elapsedTime(lastInput.elapsedMs)} · {lastInput.kind} · {lastInput.label}</p>}
+        <button className="journey-link" aria-expanded={history} onClick={()=>setHistory(!history)}>{history?'Hide visit history':'Show visit history'}</button>
+      </>}
+      {(reviewing || (!preview && compactView==='steps')) && <>
       <h2>Visits <small>{report.visits.length} / {report.iterations}</small></h2>
       {report.visits.map((v,i)=><button className="journey-visit" key={i} aria-pressed={i===visitIndex} onClick={()=>select(i,0)}>
         <span>Visit {i+1} · {outcome[v.outcome]}</span><strong>{v.persona}</strong>{v.source && <small>{readableJourneyLocation(v.source)}</small>}
@@ -65,9 +77,18 @@ function VisitReview({report,bridge,preview}: {report:JourneyReport; bridge:Jour
       {visit && <><h3>Visit steps</h3><ol>{visit.frames.map((f,i)=><li key={f.id}><button aria-current={i===step?'step':undefined} onClick={()=>{select(visitIndex,i);if(!preview)setCompactView('screen');}}>
         <span className="journey-step-number">{i+1}</span><div><strong>{f.action}</strong><small>{f.observation ? (f.action==='Arrived'?'Page opened':'Agent decision') : 'Stage installation'} · {readableJourneyLocation(f.path)}</small></div></button></li>)}</ol>
         {visit.note && <p className="journey-note"><b>{outcome[visit.outcome]}</b>{visit.note}</p>}</>}
+      {visit?.inputs && <section className="journey-trace"><h3>Recorded inputs · {visit.inputs.length}</h3>
+        {visit.inputs.map(input=><div className="journey-input" key={input.from}>
+          <span>{elapsedTime(input.elapsedMs)} · {input.kind} · {input.label}</span>
+          <div>{[input.from,input.to].map((id,side)=>{
+            const index=visit.frames.findIndex(f=>f.id===id);
+            return <button key={side} disabled={index<0} onClick={()=>{select(visitIndex,index);setCompactView('screen');}}>{side?'After':'Before'}</button>;
+          })}</div></div>)}
+        {observations.map(note=><p key={note}>{note}</p>)}</section>}
+      </>}
       {picked && report.status==='running' && <button className="journey-link" onClick={()=>{setPlaying(false);setPicked(null);}}>Follow live visit</button>}
     </aside>
-    {preview ? createPortal(screen, preview) : screen}
+    {target ? createPortal(screen,target) : screen}
   </div>;
 }
 
@@ -126,7 +147,8 @@ function StageCheckForm({address,device,coverage,onChange,disabled,onRun,pick}:{
 
 }
 
-export function JourneyStudio({bridge,open,currentUrl,preview,onClose,onRunning}: {
+export function JourneyStudio({bridge,open,currentUrl,preview,aperture,onClose,onRunning}: {
+  aperture:HTMLElement|null;
   bridge:JourneyStudioApi; open:boolean; currentUrl:string; preview:HTMLElement|null;
   onClose:()=>void; onRunning:(running:boolean)=>void;
 }) {
@@ -134,6 +156,7 @@ export function JourneyStudio({bridge,open,currentUrl,preview,onClose,onRunning}
   const [coverage,setCoverage]=useState<Coverage>({sources:null,deviceId:'pair',browser:'both'});
   const [kind,setKind]=useState<'audience'|'install'>('audience');
   const [useLocal,setUseLocal]=useState(false),[endpoint,setEndpoint]=useState('http://127.0.0.1:8080/v1'),[localModel,setLocalModel]=useState('');
+  const [recordScreen,setRecordScreen]=useState(true);
   const [planDevice,setPlanDevice]=useState(false),[shareScreen,setShareScreen]=useState(false);
   const [installFirst,setInstallFirst]=useState(false),[material,setMaterial]=useState('');
   const [model,setModel]=useState(DEFAULT_JOURNEY_MODEL), [apiKey,setApiKey]=useState(''), [iterations,setIterations]=useState(3);
@@ -180,7 +203,7 @@ export function JourneyStudio({bridge,open,currentUrl,preview,onClose,onRunning}
   };
   const start=(e:FormEvent)=>{
     e.preventDefault();return submit(()=>bridge.start({address,goal,audiences:audiences.split('\n').map(a=>a.trim()).filter(Boolean),
-      iterations,apiKey:useLocal?'':apiKey,model:useLocal?localModel:model,localEndpoint:useLocal?endpoint:undefined,material,installFirst,planDevice,shareScreen}));
+      iterations,apiKey:useLocal?'':apiKey,model:useLocal?localModel:model,localEndpoint:useLocal?endpoint:undefined,material,installFirst,planDevice,shareScreen,recordScreen}));
   };
   return <section className="journeys" ref={panel} tabIndex={-1}
     onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();onClose();}}}>
@@ -230,6 +253,7 @@ export function JourneyStudio({bridge,open,currentUrl,preview,onClose,onRunning}
             <OptionRow name="launch" icon={<SlidersHorizontal/>} title="Launch and privacy" value={installFirst?'Installed app':'Browser'}>
               <label className="journey-check"><input type="checkbox" name="install-first" checked={installFirst} onChange={e=>setInstallFirst(e.target.checked)}/>Install and launch before each visit</label>
               {installFirst && <label className="journey-check"><input type="checkbox" name="plan-device" checked={planDevice} onChange={e=>setPlanDevice(e.target.checked)}/>Let the model choose device, browser and orientation</label>}
+              <label className="journey-check"><input type="checkbox" checked={recordScreen} onChange={e=>setRecordScreen(e.target.checked)}/>Include a local screen recording in the report</label>
               <label className="journey-check"><input type="checkbox" checked={shareScreen} onChange={e=>setShareScreen(e.target.checked)}/>Send page screenshots to the model</label>
               <p>{useLocal?'The local server':'OpenRouter'} receives the goal, context and visible page text. {shareScreen?'Use a model that accepts images.':'Captures stay local.'}</p>
             </OptionRow>
@@ -248,7 +272,7 @@ export function JourneyStudio({bridge,open,currentUrl,preview,onClose,onRunning}
         {running?<button className="journey-secondary" onClick={()=>void bridge.stop().catch(()=>setError('Could not stop the run.'))}><Square size={13}/>Stop run</button>:
           <button className="journey-secondary" onClick={()=>void bridge.save().then(setSaved).catch(()=>setError('Could not save the report.'))}><Download size={15}/>{saved?'Save again':'Save report'}</button>}</div>
       <div className="journey-status" role="status"><span data-state={report.status}/>{report.message}</div>
-      <VisitReview key={report.id} report={report} bridge={bridge} preview={preview}/>
+      <VisitReview key={report.id} report={report} bridge={bridge} preview={preview} aperture={aperture} open={open}/>
     </>}
   </section>;
 }

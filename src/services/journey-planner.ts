@@ -52,7 +52,7 @@ export function journeyRequest(raw: unknown, envKey = ''): JourneyRequest {
   if (!bounded(r.apiKey, 512)) throw Error('Enter an OpenRouter key.');
   if(r.material!==undefined && !bounded(r.material,6000)) throw Error('Use up to 6,000 characters of reference material.');
   if(r.installFirst!==undefined && typeof r.installFirst!=='boolean') throw Error('Invalid launch mode.');
-  if((r.planDevice!==undefined && typeof r.planDevice!=='boolean') || (r.shareScreen!==undefined && typeof r.shareScreen!=='boolean'))
+  if((r.recordScreen!==undefined && typeof r.recordScreen!=='boolean') || (r.planDevice!==undefined && typeof r.planDevice!=='boolean') || (r.shareScreen!==undefined && typeof r.shareScreen!=='boolean'))
     throw Error('Invalid automation options.');
   let localEndpoint:string|undefined;
   if(r.localEndpoint!==undefined && r.localEndpoint!==''){
@@ -64,7 +64,7 @@ export function journeyRequest(raw: unknown, envKey = ''): JourneyRequest {
   }
   const apiKey = localEndpoint ? '' : r.apiKey.trim() || envKey;
   if (!localEndpoint && (!apiKey || /\s/.test(apiKey))) throw Error('Enter an OpenRouter key.');
-  return {address, ...(localEndpoint && {localEndpoint}), material:r.material?.trim(), installFirst:r.installFirst===true, planDevice:r.installFirst===true && r.planDevice===true, shareScreen:r.shareScreen===true, goal: r.goal.trim(), iterations: r.iterations, model: r.model, apiKey, audiences};
+  return {address, ...(localEndpoint && {localEndpoint}), material:r.material?.trim(), installFirst:r.installFirst===true, planDevice:r.installFirst===true && r.planDevice===true, shareScreen:r.shareScreen===true, recordScreen:r.recordScreen===true, goal: r.goal.trim(), iterations: r.iterations, model: r.model, apiKey, audiences};
 }
 
 export function drawPersonas(pool: string[], count: number): string[] {

@@ -212,3 +212,19 @@
 }
 @media (prefers-reduced-motion:reduce) { .journey-chevron { transition:none; } }
 @media (prefers-reduced-transparency:reduce) { .journey-header, .journey-form footer { background:var(--panel); backdrop-filter:none; } }
+
+.journey-live-screen { position:relative; display:grid; place-items:center; width:100%; height:100%; min-height:0; overflow:hidden; border-radius:16px; background:#141815; }
+.journey-live-screen img { display:block; width:100%; height:100%; object-fit:contain; min-height:0; }
+.journey-live-screen img[hidden] { display:none; }
+.journey-live-screen p { color:#d9e3dc; font-size:13px; padding:14px; }
+.journey-review[data-compact=true][data-view=screen] .journey-live-screen { width:auto; height:auto; flex:1; margin:0 8px 8px; }
+.journey-review[data-compact=true][data-view=steps] .journey-live-screen { display:none; }
+.journey-watching b { display:block; font-size:12px; color:var(--muted); }
+.journey-watching, .journey-last-input { padding:5px 0; overflow-wrap:anywhere; }
+.journey-last-input, .journey-trace { color:var(--secondary); font-size:13px; }
+.journey-input { padding:6px 0; border-bottom:1px solid var(--line); }
+.journey-input button { margin-right:10px; padding:4px 0; color:var(--accent); font-size:12px; }
+.journey-trace p { margin:6px 0; }
+
+.journey-aperture:not(:empty) { position:absolute; inset:0; z-index:90; overflow:hidden; border-radius:inherit; }
+.journey-aperture .journey-live-screen { border-radius:inherit; }

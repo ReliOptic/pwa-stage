@@ -28,6 +28,7 @@ import { DuoFoldMiniBar } from './DuoFoldMiniBar';
 import { WebviewContainer } from './WebviewContainer';
 
 export interface IphoneFrameProps {
+  readonly onVisitAperture?:(node:HTMLDivElement|null)=>void;
   readonly preset: DevicePreset;
   readonly metrics: ComputedViewportMetrics;
   readonly state: SimulatorState;
@@ -405,6 +406,7 @@ export function IphoneFrame(props: IphoneFrameProps): React.ReactElement {
                 onGoHome={props.onGoHome}
                 onToggleDuoFold={requestDuoFoldToggle}
               />
+              {props.onVisitAperture && <div className="journey-aperture" ref={props.onVisitAperture} data-device={preset.name} data-orientation={state.orientation}/>}
               <ScreenModalLayer />
             </div>
           </div>

@@ -104,6 +104,16 @@ const bridge: JourneyStudioApi = {
   check:req=>ipcRenderer.invoke('journey:check',req),
   stop:()=>ipcRenderer.invoke('journey:stop'),
   image:(reportId,id)=>ipcRenderer.invoke('journey:image',reportId,id),
+  watch:(reportId,visit,onFrame,onError)=>{
+    const token=crypto.randomUUID();
+    const listener=(_event:unknown,id:string,jpeg:string)=>{if(id===token)onFrame(jpeg);};
+    ipcRenderer.on('journey:live-frame',listener);
+    void ipcRenderer.invoke('journey:watch',reportId,visit,token).then(ok=>{if(!ok)onError();}).catch(onError);
+    return ()=>{
+      ipcRenderer.removeListener('journey:live-frame',listener);
+      void ipcRenderer.invoke('journey:unwatch',token).catch(()=>{});
+    };
+  },
   save:()=>ipcRenderer.invoke('journey:save'),
   subscribe:fn=>{
     const listener=(_event:unknown,report:JourneyReport)=>fn(report);

@@ -11,6 +11,7 @@ export interface JourneyRequest {
   installFirst?: boolean;
   planDevice?: boolean;
   shareScreen?: boolean;
+  recordScreen?: boolean;
   goal: string;
   audiences: string[];
   iterations: number;
@@ -24,10 +25,22 @@ export interface JourneyFrame {
   title: string;
   action: string;
   reason: string;
+  elapsedMs?: number;
   observation?: {text:string; controls:string[]};
 }
 
+export interface JourneyInput {
+  from: number;
+  elapsedMs: number;
+  kind: 'tap' | 'scroll' | 'wait' | 'navigate';
+  label: string;
+  to?: number;
+}
+
 export interface JourneyVisit {
+  startedAt?: number;
+  inputs?: JourneyInput[];
+  quote?: string;
   persona: string;
   source?: string;
   installation?: {name:string; path:string; manifest:boolean; manifestError?:string};
@@ -40,6 +53,9 @@ export interface JourneyReport {
   id: string;
   origin: string;
   kind?: 'install' | 'audience';
+  liveVisit?: number;
+  liveDevice?:string;
+  orientation?:string;
   goal: string;
   model: string;
   iterations: number;
@@ -62,6 +78,7 @@ export interface JourneyStudioApi {
   check: (request:StageCheckRequest) => Promise<void>;
   stop: () => Promise<void>;
   image: (reportId: string, id: number) => Promise<string | null>;
+  watch: (reportId:string,visit:number,onFrame:(jpeg:string)=>void,onError:()=>void) => () => void;
   save: () => Promise<boolean>;
   subscribe: (fn: (report: JourneyReport) => void) => () => void;
 }

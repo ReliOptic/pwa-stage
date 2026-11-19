@@ -215,6 +215,7 @@ export function App(): React.ReactElement {
   const [agentMounted, setAgentMounted] = useState(false);
   const [agentRunning, setAgentRunning] = useState(false);
   const [hostWidth, setHostWidth] = useState(window.innerWidth);
+  const [visitAperture,setVisitAperture]=useState<HTMLDivElement|null>(null);
   const [agentScreen, setAgentScreen] = useState<HTMLDivElement | null>(null);
   const docked = hostWidth - metrics.scaledOuterWidth >= 298;
   useEffect(() => {
@@ -318,6 +319,7 @@ export function App(): React.ReactElement {
         />
         {ctrl.ready && (
         <IphoneFrame
+          onVisitAperture={window.journeyStudio?setVisitAperture:undefined}
           preset={activePreset}
           metrics={metrics}
           state={state}
@@ -352,7 +354,7 @@ export function App(): React.ReactElement {
       </main>
       {agentMounted && window.journeyStudio && <aside className="agent-panel" hidden={!agentOpen} aria-label="PWA Stage Agent">
         <JourneyStudio bridge={window.journeyStudio} open={agentOpen} currentUrl={state.currentUrl}
-          preview={agentOpen && docked ? agentScreen : null} onClose={() => showAgent(false)} onRunning={setAgentRunning}/>
+          aperture={agentOpen && docked?visitAperture:null} preview={agentOpen && docked ? agentScreen : null} onClose={() => showAgent(false)} onRunning={setAgentRunning}/>
       </aside>}
       </div>
     </ScreenContext.Provider>

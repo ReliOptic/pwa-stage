@@ -1,29 +1,20 @@
-import { app, dialog, ipcMain, session } from 'electron';
+import { app, dialog, ipcMain, session, type WebContents } from 'electron';
+import { watchJourneySurface } from './journey-live';
+import { createVisitRecording, type VisitRecording } from './journey-recording';
+import { reportHtml } from './journey-report';
 import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { getDevicePresetById } from '../config/device-presets.config';
 import { isTrustedShellSender } from './security';
 import { MenuControllerContext, readCurrentState } from './menubar';
-import { readableJourneyLocation } from '../utils/journey-location.util';
 import { serveJourneySource } from './journey-source';
 import { StageSession, type InspectGuest } from './stage-session';
 import { BrowserShellMode, type SimulatorState } from '../types/simulator.types';
 import type { StageCheckRequest } from '../types/journey.types';
 import { JourneyPage, type JourneyInteraction } from './journey-page';
 import { chooseAction, chooseStageProfile, drawPersonas, journeyRequest, stageRequest, suggestPersonas, type ModelTransport, type PageChoices } from './journey-planner';
-import { JourneyReport, JourneyRequest, JourneyVisit, MAX_ACTIONS } from '../types/journey.types';
+import { JourneyReport, JourneyRequest, JourneyVisit, type JourneyInput, MAX_ACTIONS } from '../types/journey.types';
 import type { EmulationProfileInput } from '../types/emulation.types';
-
-function escapeHtml(value:string) {
-  return value.replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]!));
-}
-
-function reportHtml(report:JourneyReport, images:Map<number,string>) {
-  const e=escapeHtml;
-  const visits=report.visits.map((visit,i)=>`<section><h2>${i+1}. ${e(visit.persona)}</h2><p>${e(readableJourneyLocation(visit.source || report.origin))}</p>${visit.installation ? `<p>Home Screen launch · ${e(readableJourneyLocation(visit.installation.path))} · ${visit.installation.manifest?"Manifest read":"Website shortcut"}</p>` : ""}<p>${e(visit.outcome)} · ${e(visit.note)}</p><ol>${visit.frames.map(f=>
-    `<li><h3>${e(f.action)}</h3><p>${e(f.title)} · ${e(readableJourneyLocation(f.path))}</p><img alt="Captured page" src="${images.get(f.id) ?? ''}"><p>${e(f.reason)}</p>${f.observation?'<details><summary>Page observations</summary><p>'+e(f.observation.text)+'</p><p>'+f.observation.controls.map(e).join(' · ')+'</p></details>':''}</li>`).join('')}</ol></section>`).join('');
-  return `<!doctype html><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><title>Audience journeys</title><style>body{max-width:1000px;margin:40px auto;padding:0 24px;font:16px/1.5 system-ui;background:#faf9f6;color:#212c29}ol{display:flex;flex-wrap:wrap;gap:22px;padding:0;list-style:none}li{width:230px;overflow-wrap:anywhere}img{max-width:100%;max-height:360px;border-radius:12px}section{border-top:1px solid #bbb}</style><h1>Audience journeys</h1><p>${e(report.origin)} · ${e(report.device)} · ${e(report.model)}</p><p>${e(report.goal)}</p><p>Simulated visits · ${e(report.status)} · ${e(report.message)}</p>${visits}`;
-}
 
 export function registerJourneyStudio(ctx: MenuControllerContext, inspect:InspectGuest) {
   // Chromium's network stack respects the OS proxy. Keep provider credentials
@@ -34,6 +25,40 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
   let report: JourneyReport | null=null;
   const localSources=new Map<string,Awaited<ReturnType<typeof serveJourneySource>>>();
   const images=new Map<number,string>();
+  let activeSurface:WebContents|null=null;
+  let viewer:string|null=null;
+  let stopCapture:(()=>void)|null=null;
+  let lastImage:string|undefined;
+  let recorder:ReturnType<typeof createVisitRecording>|null=null;
+  const recordings=new Map<number,VisitRecording>();
+  let retainedBytes=0;
+  function updateCapture(){
+    const needed=activeSurface && (viewer || (recorder && !recorder.recording.clipped));
+    if(!needed){stopCapture?.();stopCapture=null;lastImage=undefined;return;}
+    if(stopCapture)return;
+    stopCapture=watchJourneySurface(activeSurface!,jpeg=>{
+      lastImage=jpeg;
+      recorder?.frame(jpeg);
+      const host=ctx.getWindow();
+      if(viewer && host && !host.isDestroyed())host.webContents.send('journey:live-frame',viewer,jpeg);
+      else if(recorder?.recording.clipped)updateCapture();
+    });
+  }
+  function surface(current:JourneyReport,target:WebContents|null,record=false){
+    recorder?.end();recorder=null;
+    stopCapture?.();stopCapture=null;viewer=null;lastImage=undefined;
+    activeSurface=target;
+    if(target && record){
+      const index=current.visits.length-1;
+      recorder=createVisitRecording(current.visits[index].startedAt!,bytes=>{
+        if(retainedBytes+bytes>24*1024*1024)return false;
+        retainedBytes+=bytes;return true;
+      });
+      recordings.set(index,recorder.recording);
+    }
+    updateCapture();
+    current.liveVisit=target?current.visits.length-1:undefined;
+  }
   const publish=()=>{const win=ctx.getWindow();if(win && !win.isDestroyed()) win.webContents.send('journey:report',report);};
   const device=()=>{
     const state=readCurrentState(ctx.deps);
@@ -42,14 +67,14 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
   function append(visit:JourneyVisit,action:string,title:string,path:string,image:string,reason='',observed?:PageChoices){
     const id=images.size;
     images.set(id,image);
-    visit.frames.push({id,path,title,action,reason,observation:observed && {text:observed.text,controls:observed.controls}});publish();
+    visit.frames.push({id,path,title,action,reason,elapsedMs:visit.startedAt===undefined?undefined:Math.max(0,Date.now()-visit.startedAt),observation:observed && {text:observed.text,controls:observed.controls}});publish();
   }
   async function check(req:StageCheckRequest,current:JourneyReport,state:SimulatorState,signal:AbortSignal) {
     for(const address of req.addresses) for(const id of req.devices) for(const browser of req.browsers){
       signal.throwIfAborted();
       const preset=getDevicePresetById(id);
       const visit:JourneyVisit={persona:preset.name+' · '+(browser==='ios-safari'?'Safari':'Chrome'),source:new URL(address).origin+new URL(address).pathname,
-        frames:[],outcome:'exploring',note:''};
+        frames:[],startedAt:Date.now(),outcome:'exploring',note:''};
       current.visits.push(visit);current.message='Checking '+new URL(address).host+' · '+visit.persona;publish();
       const stage=new StageSession(address,preset,browser as BrowserShellMode,state,ctx.deps.envConfig,inspect,signal);
       try{
@@ -67,12 +92,12 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
         if(req.planDevice){current.message='Choosing device and browser';publish();}
         const setup=req.planDevice?await chooseStageProfile(req,order[i] || 'New visitor',current.visits.map(v=>v.source || ''),signal,sendToRouter):{
           preset:profile.preset,orientation:profile.orientation,browser:i%2===0?BrowserShellMode.IOS_SAFARI:BrowserShellMode.IOS_CHROME,reason:''};
-        const visit:JourneyVisit={persona:order[i] || 'Identifying visitor',frames:[],outcome:'exploring',note:''};
+        const visit:JourneyVisit={persona:order[i] || 'Identifying visitor',startedAt:Date.now(),inputs:[],frames:[],outcome:'exploring',note:''};
         current.visits.push(visit);
         const page=req.installFirst?null:new JourneyPage(current.origin,profile,signal);
         const stage=req.installFirst?new StageSession(req.address,setup.preset,setup.browser,{...state,orientation:setup.orientation},ctx.deps.envConfig,inspect,signal):null;
         try {
-          current.message='Opening visit '+(i+1); publish();
+          current.message=(stage?'Installing before visit ':'Opening visit ')+(i+1); publish();
           let interaction:JourneyInteraction;
           if(stage){
             visit.source=[current.origin,setup.preset.name,setup.browser===BrowserShellMode.IOS_SAFARI?'Safari':'Chrome',setup.orientation].join(' · ');
@@ -81,6 +106,9 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
           }else{
             await page!.open(req.address);interaction=page!.interaction;
           }
+          current.liveDevice=stage?setup.preset.name:profile.preset.name;
+          current.orientation=stage?setup.orientation:profile.orientation;
+          surface(current,stage?stage.visitorSurface():page!.surface,req.recordScreen);publish();
           let seen=await interaction.observe();
           if(!order.length){
             current.message='Finding target audiences';publish();
@@ -89,23 +117,37 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
           visit.persona=order[i];
           const firstPage=visit.frames.length;
           let action='Arrived', reason='';
+          let input:JourneyInput|undefined;
           for(let step=0;step<=MAX_ACTIONS;step++) {
             signal.throwIfAborted();
             current.message='Visiting as '+visit.persona;
+            if(input)input.to=images.size;
             append(visit,action,seen.page.title,seen.page.path,seen.image,reason,seen.page);
             if(step===MAX_ACTIONS) {
               visit.outcome='limit';visit.note='Reached the action limit.';break;
             }
-            const decision=await chooseAction(req,visit.persona,seen.page,visit.frames.slice(firstPage).map(f=>({path:f.path,action:f.action,reason:f.reason})),signal,sendToRouter,seen.image);
+            const history=visit.frames.slice(firstPage).map(f=>({path:f.path,action:f.action,text:f.observation?.text,controls:f.observation?.controls}));
+            const previous=history.at(-2);
+            const unchangedAfterWait=input?.kind==='wait' && previous?.path===seen.page.path &&
+              previous.text===seen.page.text && JSON.stringify(previous.controls)===JSON.stringify(seen.page.controls);
+            const choices=unchangedAfterWait?{...seen.page,loading:false}:seen.page;
+            const decision=await chooseAction(req,visit.persona,choices,history,signal,sendToRouter,seen.image);
             signal.throwIfAborted();
             if(decision.action==='finish'||decision.action==='blocked') {
-              visit.outcome=decision.action==='blocked'?'blocked':decision.evidence?'finished':'unconfirmed';
-              visit.note=decision.evidence ? decision.reason+' “'+decision.evidence+'”' : decision.reason;break;
+              const onlyControl=!!decision.evidence && seen.page.controls.includes(decision.evidence);
+              visit.outcome=decision.action==='blocked'?'blocked':decision.evidence && !onlyControl?'finished':'unconfirmed';
+              visit.quote=decision.evidence;
+              visit.note='Model statement · '+decision.reason+(decision.evidence?' “'+decision.evidence+'”':'')+
+                (onlyControl?' The quote matches a visible control label.':'');
+              break;
             }
             action=decision.action==='tap' ? seen.page.controls[decision.target] : decision.action==='scroll' ? 'Scroll down' : 'Wait for content';
             reason=decision.reason;
             try {
-              if(!await interaction.act(decision.action,decision.target)) {
+              if(!await interaction.act(decision.action,decision.target,kind=>{
+                input={from:visit.frames[visit.frames.length-1].id,elapsedMs:Math.max(0,Date.now()-visit.startedAt!),kind,label:action};
+                visit.inputs!.push(input);publish();
+              })) {
                 visit.outcome='blocked';visit.note=decision.action==='scroll'?'There was no more content to scroll.':'The chosen control changed before the tap.';break;
               }
               seen=await interaction.observe();
@@ -115,14 +157,14 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
             }
           }
           publish();
-        } finally { page?.close();stage?.close(); }
+        } finally { surface(current,null);page?.close();stage?.close(); }
       }
   }
   async function execute(current:JourneyReport,signal:AbortSignal,work:()=>Promise<void>){
     try{
       await work();
       signal.throwIfAborted();
-      current.status='completed';current.message='Visits complete';
+      current.status='completed';current.message=current.kind==='install'?'Checks ended':'Visits ended';
     } catch(error) {
       current.status=signal.aborted?'stopped':'error';
       current.message=signal.aborted?'Run stopped':error instanceof Error?error.message:'Run failed';
@@ -147,7 +189,7 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
     const {state,preset}=device();
     const profile:EmulationProfileInput={preset,orientation:state.orientation,shellMode:state.shellMode,darkMode:state.darkMode,
       safariIosVersion:ctx.deps.envConfig.safariIosVersion,chromeIosVersion:ctx.deps.envConfig.chromeIosVersion};
-    const current:JourneyReport={id:randomUUID(),kind:'audience',origin:new URL(req.address).origin,goal:req.goal,model:(req.localEndpoint?'Local · ':'OpenRouter · ')+req.model,iterations:req.iterations,device:preset.name,
+    const current:JourneyReport={id:randomUUID(),kind:'audience',origin:new URL(req.address).origin,goal:req.goal,model:(req.localEndpoint?'Local · ':'OpenRouter · ')+req.model,iterations:req.iterations,device:preset.name,orientation:state.orientation,
       status:'running',message:'Opening the start page',visits:[]};
     launch(current,signal=>run(req,current,profile,state,signal));
   });
@@ -175,15 +217,24 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
     launch(current,signal=>check(req,current,state,signal));
   });
   function launch(current:JourneyReport,work:(signal:AbortSignal)=>Promise<void>){
-    images.clear();report=current;controller=new AbortController();
+    recordings.clear();retainedBytes=0;images.clear();report=current;controller=new AbortController();
     const signal=controller.signal;publish();void execute(current,signal,()=>work(signal));
   }
+  handle('watch',(id,index,token)=>{
+    const host=ctx.getWindow();
+    if(!host || !activeSurface || activeSurface.isDestroyed() || !report || id!==report.id ||
+       index!==report.liveVisit || typeof token!=='string' || token.length>80)return false;
+    viewer=token;updateCapture();
+    if(lastImage)host.webContents.send('journey:live-frame',token,lastImage);
+    return true;
+  });
+  handle('unwatch',token=>{if(token===viewer){viewer=null;updateCapture();}});
   handle('stop',()=>controller?.abort());
   handle('image',(runId,id)=>runId===report?.id && typeof id==='number' ? images.get(id) ?? null : null);
   handle('save',async()=>{
     const studio=ctx.getWindow();
     if (!studio || !report || controller) return false;
-    const html=reportHtml(report,images);
+    const html=reportHtml(report,images,recordings);
     const result=await dialog.showSaveDialog(studio,{defaultPath:'audience-journeys.html',filters:[{name:'HTML report',extensions:['html']}]});
     if(result.canceled || !result.filePath) return false;
     await writeFile(result.filePath,html,'utf8');return true;

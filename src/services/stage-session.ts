@@ -111,6 +111,11 @@ export class StageSession {
     signal.addEventListener('abort',this.stop,{once:true});
   }
 
+  visitorSurface(){
+    if(!this.guest)throw Error('The installed app is not open.');
+    return this.guest;
+  }
+
   private profile(){
     return {preset:this.preset,orientation:this.state.orientation,shellMode:this.state.shellMode,darkMode:this.state.darkMode,
       safariIosVersion:this.env.safariIosVersion,chromeIosVersion:this.env.chromeIosVersion};

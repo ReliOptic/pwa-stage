@@ -71,7 +71,7 @@ function interact(origin: string, action: 'observe' | 'tap' | 'scroll', index: n
   if(action==='scroll'){
     const target=scrollTarget();
     if(!target)return false;
-    target.scrollBy({top:target.clientHeight*.78,behavior:'instant'});return true;
+    target.scrollBy({top:target.clientHeight*.78,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});return true;
   }
   // A visible <pre> or paragraph can span many screens. Read rendered text
   // ranges, so scrolling cannot leave an offscreen quote in the observation.
@@ -144,8 +144,8 @@ function interact(origin: string, action: 'observe' | 'tap' | 'scroll', index: n
   }
   state.journeyControls=controls;
   return {path:location.pathname + (location.hash.startsWith('#/') ? location.hash.split('?')[0] : ''),
-    canScroll:!!scrollTarget(), loading:document.readyState!=='complete' || !!document.querySelector('[aria-busy="true"],progress:not([value])') ||
-      document.getAnimations().some(a=>a.playState==='running' && a.effect?.getTiming().iterations!==Infinity),
+    canScroll:!!scrollTarget(), loading:document.readyState==='loading' ||
+      Array.from(document.querySelectorAll<HTMLElement>('[aria-busy="true"],progress:not([value])')).some(el=>tapPoint(el) !== null),
     title:document.title.slice(0,150), text:snippets.join(' ').slice(0,950), controls:controls.map(ref=>ref.name)};
 }
 
@@ -226,8 +226,9 @@ export class JourneyInteraction {
     }
     return {page,image:'data:image/jpeg;base64,'+jpeg};
   }
-  async act(action:'tap'|'scroll'|'wait', index:number) {
+  async act(action:'tap'|'scroll'|'wait', index:number, sent:(kind:'tap'|'scroll'|'wait'|'navigate')=>void) {
     if (action==='wait') {
+      sent('wait');
       await delay(1100,undefined,{signal:this.signal});
       return true;
     }
@@ -239,6 +240,7 @@ export class JourneyInteraction {
       await cdp.sendCommand('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[target]});
       await cdp.sendCommand('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     }
+    sent(action==='tap' && point===true?'navigate':action);
     await delay(380,undefined,{signal:this.signal});
     const end=Date.now()+10000;
     while(!this.documentReady && Date.now()<end) await delay(100,undefined,{signal:this.signal});
@@ -268,6 +270,8 @@ export class JourneyPage {
     signal.addEventListener('abort',stop,{once:true});
     this.detach=()=>signal.removeEventListener('abort',stop);
   }
+
+  get surface(){return this.win.webContents;}
 
   async open(address:string) {
     const wc=this.win.webContents;
