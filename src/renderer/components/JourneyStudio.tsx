@@ -35,6 +35,7 @@ function VisitReview({report,bridge,preview,aperture,open}: {aperture:HTMLElemen
   const observations=visit?observedRevisits(visit):[];
   const lastInput=visit?.inputs?.at(-1);
   const recording=film?.visit===visitIndex ? film.recording : null;
+  const showingRecording=!following && !!recording && !inspectStep;
   useEffect(()=>{
     let current=true;
     if(open && report.kind==='audience' && report.status!=='running')
@@ -63,7 +64,7 @@ function VisitReview({report,bridge,preview,aperture,open}: {aperture:HTMLElemen
   const screen = following ? (live && (preview || compactView==='screen')
     ? <LiveVisit key={report.id+visitIndex} bridge={bridge} run={report.id} visit={visitIndex}/>
     : <section className="journey-live-screen"><p role="status">{report.message}</p></section>)
-    : recording && !inspectStep ? (open && <RecordedVisit film={recording} start={playback}/>)
+    : showingRecording ? (open && <RecordedVisit film={recording} start={playback}/>)
     : <section className="journey-screen" aria-label="Captured screen">
       {frame ? <>
         <div className="journey-location"><small>{playing?'Replaying captured steps':'Captured step'}</small><span>{readableJourneyLocation(visit?.source || new URL(report.origin).host)}</span><strong>{frame.title || readableJourneyLocation(frame.path)}</strong></div>
@@ -93,7 +94,7 @@ function VisitReview({report,bridge,preview,aperture,open}: {aperture:HTMLElemen
         <span>Visit {i+1} · {outcome[v.outcome]}</span><strong>{v.persona}</strong>{v.source && <small>{readableJourneyLocation(v.source)}</small>}
       </button>)}
       {!visit && <p role="status">{report.message}</p>}
-      {visit && <><h3>Visit steps</h3><ol>{visit.frames.map((f,i)=><li key={f.id}><button aria-current={i===step?'step':undefined} onClick={()=>{select(visitIndex,i);if(!preview)setCompactView('screen');}}>
+      {visit && <><h3>Visit steps</h3><ol>{visit.frames.map((f,i)=><li key={f.id}><button aria-current={!showingRecording && i===step?'step':undefined} onClick={()=>{select(visitIndex,i);if(!preview)setCompactView('screen');}}>
         <span className="journey-step-number">{i+1}</span><div><strong>{f.action}</strong><small>{f.observation ? (f.action==='Arrived'?'Page opened':'Agent decision') : 'Stage installation'} · {readableJourneyLocation(f.path)}</small></div></button></li>)}</ol>
         {visit.note && <p className="journey-note"><b>{outcome[visit.outcome]}</b>{visit.note}</p>}</>}
       {visit?.inputs && <section className="journey-trace"><h3>Recorded inputs · {visit.inputs.length}</h3>

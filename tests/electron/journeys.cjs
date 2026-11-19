@@ -107,6 +107,7 @@ server.listen(0,'127.0.0.1',async()=>{
   }
   assert.equal(posts,0);assert.equal(apiCalls,7);assert(!JSON.stringify(report).includes('fixture-key'));
   await until(()=>js("!!document.querySelector('.journey-photo img[alt=\"Recorded visitor viewport\"]')?.naturalWidth"),'recorded visit');
+  assert.equal(await js("document.querySelector('.journey-log [aria-current=step]')"),null,'an independently playing recording has no selected observation');
   await capture('journey-review');
   await js("Array.from(document.querySelectorAll('.journey-log ol button')).find(b=>b.innerText.includes('Find a session')).click()");
   await until(()=>js("document.querySelector('.journey-photo img')?.alt==='Screen after Find a session'"),'step review');
