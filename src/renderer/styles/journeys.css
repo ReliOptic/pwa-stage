@@ -34,7 +34,7 @@
 .journey-log li button {display:flex;align-items:baseline;gap:12px;}.journey-log li button>span {font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted);}
 .journey-note {border-top:1px solid var(--line);margin-top:16px;padding-top:12px;font-size:14px;}.journey-note b {display:block;}
 .journey-link {margin-top:10px;border:0;background:transparent;text-decoration:underline;}
-.journey-screen {background:#edf0ea;text-align:center;border-left:1px solid var(--line);}.journey-location {margin-bottom:12px;}
+.journey-screen {background:#edf0ea;text-align:center;border-left:1px solid var(--line);}.journey-location {margin-bottom:12px;overflow-wrap:anywhere;}
 .journey-photo {height:clamp(240px,51vh,650px);display:grid;place-items:center;}.journey-photo img {max-width:100%;max-height:100%;min-height:0;border-radius:9px;box-shadow:0 2px 10px #283c2d26;}
 .journey-playback {justify-content:center;margin:12px 0;font-size:12px;}.journey-playback button {background:#fff;border:1px solid var(--line);border-radius:6px;min-width:32px;height:30px;display:grid;place-items:center;}
 @media(max-width:740px){.journey-fields section,.journey-log,.journey-screen{padding:16px;}.journeys{padding-inline:16px;}}

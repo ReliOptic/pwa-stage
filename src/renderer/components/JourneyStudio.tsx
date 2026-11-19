@@ -4,6 +4,7 @@ import { DEFAULT_JOURNEY_MODEL, MAX_ACTIONS, MAX_VISITS, type JourneyReport, typ
 import { DEVICE_PRESETS } from '../../config/device-presets.config';
 import { DeviceModelId } from '../../types/device.types';
 import type { StageCheckRequest } from '../../types/journey.types';
+import { readableJourneyLocation } from '../../utils/journey-location.util';
 import '../styles/journeys.css';
 
 declare global { interface Window { readonly journeyStudio?: JourneyStudioApi } }
@@ -36,17 +37,17 @@ function VisitReview({report,bridge}: {report:JourneyReport; bridge:JourneyStudi
     <aside className="journey-log">
       <h2>Visits <small>{report.visits.length} / {report.iterations}</small></h2>
       {report.visits.map((v,i)=><button className="journey-visit" key={i} aria-pressed={i===visitIndex} onClick={()=>select(i,0)}>
-        <span>Visit {i+1} · {outcome[v.outcome]}</span><strong>{v.persona}</strong>{v.source && <small>{v.source}</small>}
+        <span>Visit {i+1} · {outcome[v.outcome]}</span><strong>{v.persona}</strong>{v.source && <small>{readableJourneyLocation(v.source)}</small>}
       </button>)}
       {!visit && <p role="status">{report.message}</p>}
       {visit && <><h3>Journey steps</h3><ol>{visit.frames.map((f,i)=><li key={f.id}><button aria-current={i===step?'step':undefined} onClick={()=>select(visitIndex,i)}>
-        <span>{i+1}</span><div><strong>{f.action}</strong><small>{f.path}</small></div></button></li>)}</ol>
+        <span>{i+1}</span><div><strong>{f.action}</strong><small>{readableJourneyLocation(f.path)}</small></div></button></li>)}</ol>
         {visit.note && <p className="journey-note"><b>{outcome[visit.outcome]}</b>{visit.note}</p>}</>}
       {picked && report.status==='running' && <button className="journey-link" onClick={()=>{setPlaying(false);setPicked(null);}}>Follow live visit</button>}
     </aside>
     <section className="journey-screen" aria-label="Captured screen">
       {frame ? <>
-        <div className="journey-location"><span>{visit?.source || new URL(report.origin).host}</span><strong>{frame.title || frame.path}</strong></div>
+        <div className="journey-location"><span>{readableJourneyLocation(visit?.source || new URL(report.origin).host)}</span><strong>{frame.title || readableJourneyLocation(frame.path)}</strong></div>
         <div className="journey-photo">{picture?.id===frame.id && <img src={picture.url} alt={'Screen after '+frame.action}/>}</div>
         <div className="journey-playback"><button aria-label="Previous step" disabled={step===0} onClick={()=>select(visitIndex,step-1)}><ChevronLeft size={17}/></button>
           <button aria-label={playing?'Pause replay':'Replay visit'} disabled={visit.frames.length<2} onClick={()=>{if(playing)setPlaying(false);else {setPicked({visit:visitIndex,step:0});setPlaying(true);}}}>{playing?<Pause size={15}/>:<Play size={15}/>}</button>

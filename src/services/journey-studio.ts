@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import { getDevicePresetById } from '../config/device-presets.config';
 import { isTrustedShellSender } from './security';
 import { MenuControllerContext, readCurrentState } from './menubar';
+import { readableJourneyLocation } from '../utils/journey-location.util';
 import { serveJourneySource } from './journey-source';
 import { StageSession, type InspectGuest } from './stage-session';
 import { BrowserShellMode, type SimulatorState } from '../types/simulator.types';
@@ -20,8 +21,8 @@ function escapeHtml(value:string) {
 
 function reportHtml(report:JourneyReport, images:Map<number,string>) {
   const e=escapeHtml;
-  const visits=report.visits.map((visit,i)=>`<section><h2>${i+1}. ${e(visit.persona)}</h2><p>${e(visit.source || report.origin)}</p>${visit.installation ? `<p>Home Screen launch · ${e(visit.installation.path)} · ${visit.installation.manifest?"Manifest read":"Website shortcut"}</p>` : ""}<p>${e(visit.outcome)} · ${e(visit.note)}</p><ol>${visit.frames.map(f=>
-    `<li><h3>${e(f.action)}</h3><p>${e(f.title)} · ${e(f.path)}</p><img alt="Captured page" src="${images.get(f.id) ?? ''}"><p>${e(f.reason)}</p>${f.observation?'<details><summary>Page observations</summary><p>'+e(f.observation.text)+'</p><p>'+f.observation.controls.map(e).join(' · ')+'</p></details>':''}</li>`).join('')}</ol></section>`).join('');
+  const visits=report.visits.map((visit,i)=>`<section><h2>${i+1}. ${e(visit.persona)}</h2><p>${e(readableJourneyLocation(visit.source || report.origin))}</p>${visit.installation ? `<p>Home Screen launch · ${e(readableJourneyLocation(visit.installation.path))} · ${visit.installation.manifest?"Manifest read":"Website shortcut"}</p>` : ""}<p>${e(visit.outcome)} · ${e(visit.note)}</p><ol>${visit.frames.map(f=>
+    `<li><h3>${e(f.action)}</h3><p>${e(f.title)} · ${e(readableJourneyLocation(f.path))}</p><img alt="Captured page" src="${images.get(f.id) ?? ''}"><p>${e(f.reason)}</p>${f.observation?'<details><summary>Page observations</summary><p>'+e(f.observation.text)+'</p><p>'+f.observation.controls.map(e).join(' · ')+'</p></details>':''}</li>`).join('')}</ol></section>`).join('');
   return `<!doctype html><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><title>Audience journeys</title><style>body{max-width:1000px;margin:40px auto;padding:0 24px;font:16px/1.5 system-ui;background:#faf9f6;color:#212c29}ol{display:flex;flex-wrap:wrap;gap:22px;padding:0;list-style:none}li{width:230px;overflow-wrap:anywhere}img{max-width:100%;max-height:360px;border-radius:12px}section{border-top:1px solid #bbb}</style><h1>Audience journeys</h1><p>${e(report.origin)} · ${e(report.device)} · ${e(report.model)}</p><p>${e(report.goal)}</p><p>Simulated visits · ${e(report.status)} · ${e(report.message)}</p>${visits}`;
 }
 
