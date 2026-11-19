@@ -58,7 +58,8 @@ import {
 } from './services/reboot-server';
 import {
   setFloatingPin,
-  toggleFloatingWindowVisibility
+  toggleFloatingWindowVisibility,
+  workspaceWindowSize
 } from './services/window-manager';
 import { DeviceModelId } from './types/device.types';
 import {
@@ -193,14 +194,18 @@ function registerIpcHandlers(ctx: MenuControllerContext): void {
     const win = ctx.getWindow();
     if (!win || typeof open !== 'boolean') return;
     if (open !== agentPanelOpen) {
-      const position = win.getPosition();
+      const bounds = win.getBounds();
+      const area = screen.getDisplayMatching(bounds).workArea;
+      const state = readCurrentState(deps);
+      const metrics = computeViewportMetrics(getDevicePresetById(state.selectedDeviceId), state.orientation, state.scale, state.isFramed, state.hudCollapsed);
+      const size = workspaceWindowSize(metrics.scaledOuterWidth, metrics.scaledOuterHeight, open ? area : undefined);
+      const restore = !open && anchor && bounds.x === anchor.expanded[0] && bounds.y === anchor.expanded[1];
+      const [preferredX, preferredY] = restore && anchor ? anchor.original : [bounds.x,bounds.y];
+      const x = Math.max(area.x, Math.min(preferredX, area.x + area.width - size.width));
+      const y = Math.max(area.y, Math.min(preferredY, area.y + area.height - size.height));
       agentPanelOpen = open;
-      handleGetInitialPayload(deps);
-      if (!open && anchor && position[0] === anchor.expanded[0] && position[1] === anchor.expanded[1]) {
-        win.setPosition(anchor.original[0], anchor.original[1]);
-      }
-      keepWindowInWorkArea(win, false);
-      anchor = open ? { original: position, expanded: win.getPosition() } : undefined;
+      win.setBounds({ x, y, ...size }, false);
+      anchor = open ? { original: [bounds.x,bounds.y], expanded: [x,y] } : undefined;
     }
     win.webContents.send('simulator:agent-panel', open);
   });

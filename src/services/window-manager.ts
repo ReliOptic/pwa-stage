@@ -1,6 +1,7 @@
 import { Result, WindowOperationError } from '../types/simulator.types';
 import {
   NativeFloatingWindow,
+  NativeWindowBounds,
   WindowResizeRequest,
   WindowStateSnapshot
 } from '../types/window-manager.types';
@@ -10,6 +11,14 @@ import { computeViewportMetrics } from '../utils/viewport-math.util';
 // The initial workspace policy must be applied even if BrowserWindow was
 // constructed at the requested floating level.
 const appliedPin = new WeakMap<NativeFloatingWindow, boolean>();
+
+export function workspaceWindowSize(width:number, height:number, area?:NativeWindowBounds): NativeWindowBounds {
+  if(!area)return {width,height};
+  return {
+    width: Math.max(width, Math.min(width + 368, area.width - 16)),
+    height: Math.max(height, Math.min(580, area.height - 16))
+  };
+}
 
 export function applyDeviceWindowBounds(
   win: NativeFloatingWindow,
@@ -39,11 +48,9 @@ export function applyDeviceWindowBounds(
       request.hudCollapsed ?? false
     );
 
-    const area = request.agentWorkArea;
-    const deviceWidth = metrics.scaledOuterWidth;
-    const deviceHeight = metrics.scaledOuterHeight;
-    const windowWidth = area ? Math.max(deviceWidth, Math.min(deviceWidth + 368, area.width - 16)) : deviceWidth;
-    const windowHeight = area ? Math.max(deviceHeight, Math.min(580, area.height - 16)) : deviceHeight;
+    const {width:windowWidth,height:windowHeight} = workspaceWindowSize(
+      metrics.scaledOuterWidth, metrics.scaledOuterHeight, request.agentWorkArea
+    );
     const [width, height] = win.getSize();
     if (width !== windowWidth || height !== windowHeight) {
       win.setSize(windowWidth, windowHeight, request.animate ?? false);

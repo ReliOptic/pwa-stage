@@ -76,7 +76,7 @@ server.listen(0,'127.0.0.1',async()=>{
   assert(studio.getSize()[0]>=original[0]);
   await js("document.querySelector('[aria-label=\"Close Agent\"]').click()");
   await until(()=>js("document.querySelector('.agent-panel').hidden"),'collapse panel');
-  assert.deepEqual(shell.getSize(),original);
+  await until(()=>shell.getSize().every((n,i)=>n===original[i]),'native window restored to device size');
   assert.equal(await js("document.querySelector('webview').getWebContentsId()"),guestId);
   await js("document.querySelector('.agent-toggle').click()");
   await until(()=>js("!document.querySelector('.agent-panel').hidden"),'reopen panel');
