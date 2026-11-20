@@ -144,6 +144,16 @@ export function HardwareCutout(props: {
   );
 }
 
+function DeviceTime({period=false}:{period?:boolean}) {
+  const [now,setNow]=React.useState(()=>new Date());
+  React.useEffect(()=>{
+    const timer=window.setTimeout(()=>setNow(new Date()),60000-Date.now()%60000);
+    return ()=>window.clearTimeout(timer);
+  },[now]);
+  const parts=new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).formatToParts(now);
+  return <>{parts.filter(p=>period || p.type!=='dayPeriod').map(p=>p.value).join('').trim()}</>;
+}
+
 function DuoVerticalSystemRail(props: {
   readonly preset: DevicePreset;
   readonly darkMode: boolean;
@@ -168,7 +178,7 @@ function DuoVerticalSystemRail(props: {
       }}
     >
       <div className="ios-duo-v68-status">
-        <span className="ios-v68-time">9:41</span>
+        <span className="ios-v68-time"><DeviceTime/></span>
         <DuoStatusRing darkMode={props.darkMode} />
       </div>
 
@@ -218,7 +228,7 @@ export function IosStatusBar(props: BrowserShellOverlayProps): React.ReactElemen
             style={{ width: '13px', height: '10px' }}
           />
         </span>
-        <span className="ios-status-classic-time">9:41 AM</span>
+        <span className="ios-status-classic-time"><DeviceTime period/></span>
         <span className="ios-status-classic-side ios-status-classic-right">
           <span className="ios-status-classic-pct">100%</span>
           <img
@@ -244,7 +254,7 @@ export function IosStatusBar(props: BrowserShellOverlayProps): React.ReactElemen
   return (
     <div className="ios-status-horizontal" style={{ color: fgColor }}>
       <div className={hasIsland ? 'ios-status-ear-left' : 'ios-status-pad-left'} style={statusStyle}>
-        <span className="ios-status-time">9:41</span>
+        <span className="ios-status-time"><DeviceTime/></span>
       </div>
       <div className={hasIsland ? 'ios-status-ear-right' : 'ios-status-pad-right'} style={statusStyle}>
         <StatusRightCluster darkMode={darkMode} />

@@ -8,8 +8,8 @@ export function resolveHomeLayout(width: number, height: number, rail = 0, safeT
   const shortSide = Math.min(width, height);
   const standard = rail || shortSide > 600 ? 60 : Math.round(Math.max(58, Math.min(68, 64 * shortSide / 402)));
   const icon = standard + (largeIcons ? 8 : 0);
-  const panelWidth = rail ? (inner ? 340 : width - rail - 50) : Math.min(width - 56, 390);
-  const left = rail ? (inner ? width - rail - 405 : 28) : (width - panelWidth) / 2;
+  const panelWidth = rail ? (inner ? width - rail - 96 : width - rail - 50) : Math.min(width - 56, 390);
+  const left = rail ? (inner ? 48 : 28) : (width - panelWidth) / 2;
   const top = rail ? 54 : landscape ? 24 : safeTop + (compact ? 18 : 28);
   const widget = (panelWidth - 22) / 2;
   const dockHeight = rail ? 266 : standard + (compact ? 26 : 36);
@@ -22,13 +22,14 @@ export function resolveHomeLayout(width: number, height: number, rail = 0, safeT
   const rows = Math.max(1, Math.min(landscape ? 2 : 6,
     1 + Math.floor((gridBottom - gridTop - icon - 19) / (icon + 16))));
   const pitch = rows > 1 ? Math.min(100, (gridBottom - gridTop - icon - 19) / (rows - 1)) : icon + 19;
-  return { inner, landscape, icon, panelWidth, left, top, widget, gridTop, rows,
-    pitch: Math.max(icon + 16, pitch), capacity: rows * 4, dockHeight, dockBottom, searchTop, pageDotsTop,
+  const columns = inner ? 8 : 4;
+  return { columns, inner, landscape, icon, panelWidth, left, top, widget, gridTop, rows,
+    pitch: Math.max(icon + 16, pitch), capacity: rows * columns, dockHeight, dockBottom, searchTop, pageDotsTop,
     dockIcon: rail ? (largeIcons ? 54 : 48) : icon,
     dockWidth: rail ? 72 : Math.min(width - 32, panelWidth + 24),
     dockGap: Math.max(8, (panelWidth - icon) / 3 - icon),
     dockRadius: rail ? 28 : Math.round(dockHeight * .38),
-    labelWidth: Math.floor((panelWidth - icon) / 3) - 4,
+    labelWidth: Math.floor((panelWidth - icon) / (columns - 1)) - 4,
     label: shortSide <= 375 ? 11.5 : 12 };
 }
 

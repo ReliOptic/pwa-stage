@@ -83,7 +83,6 @@ export interface ScreenContextValue {
   readonly permission: PermissionPromptState | null;
   readonly darkMode: boolean;
   readonly goHome: () => void;
-  readonly resumeApp: (origin: LaunchOrigin) => void;
   readonly launchApp: (app: InstalledWebApp | 'safari' | 'chrome', origin: LaunchOrigin) => void;
   readonly openSheet: (kind: ScreenSheetState['kind']) => void;
   readonly addToHome: (name: string, opensAsWebApp: boolean) => void;
@@ -119,7 +118,6 @@ export const ScreenContext = createContext<ScreenContextValue>({
   permission: null,
   darkMode: true,
   goHome: noop,
-  resumeApp: noop,
   launchApp: noop,
   openSheet: noop,
   addToHome: noop,
@@ -256,12 +254,9 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
   const updateNavigation = (patch: Partial<HomeNavigation>): void => screen.setHomeNavigation({ ...screen.homeNavigation, ...patch });
   const rail = props.trailingInset ?? 0;
   const layout = resolveHomeLayout(props.width, props.height, rail, props.safeTop, screen.largeIcons);
-  const currentSite = layout.inner && !searching && requestedPage===0 ? URL.parse(screen.currentUrl) : null;
-  const activePage = screen.report?.inspection;
-  const siteTitle = activePage?.url===screen.currentUrl && activePage.title ? activePage.title : currentSite?.hostname;
   const apps = [
-    ...homeTools.map(tool => ({kind:'tool' as const, name:tool.name, tool})),
-    ...screen.installedApps.map(app => ({kind:'site' as const, name:app.name, app}))
+    ...screen.installedApps.map(app => ({kind:'site' as const, name:app.name, app})),
+    ...homeTools.map(tool => ({kind:'tool' as const, name:tool.name, tool}))
   ].filter(item => item.name.toLowerCase().includes(query.trim().toLowerCase()));
   const { pages, page } = resolveHomePage(apps.length, layout.capacity, requestedPage);
   const paging = useHomePaging(page, pages, next => updateNavigation({page:next}), !props.mirror && !searching && screen.phase==='home');
@@ -271,7 +266,7 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
     '--home-label-width': `${layout.labelWidth}px`, '--home-label-size': `${layout.label}px`,
     '--home-dock-width': `${layout.dockWidth}px`, '--home-dock-gap': `${layout.dockGap}px`,
     '--home-dock-radius': `${layout.dockRadius}px`,
-    '--home-icon': `${layout.icon}px`, '--home-panel': `${layout.panelWidth}px`,
+    '--home-columns': layout.columns, '--home-icon': `${layout.icon}px`, '--home-panel': `${layout.panelWidth}px`,
     '--home-left': `${layout.left}px`, '--home-top': `${layout.top}px`,
     '--home-widget': `${layout.widget}px`, '--home-grid-top': `${layout.gridTop}px`,
     '--home-dots-top': `${layout.pageDotsTop}px`, '--home-pitch': `${layout.pitch}px`, '--home-search-top': `${layout.searchTop}px`,
@@ -282,10 +277,6 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
   return (
     <div {...paging} className={`home-screen home-screen-${preview ? 'preview' : screen.phase} ${rail ? 'home-with-rail' : ''} ${layout.landscape ? 'home-landscape' : ''}`} style={style} ref={el => { if (el) el.inert = Boolean(preview || props.mirror || isHomeTool(screen.sheet.kind)); }} aria-hidden={preview || props.mirror || undefined}>
       <div className="home-wallpaper" aria-hidden="true"><i /><i /><i /></div>
-      {currentSite && /^https?:$/.test(currentSite.protocol) && <button className="home-current-site"
-        aria-label={'Resume '+siteTitle} onClick={e=>screen.resumeApp(originFromEvent(e))}>
-        <span>Current website</span><strong>{siteTitle}</strong><small>{currentSite.host}</small>
-      </button>}
       <div className="home-grid" aria-label="Home Screen apps">
          {visible.map(item => item.kind === 'tool'
           ? <AppIcon key={item.tool.kind} label={item.name} size={layout.icon} hideLabel={screen.largeIcons}

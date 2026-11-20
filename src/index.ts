@@ -634,6 +634,12 @@ export function bootstrapElectronApp(): void {
     const rebootRoot = resolveRebootStaticRoot(__dirname, process.resourcesPath);
     const rebootServerUrl = await startEmbeddedRebootServer(rebootRoot, 18765);
     const deps = buildCoordinatorDependencies(rebootServerUrl);
+    // A previous media session must not autoplay on the next cold launch.
+    const stored=readCurrentState(deps);
+    const host=URL.parse(stored.currentUrl)?.hostname ?? '';
+    if (/(^|\.)youtube\.com$|^youtu\.be$/i.test(host)) {
+      handleUpdateSimulatorState(deps,{...stored,currentUrl:deps.envConfig.defaultTargetUrl});
+    }
     // A background service worker can start before there is a page to attach to.
     app.userAgentFallback = buildMobileUserAgent(readCurrentState(deps).shellMode,
       deps.envConfig.safariIosVersion, deps.envConfig.chromeIosVersion);

@@ -16,10 +16,11 @@ describe('Home Screen reference layout', () => {
       if (!rail) expect(l.searchTop + 28).toBeLessThanOrEqual(preset.height - l.dockBottom - l.dockHeight);
     });
   }
-  it('reserves the inner left widget area and uses a smaller vertical dock', () => {
+  it('uses both inner leaves and uses a smaller vertical dock', () => {
     const inner = resolveHomeLayout(951, 669, 84, 20);
     expect(inner.inner).toBe(true);
-    expect(inner.left).toBeGreaterThan(66 + 338);
+    expect(inner.left).toBeLessThan(66);
+    expect(inner.columns).toBe(8);
     expect(inner.dockIcon).toBe(48);
     expect(inner.gridTop).toBe(inner.top);
     expect(resolveHomeLayout(466, 678, 84, 24).inner).toBe(false);

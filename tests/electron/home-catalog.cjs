@@ -44,11 +44,11 @@ app.whenReady().then(async()=>{
           dockIcon:dock.querySelector('button').offsetWidth};
       })()`),preset.id+' '+orientation);
       const labels=result.icons.map(item=>item.label);
-      assert.deepEqual(labels,['Settings','Manifest','PWA Checks','Viewport','Web Apps','Instagram','X'].slice(0,labels.length));
+      assert.deepEqual(labels,['Instagram','X','Settings','Manifest','PWA Checks','Viewport','Web Apps'].slice(0,labels.length));
       assert(result.gridWidth>=4*result.icons[0].width);
       for(let i=1;i<result.icons.length;i++){
         const icon=result.icons[i], previous=result.icons[i-1];
-        if(i%4) assert(icon.left>=previous.left+previous.width);
+        if(i%(result.gridWidth>600?8:4)) assert(icon.left>=previous.left+previous.width);
         else assert(icon.top>=previous.top+previous.width);
       }
       // A marker round trip also lets the host finish its native resize.
