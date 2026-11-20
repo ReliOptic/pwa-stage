@@ -1,6 +1,6 @@
 {
   "name": "macos-iphone-pwa-simulator",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "description": "Floating macOS and Windows iPhone & iPhone Duo simulator for Progressive Web App developers",
   "main": "dist-electron/index.js",
   "author": "reliqbit",

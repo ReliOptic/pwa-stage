@@ -144,8 +144,6 @@ function OptionRow({icon,title,value,name,children}:{
   </details>;
 }
 
-const FIRST_VISIT_GOAL = 'Explore this site as a first-time visitor. Identify its main purpose and try its primary user flow.';
-
 function SiteTitle({address}:{address:string}){
   let title=address;
   try {const url=new URL(address);title=url.hostname || url.pathname;} catch {}
@@ -190,7 +188,7 @@ export function JourneyStudio({bridge,open,currentUrl,aperture,onClose,onRunning
 }) {
   const [address,setAddress]=useState(''), [goal,setGoal]=useState(''), [audiences,setAudiences]=useState('');
   const [coverage,setCoverage]=useState<Coverage>({sources:null,deviceId:'current',browser:'current'});
-  const [kind,setKind]=useState<'audience'|'install'>('install');
+  const [kind,setKind]=useState<'audience'|'install'>('audience');
   const [useLocal,setUseLocal]=useState(false),[endpoint,setEndpoint]=useState('http://127.0.0.1:8080/v1'),[localModel,setLocalModel]=useState('');
   const [currentPage,setCurrentPage]=useState('');
   const [recordScreen,setRecordScreen]=useState(true);
@@ -264,7 +262,7 @@ export function JourneyStudio({bridge,open,currentUrl,aperture,onClose,onRunning
     catch(e){setError(e instanceof Error?e.message:'Could not open source.');return null;}
   };
   const start=(e:FormEvent)=>{
-    e.preventDefault();if(connection!=='ready')return;return submit(()=>bridge.start({address,goal:goal.trim() || FIRST_VISIT_GOAL,audiences:audiences.split('\n').map(a=>a.trim()).filter(Boolean),
+    e.preventDefault();if(connection!=='ready' || !goal.trim())return;return submit(()=>bridge.start({address,goal:goal.trim(),audiences:audiences.split('\n').map(a=>a.trim()).filter(Boolean),
       iterations,apiKey:useLocal?'':apiKey,model:useLocal?localModel:model,localEndpoint:useLocal?endpoint:undefined,material,installFirst,planDevice,shareScreen,recordScreen}));
   };
   const blockedChecks=report?.kind==='install' && report.status==='completed' && report.visits.length>0 &&
@@ -305,8 +303,11 @@ export function JourneyStudio({bridge,open,currentUrl,aperture,onClose,onRunning
       }}><fieldset disabled={running || pending}>
       <div className="journey-fields">
         <SiteTitle address={address}/>
-        <p className="journey-intro">Watch a first-time visitor explore the site and try its main feature.</p>
-        <button className="journey-primary" type="submit" disabled={connection!=='ready' || !address.trim()}>{running?'Run in progress':iterations===1?'Start visit':'Start visits'}<ArrowRight size={16}/></button>
+        <section className="journey-brief journey-task">
+          <label className="journey-field-caption" htmlFor="agent-goal">What should the agent check?</label>
+          <textarea id="agent-goal" className="journey-goal" required rows={2} maxLength={500} value={goal} onChange={e=>setGoal(e.target.value)} placeholder="For example, can a first-time visitor find the opening hours?"/>
+        </section>
+        <button className="journey-primary" type="submit" disabled={connection!=='ready' || !goal.trim() || !address.trim()}>{running?'Run in progress':iterations===1?'Start visit':'Start visits'}<ArrowRight size={16}/></button>
         <div className="journey-group model-gate" data-connection={connection} onKeyDown={e=>{
           if(e.key==='Enter' && e.target instanceof HTMLInputElement){e.preventDefault();if(canVerify && connection!=='checking')void connect();}
         }}>
@@ -322,8 +323,6 @@ export function JourneyStudio({bridge,open,currentUrl,aperture,onClose,onRunning
         </div>
         <details className="journey-custom" open={!currentPage || undefined}><summary>Customize visit</summary>
         <section className="journey-brief">
-          <label className="journey-prompt" htmlFor="agent-goal">Visit goal (optional)</label>
-          <textarea id="agent-goal" aria-label="Customer goal" className="journey-goal" rows={3} maxLength={500} value={goal} onChange={e=>setGoal(e.target.value)} placeholder={FIRST_VISIT_GOAL}/>
           <div className="start-address-label"><label className="journey-field-caption" htmlFor="agent-address">Start address</label>
             {currentPage && address!==currentPage && <button type="button" className="use-current" onClick={()=>{addressEdited.current=false;setAddress(currentPage);}}>Use current page</button>}</div>
           <div className="journey-address"><Globe2 size={16}/><input id="agent-address" required maxLength={2048} value={address} onChange={e=>{addressEdited.current=true;setAddress(e.target.value);}} placeholder="https://your-pwa.com"/>

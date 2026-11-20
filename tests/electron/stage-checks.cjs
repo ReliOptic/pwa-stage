@@ -44,6 +44,7 @@ server.listen(0,'127.0.0.1',async()=>{
     fs.writeFileSync(path.join(out,name+'.png'),image.toPNG());
   }
   await wait(()=>js('!!document.querySelector(".journey-form")'),'form');
+  await js("document.querySelector('.journey-modes button:last-child').click()");
   await wait(()=>js("document.querySelector('#agent-addresses')?.value==="+JSON.stringify(base+'/')),'current site');
   assert.equal(await js("document.querySelector('.journey-custom').open"),false);
   assert.equal(await js("document.querySelector('.journey-primary').disabled"),false);

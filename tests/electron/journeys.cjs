@@ -79,7 +79,7 @@ server.listen(0,'127.0.0.1',async()=>{
   const js=code=>studio.webContents.executeJavaScript(code);
   await until(()=>js("!!document.querySelector('.journey-form')"),'brief form');
   const set=(selector,value)=>js(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-  await js("document.querySelector('.journey-modes button:first-child').click()");
+  assert(await js("document.querySelector('#agent-goal').checkVisibility()"));
   await set('#agent-address',site);
   assert.equal(await js("document.querySelector('#agent-goal').value"),'');
   assert.equal(await js("document.querySelector('.journey-model').open"),false);
@@ -97,6 +97,8 @@ server.listen(0,'127.0.0.1',async()=>{
   await js("document.querySelector('[aria-label=\"Add one visit\"]').click()");
   assert.equal(await js("document.querySelector('#agent-visits').value"),'2');
   async function capture(name){await sleep(180);fs.writeFileSync(path.join(out,name+'.png'),(await studio.webContents.capturePage()).toPNG());}
+  assert(await js("document.querySelector('.journey-primary').disabled"),'verified connection still needs a goal');
+  await set('#agent-goal','Find class times for a new swimmer');
   await capture('journey-setup');
   assert.equal(BrowserWindow.getAllWindows().filter(w=>w.isVisible()).length,1);
   assert(studio.getSize()[0]>=original[0]);
@@ -110,6 +112,7 @@ server.listen(0,'127.0.0.1',async()=>{
   const status=()=>js('window.journeyStudio.initial().then(x=>x.report)');
   await js("document.querySelector('.journey-primary').click()");
   const report=await until(async()=>{const r=await status();return r && r.status!=='running' && r;},'finished run');
+  assert.equal(report.goal,'Find class times for a new swimmer');
   assert.equal(report.status,'completed',report.message);assert.equal(report.visits.length,2);assert.notEqual(report.visits[0].persona,report.visits[1].persona);
   for(const v of report.visits){assert.deepEqual(v.frames.map(f=>f.action),['Arrived','Find a session','Class times']);assert.equal(v.outcome,'finished');}
   for(const v of report.visits){

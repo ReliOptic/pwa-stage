@@ -262,3 +262,5 @@
 .journey-custom > summary { padding:14px 0; cursor:pointer; color:var(--secondary); font-size:13px; font-weight:550; }
 .journey-custom > summary::after { content:'+'; float:right; }
 .journey-custom[open] > summary::after { content:'−'; }
+
+.journey-task { margin:12px 0 16px; }
