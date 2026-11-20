@@ -9,7 +9,7 @@ import {
   CornerDownLeft,
   FolderClosed,
   FolderOpen,
-  SlidersHorizontal,
+  Settings,
   PanelTopClose,
   Route,
   GripHorizontal,
@@ -431,7 +431,7 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
     onClick={() => onUpdateState({alwaysOnTop: !state.alwaysOnTop})}>
     {state.alwaysOnTop ? <Pin size={15}/> : <PinOff size={15}/>}</button>;
   const controlsButton = <button ref={trigger} type="button" className="tool-icon" aria-label="Device controls" title="Device controls"
-    aria-controls="device-controls" aria-expanded={toolsOpen} onClick={() => setToolsOpen(!toolsOpen)}><SlidersHorizontal size={16}/></button>;
+    aria-controls="device-controls" aria-expanded={toolsOpen} onClick={() => setToolsOpen(!toolsOpen)}><Settings size={16}/></button>;
   const agentButton = props.onJourneys && <button type="button" className="tool-icon agent-toggle"
     aria-label="Agent" aria-expanded={props.agentOpen} title={props.agentRunning ? 'Agent visit in progress' : 'Agent'}
     data-running={props.agentRunning} onClick={() => {setToolsOpen(false);props.onJourneys?.();}}>

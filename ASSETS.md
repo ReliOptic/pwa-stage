@@ -38,3 +38,5 @@ No demo PWA, sample apps, fake widgets, playlists or calendar/weather data ships
 Dependency notices remain under `public/licenses/`; their licences do not resolve ownership of the bundled model or hardware artwork.
 
 The six tiles under `public/web-app-icons/` use Font Awesome Free Brands 6.7.2 glyphs by Fonticons, Inc. (CC BY 4.0), scaled and coloured for the web app catalogue. The marks identify their respective services. See [upstream artwork](https://fontawesome.com/) and [bundled notice](public/licenses/fontawesome-free-brands.txt).
+
+The Home Screen Settings tile in `public/assets/settings-gear.svg` is original vector artwork. Its toothed rim, three spokes and inset wheel were compared visually with the Settings icon pictured in Apple’s iPhone User Guide. It is not extracted Apple artwork or a verified iOS 27.3 binary asset.

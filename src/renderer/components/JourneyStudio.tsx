@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, Pause, Play, Route, Square, Globe2, FolderOpen, FileText, UsersRound, SlidersHorizontal, Cable, Plus, Minus, Smartphone, Footprints, PanelsTopLeft } from 'lucide-react';
-import { DEFAULT_JOURNEY_MODEL, MAX_ACTIONS, MAX_VISITS, type JourneyReport, type JourneyStudioApi } from '../../types/journey.types';
+import { X, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, Pause, Play, Route, Square, Globe2, FolderOpen, FileText, UsersRound, SlidersHorizontal, Cable, Plus, Minus, Smartphone, Footprints, PanelLeft, PanelRight, PanelsTopLeft } from 'lucide-react';
+import { DEFAULT_JOURNEY_MODEL, MAX_VISITS, type JourneyReport, type JourneyStudioApi } from '../../types/journey.types';
 import { DEVICE_PRESETS } from '../../config/device-presets.config';
 import { DeviceModelId } from '../../types/device.types';
 import type { StageCheckRequest, VisitRecording } from '../../types/journey.types';
@@ -14,7 +14,7 @@ import '../styles/journeys.css';
 declare global { interface Window { readonly journeyStudio?: JourneyStudioApi } }
 
 
-function VisitReview({report,bridge,preview,aperture,open}: {aperture:HTMLElement|null;open:boolean;report:JourneyReport; bridge:JourneyStudioApi; preview:HTMLElement|null}) {
+function VisitReview({report,bridge,aperture,open}: {aperture:HTMLElement|null;open:boolean;report:JourneyReport; bridge:JourneyStudioApi}) {
   const [picked,setPicked]=useState<{visit:number;step:number}|null>(null);
   const [playing,setPlaying]=useState(false);
   const [film,setFilm]=useState<{visit:number;recording:VisitRecording}|null>(null);
@@ -29,8 +29,11 @@ function VisitReview({report,bridge,preview,aperture,open}: {aperture:HTMLElemen
   const frame=visit?.frames[step];
   const following=report.kind==='audience' && report.status==='running' && !picked;
   const live=following && open && report.liveVisit===visitIndex;
-  const target=live && aperture && aperture.dataset.device===report.liveDevice &&
-    aperture?.dataset.orientation===report.orientation?aperture:preview;
+  const target=live && aperture?.dataset.device===report.liveDevice &&
+    aperture?.dataset.orientation===report.orientation ? aperture : null;
+  const hasScreen=live || !!frame;
+  const showTabs=hasScreen && !target;
+  const view=showTabs ? compactView : 'steps';
   const reviewing=!following || history;
   const observations=visit?observedRevisits(visit):[];
   const lastInput=visit?.inputs?.at(-1);
@@ -61,11 +64,11 @@ function VisitReview({report,bridge,preview,aperture,open}: {aperture:HTMLElemen
     return ()=>window.clearTimeout(timer);
   },[playing,step,visitIndex,visit?.frames.length]);
   const select=(v:number,s:number)=>{setPlaying(false);setInspectStep(true);setPicked({visit:v,step:s});};
-  const screen = following ? (live && (preview || compactView==='screen')
+  const screen = following ? (live && (target || view==='screen')
     ? <LiveVisit key={report.id+visitIndex} bridge={bridge} run={report.id} visit={visitIndex}/>
     : <section className="journey-live-screen"><p role="status">{report.message}</p></section>)
     : showingRecording ? (open && <RecordedVisit film={recording} start={playback}/>)
-    : <section className="journey-screen" aria-label="Captured screen">
+    : !frame ? null : <section className="journey-screen" aria-label="Captured screen">
       {frame ? <>
         <div className="journey-location"><small>{playing?'Replaying captured steps':'Captured step'}</small><span>{readableJourneyLocation(visit?.source || new URL(report.origin).host)}</span><strong>{frame.title || readableJourneyLocation(frame.path)}</strong></div>
         <div className="journey-photo">{picture?.id===frame.id && <img src={picture.url} alt={'Screen after '+frame.action}/>}</div>
@@ -77,10 +80,10 @@ function VisitReview({report,bridge,preview,aperture,open}: {aperture:HTMLElemen
         {frame.observation && <details className="journey-observation"><summary>What the model saw</summary><p>{frame.observation.text}</p><p>{frame.observation.controls.join(' · ')}</p></details>}
       </> : <p>{report.status==='running'?'Waiting for the first captured screen.':'No screen was captured.'}</p>}
     </section>;
-  return <div className="journey-review" data-compact={!preview} data-view={compactView}>
-    {!preview && <nav className="journey-compact-tabs" aria-label="Review content">
-      <button aria-pressed={compactView==='screen'} onClick={()=>setCompactView('screen')}>{following?'Live screen':'Captured screen'}</button>
-      <button aria-pressed={compactView==='steps'} onClick={()=>setCompactView('steps')}>Visit steps</button>
+  return <div className="journey-review" data-compact={!target} data-view={view}>
+    {showTabs && <nav className="journey-compact-tabs" aria-label="Review content">
+      <button aria-pressed={compactView==='screen'} onClick={()=>setCompactView('screen')}>{following?'Live screen':'Screen'}</button>
+      <button aria-pressed={compactView==='steps'} onClick={()=>setCompactView('steps')}>Activity</button>
     </nav>}
     <aside className="journey-log">
       {following && <>
@@ -88,14 +91,14 @@ function VisitReview({report,bridge,preview,aperture,open}: {aperture:HTMLElemen
         {lastInput && <p className="journey-last-input">{elapsedTime(lastInput.elapsedMs)} · {lastInput.kind} · {lastInput.label}</p>}
         <button className="journey-link" aria-expanded={history} onClick={()=>setHistory(!history)}>{history?'Hide visit history':'Show visit history'}</button>
       </>}
-      {(reviewing || (!preview && compactView==='steps')) && <>
+      {(reviewing || (view==='steps')) && <>
       <h2>Visits <small>{report.visits.length} / {report.iterations}</small></h2>
       {report.visits.map((v,i)=><button className="journey-visit" key={i} aria-pressed={i===visitIndex} onClick={()=>{select(i,0);setInspectStep(false);setPlayback({at:0,play:false});}}>
         <span>Visit {i+1} · {outcome[v.outcome]}</span><strong>{v.persona}</strong>{v.source && <small>{readableJourneyLocation(v.source)}</small>}
       </button>)}
       {!visit && <p role="status">{report.message}</p>}
-      {visit && <><h3>Visit steps</h3><ol>{visit.frames.map((f,i)=><li key={f.id}><button aria-current={!showingRecording && i===step?'step':undefined} onClick={()=>{select(visitIndex,i);if(!preview)setCompactView('screen');}}>
-        <span className="journey-step-number">{i+1}</span><div><strong>{f.action}</strong><small>{f.observation ? (f.action==='Arrived'?'Page opened':'Agent decision') : 'Stage installation'} · {readableJourneyLocation(f.path)}</small></div></button></li>)}</ol>
+      {visit && <>{visit.frames.length>0 && <><h3>Visit steps</h3><ol>{visit.frames.map((f,i)=><li key={f.id}><button aria-current={!showingRecording && i===step?'step':undefined} onClick={()=>{select(visitIndex,i);setCompactView('screen');}}>
+        <span className="journey-step-number">{i+1}</span><div><strong>{f.action}</strong><small>{f.observation ? (f.action==='Arrived'?'Page opened':'Agent decision') : 'Stage installation'} · {readableJourneyLocation(f.path)}</small></div></button></li>)}</ol></>}
         {visit.note && <p className="journey-note"><b>{outcome[visit.outcome]}</b>{visit.note}</p>}</>}
       {visit?.inputs && <section className="journey-trace"><h3>Recorded inputs · {visit.inputs.length}</h3>
         {visit.inputs.map(input=><div className="journey-input" key={input.from}>
@@ -143,12 +146,12 @@ function OptionRow({icon,title,value,name,children}:{
 
 type Coverage = {sources:string|null;deviceId:string;browser:string};
 
-function StageCheckForm({address,device,coverage,onChange,disabled,onRun,pick}:{
-  address:string;device:string;coverage:Coverage;onChange:(patch:Partial<Coverage>)=>void;disabled:boolean;onRun:(r:StageCheckRequest)=>Promise<void>;pick:(k:'file'|'folder')=>Promise<string|null>
+function StageCheckForm({address,device,deviceId,activeBrowser,currentPage,coverage,onChange,disabled,onRun,pick}:{
+  address:string;device:string;deviceId:DeviceModelId;activeBrowser:'ios-safari'|'ios-chrome';currentPage:string;coverage:Coverage;onChange:(patch:Partial<Coverage>)=>void;disabled:boolean;onRun:(r:StageCheckRequest)=>Promise<void>;pick:(k:'file'|'folder')=>Promise<string|null>
 }){
-  const {sources,deviceId,browser}=coverage;
-  const selected=deviceId==='pair'?[DeviceModelId.IPHONE_SE_3,DeviceModelId.IPHONE_17_PRO_MAX]:[deviceId as DeviceModelId];
-  const browsers:StageCheckRequest['browsers']=browser==='both'?['ios-safari','ios-chrome']:[browser as 'ios-safari'|'ios-chrome'];
+  const {sources,browser}=coverage;
+  const selected=coverage.deviceId==='current'?[deviceId]:coverage.deviceId==='pair'?[DeviceModelId.IPHONE_SE_3,DeviceModelId.IPHONE_17_PRO_MAX]:[coverage.deviceId as DeviceModelId];
+  const browsers:StageCheckRequest['browsers']=browser==='both'?['ios-safari','ios-chrome']:browser==='current'?[activeBrowser]:[browser as 'ios-safari'|'ios-chrome'];
   const addresses=[...new Set((sources??address).split(/\r?\n/).map(x=>x.trim()).filter(Boolean))];
   const count=selected.length*browsers.length*addresses.length;
   return <form className="journey-form" onSubmit={e=>{e.preventDefault();void onRun({addresses,devices:selected,browsers});}}>
@@ -156,33 +159,52 @@ function StageCheckForm({address,device,coverage,onChange,disabled,onRun,pick}:{
       <section className="journey-brief">
         <label className="journey-prompt" htmlFor="agent-addresses">Which sites should we check?</label>
         <div className="journey-addresses"><textarea id="agent-addresses" aria-label="Start addresses" required rows={3} value={sources??address} onChange={e=>onChange({sources:e.target.value})} placeholder="One address per line"/></div>
-        <div className="journey-source-line"><span>One address per line</span><SourcePicker pick={async k=>{const url=await pick(k);if(url)onChange({sources:[sources??address,url].filter(Boolean).join('\n')});}}/></div>
+        <div className="journey-source-line"><span>One address per line</span>{currentPage && (sources??address)!==currentPage && <button className="use-current" type="button" onClick={()=>onChange({sources:currentPage})}>Use current page</button>}<SourcePicker pick={async k=>{const url=await pick(k);if(url)onChange({sources:[sources??address,url].filter(Boolean).join('\n')});}}/></div>
       </section>
       <section className="journey-section"><h2>Test coverage</h2><div className="journey-group">
-        <label className="journey-select-row"><Smartphone/><span>Devices</span><select value={deviceId} onChange={e=>onChange({deviceId:e.target.value})}><option value="pair">Compact and large iPhones</option>
+        <label className="journey-select-row"><Smartphone/><span>Devices</span><select value={coverage.deviceId} onChange={e=>onChange({deviceId:e.target.value})}><option value="current">Current · {device}</option><option value="pair">Compact and large iPhones</option>
           {DEVICE_PRESETS.map(p=><option key={p.id} value={p.id}>{p.name}{p.name===device?' (current)':''}</option>)}</select><ChevronDown/></label>
-        <label className="journey-select-row"><Globe2/><span>Browsers</span><select value={browser} onChange={e=>onChange({browser:e.target.value})}><option value="both">Safari and Chrome</option><option value="ios-safari">Safari</option><option value="ios-chrome">Chrome</option></select><ChevronDown/></label>
-      </div><p className="journey-footnote">Each check adds the site to the Home Screen and opens its installed icon.</p></section>
+        <label className="journey-select-row"><Globe2/><span>Browsers</span><select value={browser} onChange={e=>onChange({browser:e.target.value})}><option value="current">Current · {activeBrowser==='ios-chrome'?'Chrome':'Safari'}</option><option value="both">Safari and Chrome</option><option value="ios-safari">Safari</option><option value="ios-chrome">Chrome</option></select><ChevronDown/></label>
+      </div><p className="journey-footnote">Built-in check · Runs without a model. Adds each site to the Home Screen and opens its icon.</p></section>
     </div><footer><span>{count} of {MAX_VISITS} checks</span><button className="journey-primary" disabled={!count || count>MAX_VISITS}>Run checks <ArrowRight size={16}/></button></footer></fieldset></form>;
 
 }
 
-export function JourneyStudio({bridge,open,currentUrl,preview,aperture,onClose,onRunning}: {
+export function JourneyStudio({bridge,open,currentUrl,aperture,onClose,onRunning,side,onMove,device,activeDevice,activeBrowser}: {
   aperture:HTMLElement|null;
-  bridge:JourneyStudioApi; open:boolean; currentUrl:string; preview:HTMLElement|null;
+  bridge:JourneyStudioApi; open:boolean; currentUrl:string; device:string; activeDevice:DeviceModelId; activeBrowser:'ios-safari'|'ios-chrome'; side:'left'|'right'; onMove:()=>void;
   onClose:()=>void; onRunning:(running:boolean)=>void;
 }) {
   const [address,setAddress]=useState(''), [goal,setGoal]=useState(''), [audiences,setAudiences]=useState('');
-  const [coverage,setCoverage]=useState<Coverage>({sources:null,deviceId:'pair',browser:'both'});
+  const [coverage,setCoverage]=useState<Coverage>({sources:null,deviceId:'current',browser:'current'});
   const [kind,setKind]=useState<'audience'|'install'>('audience');
   const [useLocal,setUseLocal]=useState(false),[endpoint,setEndpoint]=useState('http://127.0.0.1:8080/v1'),[localModel,setLocalModel]=useState('');
+  const [currentPage,setCurrentPage]=useState('');
   const [recordScreen,setRecordScreen]=useState(true);
   const [planDevice,setPlanDevice]=useState(false),[shareScreen,setShareScreen]=useState(false);
   const [installFirst,setInstallFirst]=useState(false),[material,setMaterial]=useState('');
   const [model,setModel]=useState(DEFAULT_JOURNEY_MODEL), [apiKey,setApiKey]=useState(''), [iterations,setIterations]=useState(3);
-  const [device,setDevice]=useState(''), [envKey,setEnvKey]=useState(false), [report,setReport]=useState<JourneyReport|null>(null);
+  const [envKey,setEnvKey]=useState(false), [report,setReport]=useState<JourneyReport|null>(null);
   const [tab,setTab]=useState<'setup'|'review'>('setup'),[error,setError]=useState(''),[pending,setPending]=useState(false);
   const [saved,setSaved]=useState(false);
+  const [connection,setConnection]=useState<'off'|'checking'|'ready'|'failed'>('off');
+  const [connectionError,setConnectionError]=useState('');
+  const attempt=useRef(0);
+  const resetConnection=()=>{attempt.current++;setConnection('off');setConnectionError('');};
+  const canVerify=useLocal ? !!endpoint.trim() && !!localModel.trim() : !!model.trim() && (!!apiKey.trim() || envKey);
+  async function connect(){
+    const id=++attempt.current;
+    setConnection('checking');setConnectionError('');
+    try {
+      await bridge.verifyModel({apiKey:useLocal?'':apiKey,model:useLocal?localModel:model,localEndpoint:useLocal?endpoint:undefined});
+      if(attempt.current===id)setConnection('ready');
+    } catch(err){
+      if(attempt.current!==id)return;
+      setConnection('failed');
+      const message=(err instanceof Error?err.message:'Connection failed').replace(/^.*?Error: /,'');
+      setConnectionError(/fetch failed|ERR_CONNECTION|ECONNREFUSED/i.test(message)?'Could not reach the model server. Check the endpoint and try again.':message);
+    }
+  }
   const received=useRef(false);
   const addressEdited=useRef(false);
   useEffect(()=>{
@@ -190,11 +212,16 @@ export function JourneyStudio({bridge,open,currentUrl,preview,aperture,onClose,o
     const unsubscribe=bridge.subscribe(next=>{received.current=true;setReport(next);});
     void bridge.initial().then(initial=>{
       if(!current)return;
-      setDevice(initial.device);setEnvKey(initial.environmentKey);
+      setEnvKey(initial.environmentKey);
       if(!received.current && initial.report){setReport(initial.report);setTab('review');}
     }).catch(()=>{if(current)setError('Could not read the simulator settings.');});
     return ()=>{current=false;unsubscribe();};
   },[bridge]);
+  useEffect(()=>{
+    if(report?.status==='error' && /HTTP (401|402|403|404)|model returned|fetch failed|connection refused/i.test(report.message)){
+      setConnection('failed');setConnectionError(report.message);
+    }
+  },[report?.status,report?.message]);
   const running=report?.status==='running';
   const panel=useRef<HTMLElement>(null);
   useEffect(()=>{onRunning(running);},[running,onRunning]);
@@ -202,10 +229,12 @@ export function JourneyStudio({bridge,open,currentUrl,preview,aperture,onClose,o
     if (open) panel.current?.focus({preventScroll:true});
   },[open]);
   useEffect(()=>{
-    if (!open || addressEdited.current) return;
+    if (!open) return;
     let active=true;
     void bridge.initial().then(initial=>{
-      if(active && !addressEdited.current)setAddress(initial.address);
+      if(!active)return;
+      setCurrentPage(initial.address);
+      if(!addressEdited.current)setAddress(initial.address);
     }).catch(()=>{});
     return ()=>{active=false;};
   },[bridge,open,currentUrl]);
@@ -213,7 +242,7 @@ export function JourneyStudio({bridge,open,currentUrl,preview,aperture,onClose,o
     setPending(true);setError('');setSaved(false);
     try {
       await work();
-      setApiKey('');setTab('review');
+      setTab('review');
     } catch(err){setError((err instanceof Error?err.message:'Could not start.').replace(/^.*?Error: /,''));}
     finally{setPending(false);}
   };
@@ -222,9 +251,17 @@ export function JourneyStudio({bridge,open,currentUrl,preview,aperture,onClose,o
     catch(e){setError(e instanceof Error?e.message:'Could not open source.');return null;}
   };
   const start=(e:FormEvent)=>{
-    e.preventDefault();return submit(()=>bridge.start({address,goal,audiences:audiences.split('\n').map(a=>a.trim()).filter(Boolean),
+    e.preventDefault();if(connection!=='ready')return;return submit(()=>bridge.start({address,goal,audiences:audiences.split('\n').map(a=>a.trim()).filter(Boolean),
       iterations,apiKey:useLocal?'':apiKey,model:useLocal?localModel:model,localEndpoint:useLocal?endpoint:undefined,material,installFirst,planDevice,shareScreen,recordScreen}));
   };
+  const blockedChecks=report?.kind==='install' && report.status==='completed' && report.visits.length>0 &&
+    report.visits.every(v=>v.outcome==='blocked' && v.frames.length===0);
+  function editAddresses(){
+    const sources=[...new Set(report?.visits.map(v=>v.source).filter(Boolean))].join('\n');
+    if(sources)setCoverage(c=>({...c,sources}));
+    setKind('install');setTab('setup');
+    requestAnimationFrame(()=>document.getElementById('agent-addresses')?.focus());
+  }
   return <section className="journeys" ref={panel} tabIndex={-1}
     onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();onClose();}}}>
     <header className="journey-header"><div className="journey-brand"><Route size={22}/><h1>Agent</h1></div>
@@ -232,13 +269,14 @@ export function JourneyStudio({bridge,open,currentUrl,preview,aperture,onClose,o
         ? <button onClick={()=>setTab('review')}>Visit review<ChevronRight size={14}/></button>
         : <button onClick={()=>setTab('setup')}><ChevronLeft size={14}/>Set up</button>}
       </nav>}
+      <button className="agent-move" aria-label={side==='right'?'Move panel to the left':'Move panel to the right'} title={side==='right'?'Dock on left':'Dock on right'} onClick={onMove}>{side==='right'?<PanelLeft size={16}/>:<PanelRight size={16}/>}</button>
       <button className="agent-close" aria-label="Close Agent" title="Return to simulator" onClick={onClose}><X size={16}/></button>
     </header>
     {error && <p role="alert" className="journey-error">{error}</p>}
     {tab==='setup' && <nav className="journey-modes" aria-label="Run type">
-      <button aria-pressed={kind==='audience'} onClick={()=>setKind('audience')}><Footprints size={15}/>Visitor task</button>
-      <button aria-pressed={kind==='install'} onClick={()=>setKind('install')}><PanelsTopLeft size={15}/>Check installation</button></nav>}
-    {tab==='setup' && kind==='install'?<StageCheckForm address={address} device={device} coverage={coverage} onChange={patch=>setCoverage(current=>({...current,...patch}))} pick={pick} disabled={!!running || pending} onRun={r=>submit(()=>bridge.check(r))}/>:tab==='setup'?<form className="journey-form" onSubmit={start}
+      <button aria-pressed={kind==='audience'} onClick={()=>setKind('audience')}><Footprints size={15}/>AI visit</button>
+      <button aria-pressed={kind==='install'} onClick={()=>setKind('install')}><PanelsTopLeft size={15}/>Install check</button></nav>}
+    {tab==='setup' && kind==='install'?<StageCheckForm address={address} device={device} deviceId={activeDevice} activeBrowser={activeBrowser} currentPage={currentPage} coverage={coverage} onChange={patch=>setCoverage(current=>({...current,...patch}))} pick={pick} disabled={!!running || pending} onRun={r=>submit(()=>bridge.check(r))}/>:tab==='setup'?<form className="journey-form" onSubmit={start}
       onInvalidCapture={e=>{
         const field=e.target as HTMLInputElement;
         const row=field.closest('details');
@@ -248,10 +286,24 @@ export function JourneyStudio({bridge,open,currentUrl,preview,aperture,onClose,o
         }
       }}><fieldset disabled={running || pending}>
       <div className="journey-fields">
+        <div className="journey-group model-gate" data-connection={connection} onKeyDown={e=>{
+          if(e.key==='Enter' && e.target instanceof HTMLInputElement){e.preventDefault();if(canVerify && connection!=='checking')void connect();}
+        }}>
+            <OptionRow name="model" icon={<Cable/>} title="Model connection" value={connection==='ready'?'Verified':connection==='checking'?'Checking…':connection==='failed'?'Failed':'Disconnected'}>
+              <label>Model provider<select value={useLocal?'local':'openrouter'} onChange={e=>{resetConnection();setUseLocal(e.target.value==='local');}}><option value="openrouter">OpenRouter</option><option value="local">Local OpenAI-compatible server</option></select></label>
+              {useLocal && <label>Local endpoint<input required value={endpoint} onChange={e=>{resetConnection();setEndpoint(e.target.value);}}/></label>}
+              <label>Model ID<input required maxLength={160} value={useLocal?localModel:model} onChange={e=>{resetConnection();if(useLocal)setLocalModel(e.target.value);else setModel(e.target.value);}}/></label>
+              {!useLocal && <label>API key<input type="password" autoComplete="off" spellCheck={false} maxLength={512} required={!envKey} value={apiKey} onChange={e=>{resetConnection();setApiKey(e.target.value);}} placeholder={envKey?'Environment key available':'OpenRouter API key'}/></label>}
+            <p>The connection test sends one short request to the selected model.</p>
+              <button className="model-verify" type="button" disabled={!canVerify || connection==='checking'} onClick={()=>void connect()}>{connection==='checking'?'Testing…':connection==='ready'?'Test again':'Test connection'}</button>
+              {connectionError && <p role="alert">{connectionError}</p>}
+            </OptionRow>
+        </div>
         <section className="journey-brief">
           <label className="journey-prompt" htmlFor="agent-goal">What should a visitor do?</label>
           <textarea id="agent-goal" aria-label="Customer goal" className="journey-goal" required rows={3} maxLength={500} value={goal} onChange={e=>setGoal(e.target.value)} placeholder="Describe the task you want to observe…"/>
-          <label className="journey-field-caption" htmlFor="agent-address">Start address</label>
+          <div className="start-address-label"><label className="journey-field-caption" htmlFor="agent-address">Start address</label>
+            {currentPage && address!==currentPage && <button type="button" className="use-current" onClick={()=>{addressEdited.current=false;setAddress(currentPage);}}>Use current page</button>}</div>
           <div className="journey-address"><Globe2 size={16}/><input id="agent-address" required maxLength={2048} value={address} onChange={e=>{addressEdited.current=true;setAddress(e.target.value);}} placeholder="https://your-pwa.com"/>
             <SourcePicker pick={async k=>{const url=await pick(k);if(url){addressEdited.current=true;setAddress(url);}}}/>
           </div>
@@ -277,22 +329,23 @@ export function JourneyStudio({bridge,open,currentUrl,preview,aperture,onClose,o
               <label className="journey-check"><input type="checkbox" checked={shareScreen} onChange={e=>setShareScreen(e.target.checked)}/>Send page screenshots to the model</label>
               <p>{useLocal?'The local server':'OpenRouter'} receives the goal, context and visible page text. {shareScreen?'Use a model that accepts images.':'Captures stay local.'}</p>
             </OptionRow>
-            <OptionRow name="model" icon={<Cable/>} title="Model connection" value={useLocal?'Local server':envKey || apiKey?'OpenRouter':'Add API key'}>
-              <label>Model provider<select value={useLocal?'local':'openrouter'} onChange={e=>setUseLocal(e.target.value==='local')}><option value="openrouter">OpenRouter</option><option value="local">Local OpenAI-compatible server</option></select></label>
-              {useLocal && <label>Local endpoint<input required value={endpoint} onChange={e=>setEndpoint(e.target.value)}/></label>}
-              <label>Model ID<input required maxLength={160} value={useLocal?localModel:model} onChange={e=>useLocal?setLocalModel(e.target.value):setModel(e.target.value)}/></label>
-              {!useLocal && <label>API key<input type="password" autoComplete="off" spellCheck={false} maxLength={512} required={!envKey} value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder={envKey?'Environment key available':'OpenRouter API key'}/></label>}
-            </OptionRow>
+
           </div>
         </section>
       </div>
-      <footer><span>{device && device+' · '}Up to {MAX_ACTIONS} actions per visit</span><button className="journey-primary" type="submit">{running?'Run in progress':'Start visits'}<ArrowRight size={16}/></button></footer>
+      <footer><span>{connection!=='ready'?'Test a model connection to start':device}</span><button className="journey-primary" type="submit" disabled={connection!=='ready' || !goal.trim() || !address.trim()}>{running?'Run in progress':'Start visits'}<ArrowRight size={16}/></button></footer>
     </fieldset></form>:report && <>
-      <div className="journey-heading"><h2>{report.goal}</h2>
+      <div className="journey-heading"><small>{report.kind==='install'?'Built-in installation check · No model used':report.model}</small><h2>{report.goal}</h2>
         {running?<button className="journey-secondary" onClick={()=>void bridge.stop().catch(()=>setError('Could not stop the run.'))}><Square size={13}/>Stop run</button>:
           <button className="journey-secondary" onClick={()=>void bridge.save().then(setSaved).catch(()=>setError('Could not save the report.'))}><Download size={15}/>{saved?'Save again':'Save report'}</button>}</div>
-      <div className="journey-status" role="status"><span data-state={report.status}/>{report.message}</div>
-      <VisitReview key={report.id} report={report} bridge={bridge} preview={preview} aperture={aperture} open={open}/>
+      <div className="journey-status" role="status"><span data-state={blockedChecks?'blocked':report.status}/>{report.message}</div>
+       {blockedChecks ? <div className="check-failures">
+        <h3>Installation could not start</h3>
+        {Array.from(new Set(report.visits.map(v=>v.source))).map(url=><div key={url}><strong>{url}</strong>
+          {[...new Set(report.visits.filter(v=>v.source===url).map(v=>v.note))].map(note=><p key={note}>{note}</p>)}</div>)}
+        <button onClick={editAddresses}>Edit addresses</button>
+        <details><summary>Show {report.visits.length} blocked checks</summary><ul>{report.visits.map((v,i)=><li key={i}>{v.persona} · {v.source}</li>)}</ul></details>
+      </div> : <VisitReview key={report.id} report={report} bridge={bridge} aperture={aperture} open={open}/>}
     </>}
   </section>;
 }

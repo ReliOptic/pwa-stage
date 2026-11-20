@@ -12,7 +12,7 @@ import { StageSession, type InspectGuest } from './stage-session';
 import { BrowserShellMode, type SimulatorState } from '../types/simulator.types';
 import type { StageCheckRequest } from '../types/journey.types';
 import { JourneyPage, type JourneyInteraction } from './journey-page';
-import { chooseAction, chooseStageProfile, drawPersonas, journeyRequest, stageRequest, suggestPersonas, type ModelTransport, type PageChoices } from './journey-planner';
+import { chooseAction, chooseStageProfile, drawPersonas, journeyRequest, modelConnection, verifyModel, stageRequest, suggestPersonas, type ModelTransport, type PageChoices } from './journey-planner';
 import { JourneyReport, JourneyRequest, JourneyVisit, type JourneyInput, MAX_ACTIONS } from '../types/journey.types';
 import type { EmulationProfileInput } from '../types/emulation.types';
 
@@ -164,7 +164,11 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
     try{
       await work();
       signal.throwIfAborted();
-      current.status='completed';current.message=current.kind==='install'?'Checks ended':'Visits ended';
+      current.status='completed';
+      if (current.kind==='install') {
+        const verified=current.visits.filter(v=>v.outcome==='verified').length;
+        current.message=verified+' of '+current.iterations+' launches verified';
+      } else current.message='Visits ended';
     } catch(error) {
       current.status=signal.aborted?'stopped':'error';
       current.message=signal.aborted?'Run stopped':error instanceof Error?error.message:'Run failed';
@@ -183,6 +187,7 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
     const {state,preset}=device();
     return {address:state.currentUrl===ctx.deps.envConfig.quickBookmarks.find(b=>b.id==='start')?.url?'':state.currentUrl,device:preset.name,environmentKey:Boolean(process.env.OPENROUTER_API_KEY),report};
   });
+  handle('verify-model',raw=>verifyModel(modelConnection(raw,process.env.OPENROUTER_API_KEY),sendToRouter));
   handle('start',raw=>{
     if(controller) throw Error('A journey is already running.');
     const req=journeyRequest(raw,process.env.OPENROUTER_API_KEY);

@@ -103,6 +103,7 @@ const bridge: JourneyStudioApi = {
   pickSource:kind=>ipcRenderer.invoke('journey:source',kind),
   check:req=>ipcRenderer.invoke('journey:check',req),
   stop:()=>ipcRenderer.invoke('journey:stop'),
+  verifyModel:connection=>ipcRenderer.invoke('journey:verify-model',connection),
   image:(reportId,id)=>ipcRenderer.invoke('journey:image',reportId,id),
   recording:(reportId,visit)=>ipcRenderer.invoke('journey:recording',reportId,visit),
   watch:(reportId,visit,onFrame,onError)=>{

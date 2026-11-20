@@ -385,7 +385,8 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
   const flatMotion = useMotionRig && !split && transition?.active;
   // The PWA reflows once across the optical handoff. Keep the page right-aligned
   // and wide enough to fill every exposed point of the unfolded picture.
-  const handoff = props.focusHandoff && !isOuterPrimary && transition;
+  const headOn = orbitDeg === 0 && pitchDeg === 0 && (posture === 'open' || posture === 'closed');
+  const handoff = headOn && props.focusHandoff && !isOuterPrimary && transition;
   const exposedLeft = projection?.leftFacing && transition
     ? Math.min(HINGE_X, ...transition.innerGradientX) : HINGE_X;
   const coverWidth = projection?.outer.width ?? 466;
@@ -399,6 +400,10 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
       ? projection?.right
       : projection?.full;
 
+  // The final front-facing frame uses the same depth-tested display material
+  // contour as the last animation frame. Its path is in stage coordinates.
+  const openStencil = headOn && foldAngle === 180 && !split && projection?.full.active;
+  const stageSpace = flatMotion || openStencil;
   const primaryShiftX = !isOuterPrimary && sliceInner && !isHorizontalSplit ? -475.5 : 0;
   const primaryShiftY = !isOuterPrimary && sliceInner && isHorizontalSplit ? -475.5 : 0;
 
@@ -616,15 +621,15 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
           className="duo-interactive-slice duo-slice-primary"
           onPointerDownCapture={() => setCoverSelected(false)}
           style={{
-            width: flatMotion ? STAGE_WIDTH : primarySlice.width,
-            height: flatMotion ? STAGE_HEIGHT : primarySlice.height,
-            backgroundColor: flatMotion ? (state.darkMode ? '#161619' : '#f4f4f6') : undefined,
+            width: stageSpace ? STAGE_WIDTH : primarySlice.width,
+            height: stageSpace ? STAGE_HEIGHT : primarySlice.height,
+            backgroundColor: stageSpace ? (state.darkMode ? '#161619' : '#f4f4f6') : undefined,
             backgroundImage: flatMotion && (props.displayBackground || props.tintColor)
               ? `linear-gradient(${props.displayBackground || props.tintColor}, ${props.displayBackground || props.tintColor})` : undefined,
-            transform: flatMotion ? undefined : primarySlice.matrix3d,
+            transform: stageSpace ? undefined : primarySlice.matrix3d,
             opacity: primaryHidden ? 0.002 : primarySlice.opacity,
             pointerEvents: primaryHidden ? 'none' : undefined,
-            clipPath: flatMotion ? `path(evenodd, "${motionApertures[frame]}")` : primaryClip,
+            clipPath: stageSpace ? `path(evenodd, "${motionApertures[openStencil ? 60 : frame]}")` : primaryClip,
             filter: flatMotion || isOuterPrimary ? undefined : innerFilter,
             zIndex: primarySlice.zIndex
           }}
@@ -636,10 +641,10 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
               height: `${fullLogicalH}px`,
               left: `${primaryShiftX}px`,
               top: `${primaryShiftY}px`,
-              transform: flatMotion ? primarySlice.matrix3d : undefined,
-              transformOrigin: flatMotion ? '0 0' : undefined,
+              transform: stageSpace ? primarySlice.matrix3d : undefined,
+              transformOrigin: stageSpace ? '0 0' : undefined,
               maskImage: isOuterPrimary ? projection?.outer.lensMask : undefined,
-              clipPath: flatMotion ? undefined : isOuterPrimary ? projection?.outer.apertureClip : projection?.full.apertureClip
+              clipPath: stageSpace ? undefined : isOuterPrimary ? projection?.outer.apertureClip : projection?.full.apertureClip
             }}
           >
             <div className="duo-page-layout" style={{width: pageWidth, left: fullLogicalW - pageWidth}}>

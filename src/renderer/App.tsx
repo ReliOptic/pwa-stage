@@ -85,7 +85,7 @@ function useSimulatorShortcuts(
         return;
       }
       const target = e.target as HTMLElement | null;
-      if (target?.closest('.agent-panel,.agent-screen-slot')) return;
+      if (target?.closest('.agent-panel')) return;
       const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
       const key = e.key.toLowerCase();
       if (typing && (key === 'arrowleft' || key === 'arrowright' || key === 'a')) {
@@ -216,7 +216,8 @@ export function App(): React.ReactElement {
   const [agentRunning, setAgentRunning] = useState(false);
   const [hostWidth, setHostWidth] = useState(window.innerWidth);
   const [visitAperture,setVisitAperture]=useState<HTMLDivElement|null>(null);
-  const [agentScreen, setAgentScreen] = useState<HTMLDivElement | null>(null);
+  const [agentSide,setAgentSide]=useState<'left'|'right'>(()=>localStorage.getItem('agent-dock-side')==='left'?'left':'right');
+  function moveAgent(){const side=agentSide==='left'?'right':'left';setAgentSide(side);localStorage.setItem('agent-dock-side',side);}
   const docked = hostWidth - metrics.scaledOuterWidth >= 298;
   useEffect(() => {
     const resize = () => setHostWidth(window.innerWidth);
@@ -288,9 +289,8 @@ export function App(): React.ReactElement {
 
   return (
     <ScreenContext.Provider value={screen.value}>
-      <div className="simulator-workspace" data-agent-open={agentOpen} data-docked={docked}
-        style={{'--device-width':metrics.scaledOuterWidth+'px',
-          '--agent-preview-top':(state.hudCollapsed ? 44 : metrics.scaledOuterWidth<=623 ? 94 : 60)+'px'} as React.CSSProperties}>
+      <div className="simulator-workspace" data-agent-open={agentOpen} data-docked={docked} data-agent-side={agentSide}
+        style={{'--device-width':metrics.scaledOuterWidth+'px'} as React.CSSProperties}>
       <main className="simulator-root" data-narrow={metrics.scaledOuterWidth <= 623}>
         <FloatingToolbar
           state={state}
@@ -350,11 +350,10 @@ export function App(): React.ReactElement {
             {screen.toast}
           </div>
         )}
-        <div ref={setAgentScreen} className="agent-screen-slot" />
       </main>
       {agentMounted && window.journeyStudio && <aside className="agent-panel" hidden={!agentOpen} aria-label="PWA Stage Agent">
         <JourneyStudio bridge={window.journeyStudio} open={agentOpen} currentUrl={state.currentUrl}
-          aperture={agentOpen && docked?visitAperture:null} preview={agentOpen && docked ? agentScreen : null} onClose={() => showAgent(false)} onRunning={setAgentRunning}/>
+          aperture={agentOpen && docked?visitAperture:null} device={activePreset.name} activeDevice={activePreset.id} activeBrowser={state.shellMode===BrowserShellMode.IOS_CHROME?'ios-chrome':'ios-safari'} side={agentSide} onMove={moveAgent} onClose={() => showAgent(false)} onRunning={setAgentRunning}/>
       </aside>}
       </div>
     </ScreenContext.Provider>

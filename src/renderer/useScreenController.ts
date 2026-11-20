@@ -206,6 +206,10 @@ export function useScreenController(
     setPhase(current => current === 'home' ? 'home' : 'closing');
   }, []);
 
+  const resumeApp = useCallback((origin:LaunchOrigin)=>{
+    setLaunchOrigin(origin);setSheet({kind:'none'});setSplash(null);setPhase('launching');
+  },[]);
+
   const launchApp = useCallback(
     (app: InstalledWebApp | 'safari' | 'chrome', origin: LaunchOrigin): void => {
       setSheet({ kind: 'none' });
@@ -313,7 +317,7 @@ export function useScreenController(
       permission: permissionQueue[0] ?? null,
       darkMode: state.darkMode,
       goHome,
-      launchApp,
+      resumeApp, launchApp,
       openSheet,
       addToHome,
       installCatalogApps,
@@ -339,7 +343,7 @@ export function useScreenController(
       permissionQueue,
       state.darkMode,
       goHome,
-      launchApp,
+      resumeApp, launchApp,
       addToHome,
       installCatalogApps,
       largeIcons, setLargeIcons, updateApp, removeApp,

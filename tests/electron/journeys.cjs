@@ -36,9 +36,11 @@ const server=http.createServer((req,res)=>{
 });
 async function modelResponse(request){
   assert.equal(request.url,'https://openrouter.ai/api/v1/chat/completions');
+  if(request.headers.get('Authorization')==='Bearer rejected-test-key')return new Response('{}',{status:401});
   assert.equal(request.headers.get('Authorization'),'Bearer fixture-key');apiCalls++;
   const messages=(await request.json()).messages, input=JSON.parse(messages[1].content);
   assert(!JSON.stringify(messages).includes('fixture-key'));
+  if(input.check==='connection')return Response.json({choices:[{message:{content:JSON.stringify({ready:true})}}]});
   if(mode==='held'){
     await new Promise(resolve=>{releaseDecision=resolve;});
     return Response.json({choices:[{message:{content:JSON.stringify({action:'finish',reason:'The title is visible.',evidence:'Colour study'})}}]});
@@ -79,9 +81,16 @@ server.listen(0,'127.0.0.1',async()=>{
   const set=(selector,value)=>js(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
   await set('#agent-address',site);await set('#agent-goal','Find morning swim times');
   assert.equal(await js("document.querySelector('.journey-model').open"),false);
-  await js("document.querySelector('.journey-primary').click()");
-  await until(()=>js("document.querySelector('.journey-model').open && document.activeElement.type==='password'"),'missing key reveals and focuses its field');
+  assert(await js("document.querySelector('.journey-primary').disabled"),'disconnected model cannot start');
+  await js("document.querySelector('.journey-model summary').click()");
+  await set('[type=password]','rejected-test-key');
+  await js("document.querySelector('.model-verify').click()");
+  await until(()=>js("document.querySelector('.model-gate').dataset.connection==='failed'"),'invalid credentials shown');
+  assert(await js("document.querySelector('.journey-primary').disabled"));
   await set('[type=password]','fixture-key');
+  assert(await js("document.querySelector('.journey-primary').disabled"),'entering a key is not verification');
+  await js("document.querySelector('.model-verify').click()");
+  await until(()=>js("document.querySelector('.model-gate').dataset.connection==='ready'"),'model responds to a JSON request');
   await js("document.querySelector('.journey-model summary').click()");
   await js("document.querySelector('[aria-label=\"Remove one visit\"]').click()");
   assert.equal(await js("document.querySelector('#agent-visits').value"),'2');
@@ -95,7 +104,7 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.equal(await js("document.querySelector('webview').getWebContentsId()"),guestId);
   await js("document.querySelector('.agent-toggle').click()");
   await until(()=>js("!document.querySelector('.agent-panel').hidden"),'reopen panel');
-  assert.equal(await js("document.querySelector('.journey-fields input').value"),site,'Loading the device settings must preserve a typed URL');
+  assert.equal(await js("document.querySelector('#agent-address').value"),site,'Loading the device settings must preserve a typed URL');
   const status=()=>js('window.journeyStudio.initial().then(x=>x.report)');
   await js("document.querySelector('.journey-primary').click()");
   const report=await until(async()=>{const r=await status();return r && r.status!=='running' && r;},'finished run');
@@ -105,14 +114,16 @@ server.listen(0,'127.0.0.1',async()=>{
     assert.deepEqual(v.inputs.map(x=>x.label),['Find a session','Class times']);
     for(const input of v.inputs){assert(v.frames.some(f=>f.id===input.from));assert(v.frames.some(f=>f.id===input.to));}
   }
-  assert.equal(posts,0);assert.equal(apiCalls,7);assert(!JSON.stringify(report).includes('fixture-key'));
+  assert.equal(posts,0);assert.equal(apiCalls,8);assert(!JSON.stringify(report).includes('fixture-key'));
   await until(()=>js("!!document.querySelector('.journey-photo img[alt=\"Recorded visitor viewport\"]')?.naturalWidth"),'recorded visit');
   assert.equal(await js("document.querySelector('.journey-log [aria-current=step]')"),null,'an independently playing recording has no selected observation');
   await capture('journey-review');
+  await js("document.querySelector('.journey-compact-tabs button:last-child').click()");
   await js("Array.from(document.querySelectorAll('.journey-log ol button')).find(b=>b.innerText.includes('Find a session')).click()");
   await until(()=>js("document.querySelector('.journey-photo img')?.alt==='Screen after Find a session'"),'step review');
   await js("document.querySelector('[aria-label=\"Replay visit\"]').click()");
   await until(()=>js("!!document.querySelector('.journey-screen [aria-label=\"Pause replay\"]')"),'recording playback from observation');
+  await js("document.querySelector('.journey-compact-tabs button:last-child').click()");
   await js("Array.from(document.querySelectorAll('.journey-input button')).find(b=>b.textContent==='Watch').click()");
   const firstInput=report.visits[1].inputs[0].elapsedMs;
   await until(()=>js("Number(document.querySelector('[aria-label=\"Recording position\"]')?.value)").then(t=>t>=firstInput-600 && t<=firstInput+500),'seek to actual input');

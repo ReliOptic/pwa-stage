@@ -46,7 +46,9 @@ server.listen(0,'127.0.0.1',async()=>{
   await js("document.querySelector('.journey-modes button:nth-child(2)').click()");
   const set=(selector,value,ev='input')=>js(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event(${JSON.stringify(ev)},{bubbles:true}));})()`);
   await set('.journey-form textarea',[base+'/',base+'/missing',base+'/article'].join('\n'));
+  assert.equal(await js("document.querySelector('.journey-form select').value"),'current');
   await set('.journey-form select','iphone-se-3','change');
+  await set('.journey-select-row:last-child select','both','change');
   await sleep(150);
   await captureStudio('stage-setup');
   await js("document.querySelector('.journey-primary').click()");
@@ -105,6 +107,13 @@ server.listen(0,'127.0.0.1',async()=>{
     await captureStudio('local-review');
   }
   assert.equal(extraVisible,false,'Background checks must keep the simulator as the only visible window');
+  await openStage({addresses:[base+'/missing'],devices:['iphone-se-3'],browsers:['ios-safari']});
+  const blocked=await done();assert.equal(blocked.visits[0].frames.length,0);
+  await wait(()=>js("!!document.querySelector('.check-failures')"),'zero-capture failure summary');
+  assert.equal(await js("document.querySelector('.agent-screen-slot:not(:empty),.journey-screen')"),null);
+  await js("document.querySelector('.check-failures > button').click()");
+  await wait(()=>js("document.activeElement.id==='agent-addresses'"),'edit blocked address');
+  assert.equal(await js("document.querySelector('#agent-addresses').value"),base+'/missing');
   console.log('PASS neutral installation checks');app.exit(0);
  }catch(e){console.error(e);app.exit(1);}
 });

@@ -36,7 +36,7 @@ export interface LaunchOrigin {
 }
 
 function SettingsGlyph() {
-  return <span className="settings-dial" aria-hidden="true"><i/></span>;
+  return <img src="./assets/settings-gear.svg" alt="" draggable={false}/>;
 }
 
 const homeTools = [
@@ -83,6 +83,7 @@ export interface ScreenContextValue {
   readonly permission: PermissionPromptState | null;
   readonly darkMode: boolean;
   readonly goHome: () => void;
+  readonly resumeApp: (origin: LaunchOrigin) => void;
   readonly launchApp: (app: InstalledWebApp | 'safari' | 'chrome', origin: LaunchOrigin) => void;
   readonly openSheet: (kind: ScreenSheetState['kind']) => void;
   readonly addToHome: (name: string, opensAsWebApp: boolean) => void;
@@ -118,6 +119,7 @@ export const ScreenContext = createContext<ScreenContextValue>({
   permission: null,
   darkMode: true,
   goHome: noop,
+  resumeApp: noop,
   launchApp: noop,
   openSheet: noop,
   addToHome: noop,
@@ -254,6 +256,9 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
   const updateNavigation = (patch: Partial<HomeNavigation>): void => screen.setHomeNavigation({ ...screen.homeNavigation, ...patch });
   const rail = props.trailingInset ?? 0;
   const layout = resolveHomeLayout(props.width, props.height, rail, props.safeTop, screen.largeIcons);
+  const currentSite = layout.inner && !searching && requestedPage===0 ? URL.parse(screen.currentUrl) : null;
+  const activePage = screen.report?.inspection;
+  const siteTitle = activePage?.url===screen.currentUrl && activePage.title ? activePage.title : currentSite?.hostname;
   const apps = [
     ...homeTools.map(tool => ({kind:'tool' as const, name:tool.name, tool})),
     ...screen.installedApps.map(app => ({kind:'site' as const, name:app.name, app}))
@@ -277,6 +282,10 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
   return (
     <div {...paging} className={`home-screen home-screen-${preview ? 'preview' : screen.phase} ${rail ? 'home-with-rail' : ''} ${layout.landscape ? 'home-landscape' : ''}`} style={style} ref={el => { if (el) el.inert = Boolean(preview || props.mirror || isHomeTool(screen.sheet.kind)); }} aria-hidden={preview || props.mirror || undefined}>
       <div className="home-wallpaper" aria-hidden="true"><i /><i /><i /></div>
+      {currentSite && /^https?:$/.test(currentSite.protocol) && <button className="home-current-site"
+        aria-label={'Resume '+siteTitle} onClick={e=>screen.resumeApp(originFromEvent(e))}>
+        <span>Current website</span><strong>{siteTitle}</strong><small>{currentSite.host}</small>
+      </button>}
       <div className="home-grid" aria-label="Home Screen apps">
          {visible.map(item => item.kind === 'tool'
           ? <AppIcon key={item.tool.kind} label={item.name} size={layout.icon} hideLabel={screen.largeIcons}

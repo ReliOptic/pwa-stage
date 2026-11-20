@@ -640,7 +640,7 @@ export class Duo3DHardwareEngine {
 
     // --- opening / closing transition ---------------------------------------
     const angleDeg = u * 180;
-    const transitionActive = params.transitioning && frontView && angleDeg >= COVER_HANDOFF_DEG && angleDeg < 179;
+    const transitionActive = params.transitioning && frontView && effectiveOrbit === 0 && effectivePitch === 0 && angleDeg >= COVER_HANDOFF_DEG && angleDeg < 179;
     const d: DisplayOutline = this.asset.displays.inner;
     const flatCorners = projectQuad([
       this.asset.point(d.minX, d.y, d.minZ, 25), this.asset.point(d.maxX, d.y, d.minZ, 25),

@@ -19,6 +19,8 @@ export interface JourneyRequest {
   apiKey: string;
 }
 
+export type ModelConnection = Pick<JourneyRequest, 'model' | 'apiKey' | 'localEndpoint'>;
+
 export interface JourneyFrame {
   id: number;
   path: string;
@@ -79,6 +81,7 @@ export interface StageCheckRequest {
 
 export interface JourneyStudioApi {
   initial: () => Promise<{address: string; device: string; environmentKey: boolean; report: JourneyReport | null}>;
+  verifyModel: (connection: ModelConnection) => Promise<void>;
   start: (request: JourneyRequest) => Promise<void>;
   pickSource: (kind:'file'|'folder') => Promise<string|null>;
   check: (request:StageCheckRequest) => Promise<void>;

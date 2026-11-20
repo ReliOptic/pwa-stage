@@ -1,7 +1,7 @@
 import { Orientation } from '../types/device.types';
 import { BrowserShellMode } from '../types/simulator.types';
 import { DEVICE_PRESETS } from '../config/device-presets.config';
-import type { StageCheckRequest } from '../types/journey.types';
+import type { StageCheckRequest, ModelConnection } from '../types/journey.types';
 import { JourneyRequest, MAX_VISITS } from '../types/journey.types';
 
 export type ModelTransport = (url: string, options: RequestInit) => Promise<Response>;
@@ -36,24 +36,10 @@ export function stageRequest(raw:unknown):StageCheckRequest {
   return {addresses,devices,browsers};
 }
 
-export function journeyRequest(raw: unknown, envKey = ''): JourneyRequest {
-  if (!raw || typeof raw !== 'object') throw Error('Enter a website and a visit goal.');
-  const r = raw as Partial<JourneyRequest>;
-  const bounded = (s: unknown, max: number): s is string => typeof s === 'string' && s.length <= max;
-  const address=webAddress(r.address);
-  if (!bounded(r.goal, 500) || !r.goal.trim()) throw Error('Describe what a visitor should try to do.');
-  if (!bounded(r.model, 160) || !/^[\w.:/-]+$/.test(r.model)) throw Error('Enter an OpenRouter model ID.');
-  if (typeof r.iterations !== 'number' || !Number.isInteger(r.iterations) || r.iterations < 1 || r.iterations > MAX_VISITS)
-    throw Error('Choose between 1 and ' + MAX_VISITS + ' visits.');
-  if (!Array.isArray(r.audiences) || r.audiences.length > 24 || !r.audiences.every(s => bounded(s, 240)))
-    throw Error('Use up to 24 audience descriptions of 240 characters each.');
-  const audiences = [...new Set(r.audiences.map(s => s.trim()).filter(Boolean))];
-  if (audiences.length === 1 && r.iterations > 1) throw Error('Add another audience, or leave the list empty for suggestions.');
-  if (!bounded(r.apiKey, 512)) throw Error('Enter an OpenRouter key.');
-  if(r.material!==undefined && !bounded(r.material,6000)) throw Error('Use up to 6,000 characters of reference material.');
-  if(r.installFirst!==undefined && typeof r.installFirst!=='boolean') throw Error('Invalid launch mode.');
-  if((r.recordScreen!==undefined && typeof r.recordScreen!=='boolean') || (r.planDevice!==undefined && typeof r.planDevice!=='boolean') || (r.shareScreen!==undefined && typeof r.shareScreen!=='boolean'))
-    throw Error('Invalid automation options.');
+export function modelConnection(raw: unknown, envKey = ''): ModelConnection {
+  const r = raw as Partial<ModelConnection> | null;
+  if (typeof r?.model !== 'string' || !/^[\w.:/-]{1,160}$/.test(r.model)) throw Error('Enter a model ID.');
+  if (typeof r.apiKey !== 'string' || r.apiKey.length > 512) throw Error('Enter a valid API key.');
   let localEndpoint:string|undefined;
   if(r.localEndpoint!==undefined && r.localEndpoint!==''){
     const url=typeof r.localEndpoint==='string' && URL.parse(r.localEndpoint);
@@ -64,7 +50,26 @@ export function journeyRequest(raw: unknown, envKey = ''): JourneyRequest {
   }
   const apiKey = localEndpoint ? '' : r.apiKey.trim() || envKey;
   if (!localEndpoint && (!apiKey || /\s/.test(apiKey))) throw Error('Enter an OpenRouter key.');
-  return {address, ...(localEndpoint && {localEndpoint}), material:r.material?.trim(), installFirst:r.installFirst===true, planDevice:r.installFirst===true && r.planDevice===true, shareScreen:r.shareScreen===true, recordScreen:r.recordScreen===true, goal: r.goal.trim(), iterations: r.iterations, model: r.model, apiKey, audiences};
+  return {model:r.model, apiKey, ...(localEndpoint && {localEndpoint})};
+}
+
+export function journeyRequest(raw: unknown, envKey = ''): JourneyRequest {
+  if (!raw || typeof raw !== 'object') throw Error('Enter a website and a visit goal.');
+  const r = raw as Partial<JourneyRequest>;
+  const bounded = (s: unknown, max: number): s is string => typeof s === 'string' && s.length <= max;
+  const address=webAddress(r.address);
+  if (!bounded(r.goal, 500) || !r.goal.trim()) throw Error('Describe what a visitor should try to do.');
+  if (typeof r.iterations !== 'number' || !Number.isInteger(r.iterations) || r.iterations < 1 || r.iterations > MAX_VISITS)
+    throw Error('Choose between 1 and ' + MAX_VISITS + ' visits.');
+  if (!Array.isArray(r.audiences) || r.audiences.length > 24 || !r.audiences.every(s => bounded(s, 240)))
+    throw Error('Use up to 24 audience descriptions of 240 characters each.');
+  const audiences = [...new Set(r.audiences.map(s => s.trim()).filter(Boolean))];
+  if (audiences.length === 1 && r.iterations > 1) throw Error('Add another audience, or leave the list empty for suggestions.');
+  if(r.material!==undefined && !bounded(r.material,6000)) throw Error('Use up to 6,000 characters of reference material.');
+  if(r.installFirst!==undefined && typeof r.installFirst!=='boolean') throw Error('Invalid launch mode.');
+  if((r.recordScreen!==undefined && typeof r.recordScreen!=='boolean') || (r.planDevice!==undefined && typeof r.planDevice!=='boolean') || (r.shareScreen!==undefined && typeof r.shareScreen!=='boolean'))
+    throw Error('Invalid automation options.');
+  return {address, ...modelConnection(r,envKey), material:r.material?.trim(), installFirst:r.installFirst===true, planDevice:r.installFirst===true && r.planDevice===true, shareScreen:r.shareScreen===true, recordScreen:r.recordScreen===true, goal: r.goal.trim(), iterations: r.iterations, audiences};
 }
 
 export function drawPersonas(pool: string[], count: number): string[] {
@@ -82,7 +87,7 @@ export function drawPersonas(pool: string[], count: number): string[] {
   return result.slice(0, count);
 }
 
-async function ask(request: JourneyRequest, instruction: string, input: unknown, signal: AbortSignal, transport: ModelTransport, maxTokens = 550,image?:string,schema?:object): Promise<Record<string, unknown>> {
+async function ask(request: ModelConnection & {shareScreen?: boolean}, instruction: string, input: unknown, signal: AbortSignal, transport: ModelTransport, maxTokens = 550,image?:string,schema?:object): Promise<Record<string, unknown>> {
   const endpoint=request.localEndpoint || 'https://openrouter.ai/api/v1/chat/completions';
   const timeout=AbortSignal.any([signal, AbortSignal.timeout(request.localEndpoint?90000:45000)]);
   const send=(format:object)=>transport(endpoint,{
@@ -106,6 +111,14 @@ async function ask(request: JourneyRequest, instruction: string, input: unknown,
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
   } catch { /* One useful error for malformed provider responses. */ }
   throw Error('The model returned an unreadable decision. Try a model with JSON output.');
+}
+
+export async function verifyModel(connection: ModelConnection, transport: ModelTransport) {
+  const result = await ask(connection, 'Respond with the JSON object {"ready":true}.',
+    {check:'connection'}, AbortSignal.timeout(45000), transport, 48, undefined, {
+      type:'object', properties:{ready:{type:'boolean',const:true}}, required:['ready'], additionalProperties:false
+    });
+  if (result.ready !== true) throw Error('The model replied but did not return the requested JSON.');
 }
 
 export async function suggestPersonas(request: JourneyRequest, page: PageChoices, signal: AbortSignal, transport: ModelTransport = fetch,image?:string): Promise<string[]> {
