@@ -22,6 +22,7 @@ const server=http.createServer((req,res)=>{
 server.listen(0,'127.0.0.1',async()=>{
  try{
   const base='http://127.0.0.1:'+server.address().port;
+  process.env.SIMULATOR_DEFAULT_URL=base+'/';
   require(process.env.SIMULATOR_TEST_ENTRY || path.resolve(__dirname,'../../dist-electron/index.js'));await app.whenReady();
   const win=await wait(()=>BrowserWindow.getAllWindows()[0],'shell');
   const shell=q=>win.webContents.executeJavaScript(q);
@@ -43,7 +44,14 @@ server.listen(0,'127.0.0.1',async()=>{
     fs.writeFileSync(path.join(out,name+'.png'),image.toPNG());
   }
   await wait(()=>js('!!document.querySelector(".journey-form")'),'form');
-  await js("document.querySelector('.journey-modes button:nth-child(2)').click()");
+  await wait(()=>js("document.querySelector('#agent-addresses')?.value==="+JSON.stringify(base+'/')),'current site');
+  assert.equal(await js("document.querySelector('.journey-custom').open"),false);
+  assert.equal(await js("document.querySelector('.journey-primary').disabled"),false);
+  await captureStudio('agent-current-site');
+  await js("document.querySelector('.journey-primary').click()");
+  await wait(()=>js("window.journeyStudio.initial().then(s=>s.report?.visits[0]?.outcome==='verified')"),'one-click installation');
+  await js("document.querySelector('.journey-header nav button').click()");
+  await js("document.querySelector('.journey-custom summary').click()");
   const set=(selector,value,ev='input')=>js(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event(${JSON.stringify(ev)},{bubbles:true}));})()`);
   await set('.journey-form textarea',[base+'/',base+'/missing',base+'/article'].join('\n'));
   assert.equal(await js("document.querySelector('.journey-form select').value"),'current');

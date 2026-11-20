@@ -253,3 +253,12 @@
 
 .start-address-label { display:flex;align-items:baseline;justify-content:space-between; }
 .journeys .use-current { color:var(--accent);font-size:12px; }
+
+.journey-site { font-size:21px; letter-spacing:-.035em; overflow-wrap:anywhere; }
+.journey-intro { margin:6px 0 16px; line-height:1.5; color:var(--secondary); font-size:14px; }
+.journey-fields > .journey-primary { width:100%; }
+.journey-fields > .model-gate { margin:12px 0; }
+.journey-custom { margin-top:16px; border-top:1px solid var(--line); }
+.journey-custom > summary { padding:14px 0; cursor:pointer; color:var(--secondary); font-size:13px; font-weight:550; }
+.journey-custom > summary::after { content:'+'; float:right; }
+.journey-custom[open] > summary::after { content:'−'; }

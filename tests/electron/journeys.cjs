@@ -79,7 +79,9 @@ server.listen(0,'127.0.0.1',async()=>{
   const js=code=>studio.webContents.executeJavaScript(code);
   await until(()=>js("!!document.querySelector('.journey-form')"),'brief form');
   const set=(selector,value)=>js(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-  await set('#agent-address',site);await set('#agent-goal','Find morning swim times');
+  await js("document.querySelector('.journey-modes button:first-child').click()");
+  await set('#agent-address',site);
+  assert.equal(await js("document.querySelector('#agent-goal').value"),'');
   assert.equal(await js("document.querySelector('.journey-model').open"),false);
   assert(await js("document.querySelector('.journey-primary').disabled"),'disconnected model cannot start');
   await js("document.querySelector('.journey-model summary').click()");
@@ -92,7 +94,7 @@ server.listen(0,'127.0.0.1',async()=>{
   await js("document.querySelector('.model-verify').click()");
   await until(()=>js("document.querySelector('.model-gate').dataset.connection==='ready'"),'model responds to a JSON request');
   await js("document.querySelector('.journey-model summary').click()");
-  await js("document.querySelector('[aria-label=\"Remove one visit\"]').click()");
+  await js("document.querySelector('[aria-label=\"Add one visit\"]').click()");
   assert.equal(await js("document.querySelector('#agent-visits').value"),'2');
   async function capture(name){await sleep(180);fs.writeFileSync(path.join(out,name+'.png'),(await studio.webContents.capturePage()).toPNG());}
   await capture('journey-setup');
