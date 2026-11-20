@@ -285,7 +285,7 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
           : <AppIcon key={item.app.id} launchUrl={item.app.launchUrl} label={item.name} iconUrl={chooseTouchIcon(item.app.touchIcons,layout.icon*screen.iconDpr) ?? item.app.iconUrl} size={layout.icon} hideLabel={screen.largeIcons}
               onOpen={origin => screen.launchApp(item.app, origin)} onRemove={() => screen.removeApp(item.app.id)} />)}
       </div>
-      {(rail > 0 || pages > 1) && <div className="home-page-dots" aria-label="Home Screen pages">{Array.from({length: pages}, (_, i) => <button key={i} aria-label={`Page ${i + 1}`} aria-current={page === i ? 'page' : undefined} onClick={() => updateNavigation({ page: i })} />)}</div>}
+      {(pages > 1) && <div className="home-page-dots" aria-label="Home Screen pages">{Array.from({length: pages}, (_, i) => <button key={i} aria-label={`Page ${i + 1}`} aria-current={page === i ? 'page' : undefined} onClick={() => updateNavigation({ page: i })} />)}</div>}
       <button className="home-search-pill" aria-label="Search installed apps" onClick={() => updateNavigation({ searching: true })}><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="8" cy="8" r="5" /><path d="m12 12 5 5" /></svg>{!rail && <span>Search</span>}</button>
       {searching && <div className="home-search-field"><input autoFocus={!props.mirror} aria-label="Search installed apps" placeholder="Search installed apps" value={query} onChange={e => updateNavigation({ query: e.target.value, page: 0 })} /><button onClick={() => updateNavigation({ searching: false, query: '' })} aria-label="Close search">×</button></div>}
       <div className="home-dock" aria-label="Dock">

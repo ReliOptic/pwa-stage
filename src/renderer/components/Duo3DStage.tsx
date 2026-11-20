@@ -604,7 +604,7 @@ export function Duo3DStage(props: Duo3DStageProps): React.ReactElement {
                   mirrorGuestId={primaryGuestId} reserveSystemRail={!split} />
               </AppSurface>
             </div>
-            <HomeScreen width={cover.width} height={cover.height} safeTop={54} />
+            <HomeScreen width={cover.width} height={cover.height} safeTop={54} trailingInset={84} />
             <SystemOverlayLayer preset={preset} state={state} isOuterActive isTallInner={false}
               logicalW={cover.width} logicalH={cover.height} tintColor={props.tintColor}
               onGoHome={props.onGoHome} onReload={props.onReload} onToggleDuoFold={props.onToggleDuoFold} />

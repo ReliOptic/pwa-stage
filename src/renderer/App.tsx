@@ -199,8 +199,12 @@ function findScreenElement(): HTMLElement | null {
   );
 }
 
-export function App(): React.ReactElement {
+export function App(): React.ReactElement | null {
   const ctrl = useSimulatorController();
+  return ctrl.ready ? <SimulatorWorkspace ctrl={ctrl}/> : null;
+}
+
+function SimulatorWorkspace({ctrl}: {ctrl: SimulatorController}): React.ReactElement {
   const state = ctrl.ctx.state;
   const activePreset = getDevicePresetById(state.selectedDeviceId);
   const metrics = computeViewportMetrics(
@@ -210,7 +214,8 @@ export function App(): React.ReactElement {
     state.isFramed,
     state.hudCollapsed
   );
-  const screen = useScreenController(state, ctrl.handleUpdateState, ctrl.triggerReload);
+  const startPage = ctrl.ctx.bookmarks.find(bookmark => bookmark.id === 'start');
+  const screen = useScreenController(state, ctrl.handleUpdateState, ctrl.triggerReload, state.currentUrl === startPage?.url);
   const [agentOpen, setAgentOpen] = useState(false);
   const [agentMounted, setAgentMounted] = useState(false);
   const [agentRunning, setAgentRunning] = useState(false);
@@ -317,7 +322,6 @@ export function App(): React.ReactElement {
             void getSimulatorBridge().closeWindow();
           }}
         />
-        {ctrl.ready && (
         <IphoneFrame
           onVisitAperture={window.journeyStudio?setVisitAperture:undefined}
           preset={activePreset}
@@ -336,7 +340,6 @@ export function App(): React.ReactElement {
           displayBackground={screen.report?.inspection.bodyBackground}
           onPageReady={screen.onPageReady}
         />
-        )}
         {inspectorOpen && (
           <PwaInspectorPanel
             report={screen.report}

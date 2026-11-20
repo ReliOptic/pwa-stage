@@ -69,9 +69,12 @@ app.whenReady().then(async () => {
     await home();
   }
 
-  await home();
+  await until(() => js("!!document.querySelector('.home-screen-home')"), 'Home on first launch without a shortcut');
   assert.deepEqual((await apps()).map(a=>a.name), ['Instagram','X']);
-  await until(() => js("[...document.querySelectorAll('.home-grid img')].every(i=>i.complete&&i.naturalWidth===192)"), 'bundled icons');
+  await until(() => js(`(() => {
+    const icons = [...document.querySelectorAll('.home-grid [data-launch-url] img')];
+    return icons.length === 2 && icons.every(i => i.complete && i.naturalWidth === 192);
+  })()`), 'bundled website icons');
   await capture('starter-home');
   await label('Web Apps');
   await until(() => has('Add TikTok'), 'catalogue');

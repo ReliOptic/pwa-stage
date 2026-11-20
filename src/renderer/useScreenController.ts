@@ -72,10 +72,11 @@ export interface ScreenController {
 export function useScreenController(
   state: SimulatorState,
   updateState: (patch: Partial<SimulatorState>) => void,
-  reload: () => void
+  reload: () => void,
+  startOnHome: boolean
 ): ScreenController {
   const [homePreview, setHomePreview] = useState(false);
-  const [phase, setPhase] = useState<ScreenPhase>('app');
+  const [phase, setPhase] = useState<ScreenPhase>(startOnHome ? 'home' : 'app');
   const [homeNavigation, setHomeNavigation] = useState<HomeNavigation>({ page: 0, searching: false, query: '' });
   const [launchOrigin, setLaunchOrigin] = useState<LaunchOrigin>({ x: 0.5, y: 0.92, width: 0.15, height: 0.075 });
   const [splash, setSplash] = useState<ScreenContextValue['splash']>(null);

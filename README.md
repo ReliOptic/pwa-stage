@@ -123,7 +123,7 @@ across platforms and uses Chromium, not WebKit.
 
 **Personal / internal tool — not for public distribution. Do not publish the repository or installers.** Application source is covered by [MIT](LICENSE); this does not license the bundled hardware artwork/model, whose provenance and redistribution rights are unknown. See [ASSETS.md](ASSETS.md). This project is not affiliated with Apple; projected device geometry and animation tuning are estimates.
 
-The default start page asks for a website URL. Home Screen contains Safari, Chrome and the sites added through Share → Add to Home Screen. Open **Settings** to rename, launch or remove a saved app, choose whether it opens standalone, and switch between standard labelled icons and large icons. **Viewport** measures the active website’s layout viewport, visual viewport, emulated screen, zoom and pixel ratio. In Settings, a saved browser shortcut can open in Safari or Chrome. The **Manifest** and **PWA Checks** apps read the currently loaded website and keep it open while you inspect its manifest, service worker and install diagnostics.
+The simulator opens on the Home Screen. An explicit development target opens directly. Home Screen contains Safari, Chrome and the sites added through Share → Add to Home Screen. Open **Settings** to rename, launch or remove a saved app, choose whether it opens standalone, and switch between standard labelled icons and large icons. **Viewport** measures the active website’s layout viewport, visual viewport, emulated screen, zoom and pixel ratio. In Settings, a saved browser shortcut can open in Safari or Chrome. The **Manifest** and **PWA Checks** apps read the currently loaded website and keep it open while you inspect its manifest, service worker and install diagnostics.
 
 Video and HTML fullscreen stay within the selected simulated display. Escape restores the browser chrome and the previous viewport.
 
@@ -152,6 +152,6 @@ The slab frame now uses the bundled hardware artwork, registered and rotated wit
 
 A moving reflection on the cover peaks at a physical hinge angle of 70°. Its gradient follows the projected glass when opening, closing or holding the angle. In the front Span view, the app hands off between the cover and inner displays at 70% open (126°). Between 108° and 144° the moving inner glass comes into focus. The held half stays sharp, and the angle slider previews the same effect while dragging. Releasing the slider restores sharp glass and keeps the selected display profile.
 
-Click Open / Close again to reverse. Escape or Pause stops the hinge, and Resume continues it. Click the angle to drag the slider or use its arrow, Home and End keys. The options menu includes 1° and 5° steps, the finish and camera reset.
+Click Open / Close again to reverse. Escape or Pause stops the hinge, and Resume continues it. Drag the visible Duo slider or use its arrow, Home and End keys. The options menu includes 1° and 5° steps, the finish and camera reset.
 
 When the system has Reduce Motion enabled, Duo opens and closes immediately. Choose the play button next to Open to preview the fold animation. The setting is saved on this computer. Choose **Use system motion setting** in the hinge options to follow the system again.

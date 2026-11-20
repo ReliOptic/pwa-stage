@@ -553,7 +553,7 @@ export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.Reac
       </>}
     </div>
     {props.cutoutType !== HardwareCutoutType.NONE && <HomeGesture
-      width={props.logicalW} height={props.logicalH} trailing={trailing}
+      width={props.logicalW} height={props.logicalH} trailing={onHome ? 0 : trailing}
       light={insideTool ? screen.darkMode : onHome || (isPwa ? lightContent : props.state.darkMode)}
       immersive={fullscreen && !onHome} onHome={props.onGoHome} />}
   </>);

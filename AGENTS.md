@@ -23,8 +23,8 @@ status, references) before changing anything.
   device `select[aria-label="Device Model"]` (`iphone-duo-folded` / `iphone-duo-unfolded`);
   URL `input[aria-label="Page URL"]`; browser picker `select[aria-label="Browser"]` (Safari / Chrome / Web App);
   Duo fold `.duo-fold-toggle` — Shift-click = 8× slow motion;
-  hinge readout `.duo-current-angle`; open `.duo-settings` for the slider and `select[aria-label="Preview posture"]`.
-- Serve test pages from `127.0.0.1`. Product has only a URL-entry start page; fixtures live under `tests/electron`.
+  hinge readout `.duo-current-angle`; slider is always visible; open `.duo-settings` for `select[aria-label="Preview posture"]`.
+- Serve test pages from `127.0.0.1`. Product starts on Home with a blank browser tab; fixtures live under `tests/electron`.
 - Software rendering (SwiftShader): judge geometry, blur and brightness, not frame rate.
 
 ## Invariants (do not break)

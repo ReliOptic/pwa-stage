@@ -74,36 +74,36 @@ export function DuoFoldMiniBar(props: DuoFoldMiniBarProps): React.ReactElement {
       </button>}
       <button type="button" className="duo-settings" ref={disclosure}
         aria-label="Adjust hinge controls" aria-description={`${roundedAngle} degrees open`} aria-controls="duo-posture-options" aria-expanded={expanded}
-        title={expanded ? 'Hide hinge controls' : 'Adjust angle, posture and finish'} onClick={() => setExpanded(!expanded)}>
+        title={expanded ? 'Hide hinge controls' : 'Adjust posture and finish'} onClick={() => setExpanded(!expanded)}>
         <span className="duo-current-angle">{roundedAngle}°</span><ChevronDown size={12}/>
       </button>
+      <input
+        type="range"
+        min={0}
+        max={180}
+        step={1}
+        value={roundedAngle}
+        aria-label="iPhone Duo Hinge Angle (0 to 180 degrees)"
+        className="duo-hinge-slider"
+        aria-valuetext={`${roundedAngle} degrees`}
+        onPointerDown={e => {
+          if (!e.isPrimary || e.button !== 0) return;
+          e.preventDefault();
+          e.currentTarget.focus();
+          e.currentTarget.setPointerCapture(e.pointerId);
+          onScrubActiveChange(true);
+          scrubAtPointer(e);
+        }}
+        onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) scrubAtPointer(e); }}
+        onPointerUp={e => {
+          if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+          scrubAtPointer(e);
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        }}
+        onLostPointerCapture={() => onScrubActiveChange(false)}
+        onChange={(e): void => onScrubAngle(Number(e.target.value))}
+      />
       <div className="duo-secondary-controls" id="duo-posture-options" hidden={!expanded}>
-          <input
-            type="range"
-            min={0}
-            max={180}
-            step={1}
-            value={roundedAngle}
-            aria-label="iPhone Duo Hinge Angle (0 to 180 degrees)"
-            className="duo-hinge-slider"
-            aria-valuetext={`${roundedAngle} degrees`}
-            onPointerDown={e => {
-              if (!e.isPrimary || e.button !== 0) return;
-              e.preventDefault();
-              e.currentTarget.focus();
-              e.currentTarget.setPointerCapture(e.pointerId);
-              onScrubActiveChange(true);
-              scrubAtPointer(e);
-            }}
-            onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) scrubAtPointer(e); }}
-            onPointerUp={e => {
-              if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-              scrubAtPointer(e);
-              e.currentTarget.releasePointerCapture(e.pointerId);
-            }}
-            onLostPointerCapture={() => onScrubActiveChange(false)}
-            onChange={(e): void => onScrubAngle(Number(e.target.value))}
-          />
         <label className="duo-posture-picker">
           <span aria-hidden="true">{POSTURES.find(([id]) => id === activePosture)?.[1] ?? 'Posture'}</span><ChevronDown size={12}/>
           <select aria-label="Preview posture" value={activePosture}

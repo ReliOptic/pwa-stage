@@ -25,6 +25,7 @@ server.listen(18769,'127.0.0.1',async()=>{
  const guests=()=>webContents.getAllWebContents().filter(w=>w.getType()==='webview').map(w=>({id:w.id,url:w.getURL()}));
  const open=guests();
  const tokens=await Promise.all(webContents.getAllWebContents().filter(w=>w.getType()==='webview').map(async w=>({id:w.id,token:await w.executeJavaScript('window.token')})));
+ assert(await win.webContents.executeJavaScript("document.querySelector('.duo-hinge-slider').getBoundingClientRect().width > 24"));
  await win.webContents.executeJavaScript("document.querySelector('.duo-settings').click()");
  const posture=id=>win.webContents.executeJavaScript(`(()=>{const el=document.querySelector('.duo-posture-picker select');
    el.value=${JSON.stringify(id)};el.dispatchEvent(new Event('change',{bubbles:true}))})()`);

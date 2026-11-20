@@ -68,7 +68,7 @@ counted structural fact. No numerical value below is an Apple API contract.
 | Inner vertical dock | x≈1322..1387, y≈412..645 | ~74×266pt, top216; implemented72×266 at x873,y217.5 | M, S2 77.3s |
 | Duo dock icons | ~43px squares | ~48pt; implemented48 | M, S2 |
 | Duo search | Circle≈42px diameter at rail bottom | ~48pt diameter, bottom18; implemented48 | M, S2 |
-| Duo time/ring | Inner time baseline≈333; cover≈363 | Inner time top~108pt, cover~144pt; existing ring glyph retained | M positions, S2 |
+| Duo time/ring | Inner time baseline≈333; cover≈363 | Film estimate: inner time top~108pt, cover~144pt. In 1.0.21 the simulator intentionally places Home status closer to the upper edge (24pt inner, 82pt cover) to group time and connectivity and clear the cover camera | M positions, S2 |
 | Glass | Translucent dock and Search, light edge, background visible | CSS blur24px/saturate130%, fill #d8f3ef26, 1px rim; no optical refraction | L, original visual approximation of S1/S3 |
 | App open/close | No version-identifiable, frame-timed launch sample calibrated in this audit | Launch/close use estimated 420/320 ms transitions. A pending site change can display a placeholder until page readiness or the end of launch. Splash and Home zoom now share tapped-icon origin. Reduced-motion CSS uses1ms | L, simulator timing, **not measured** |
 
