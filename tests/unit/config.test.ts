@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEVICE_PRESETS, getDevicePresetById } from '../../src/config/device-presets.config';
 import { loadSimulatorEnvConfig, validateHttpUrl } from '../../src/config/env.config';
+import { webAddress } from '../../src/services/journey-planner';
+import { regionLanguage, regionTimeZone } from '../../src/utils/region.util';
 import { DeviceModelId } from '../../src/types/device.types';
 
 describe('env.config & device-presets.config', () => {
@@ -27,6 +29,34 @@ describe('env.config & device-presets.config', () => {
     if (!empty.ok) {
       expect(empty.error.kind).toBe('CONFIG_VALIDATION_ERROR');
     }
+  });
+
+  it.each([
+    ['localhost:5173/서울', 'http://localhost:5173/%EC%84%9C%EC%9A%B8'],
+    [':3000/東京', 'http://localhost:3000/%E6%9D%B1%E4%BA%AC'],
+    ['[::1]:5173/ع', 'http://[::1]:5173/%D8%B9'],
+    ['localhost?lang=de', 'http://localhost/?lang=de'],
+    ['127.0.0.2:443/', 'http://127.0.0.2:443/'],
+    ['preview.localhost:5173', 'http://preview.localhost:5173/'],
+    ['https://localhost:5173/', 'https://localhost:5173/'],
+    ['예시.한국/한글', 'https://xn--vv4b11d.xn--3e0b707e/%ED%95%9C%EA%B8%80']
+  ])('uses the same address in the device and Agent for %s', (input, expected) => {
+    expect(validateHttpUrl(input,'url')).toEqual({ok:true,value:expected});
+    expect(webAddress(input)).toBe(expected);
+  });
+
+  it.each(['ftp://example.org/path', 'file:///tmp/test', '/local/path', 'about:blank'])('rejects %s instead of loading a different host', input => {
+    expect(validateHttpUrl(input,'url').ok).toBe(false);
+    expect(() => webAddress(input)).toThrow();
+  });
+
+  it('canonicalizes supported region overrides and rejects invalid values', () => {
+    expect(regionLanguage(' ko-kr ')).toBe('ko-KR');
+    expect(regionLanguage('ko_KR')).toBeNull();
+    expect(regionTimeZone('Asia/Seoul')).toBe('Asia/Seoul');
+    expect(regionTimeZone('Europe/Unknown')).toBeNull();
+    expect(regionTimeZone('+09:00')).toBeNull();
+    expect(regionTimeZone('')).toBe('');
   });
 
   it('provides all iPhone 17/18 lineup and iOS 27.1 iPhone Duo presets without hinge crease', () => {

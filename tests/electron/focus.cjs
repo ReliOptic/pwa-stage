@@ -155,7 +155,7 @@ server.listen(0, '127.0.0.1', async () => {
     const held = [];
     await click('.duo-settings');
     const rect=await until(()=>evaluate(`(()=>{const el=document.querySelector('.duo-hinge-slider'),r=el.getBoundingClientRect();
-      return r.width>0 && document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===el && r.toJSON()})()`), 'revealed angle control');
+      return document.querySelector('.duo-settings').getAttribute('aria-expanded')==='true' && r.width>0 && document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===el && r.toJSON()})()`), 'revealed angle control');
     await capture(false);
     const point = deg => ({x:Math.round(rect.x+10+(rect.width-20)*deg/180),y:Math.round(rect.y+rect.height/2)});
     shell.sendInputEvent({type:'mouseDown',...point(123),button:'left',clickCount:1});

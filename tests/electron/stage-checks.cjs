@@ -54,7 +54,7 @@ server.listen(0,'127.0.0.1',async()=>{
   await js("document.querySelector('.journey-header nav button').click()");
   await js("document.querySelector('.journey-custom summary').click()");
   const set=(selector,value,ev='input')=>js(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event(${JSON.stringify(ev)},{bubbles:true}));})()`);
-  await set('.journey-form textarea',[base+'/',base+'/missing',base+'/article'].join('\n'));
+  await set('.journey-form textarea',[base.slice('http://'.length)+'/',base+'/missing',base+'/article'].join('\n'));
   assert.equal(await js("document.querySelector('.journey-form select').value"),'current');
   await set('.journey-form select','iphone-se-3','change');
   await set('.journey-select-row:last-child select','both','change');

@@ -11,6 +11,8 @@ interface ChildSession {
   kind: TargetKind;
   scriptId?: string;
   pending: Promise<void>;
+  language?: string;
+  timeZone?: string;
 }
 
 // Out-of-process frames and workers each have their own DevTools agent. Installing
@@ -20,13 +22,14 @@ export function mobileChildTargets(connection: DebuggerCommandSender, initial: E
   let profile = initial;
   let enabled = false;
   const childSettings = (p:EmulationProfile) => JSON.stringify([
-    p.userAgent,p.platform,p.standalone,p.metrics.screenWidth,p.metrics.screenHeight,p.touch,p.mediaFeatures
+    p.userAgent,p.platform,p.previewLanguage,p.previewTimeZone,p.standalone,p.metrics.screenWidth,p.metrics.screenHeight,p.touch,p.mediaFeatures
   ]);
 
   async function configure(id: string, child: ChildSession, first: boolean, paused: boolean) {
     const current = profile;
     const send = (method: string, args: Record<string, unknown> = {}) => connection.sendCommand(method, args, id);
     const { metrics, userAgent, platform } = current;
+    const ua = {userAgent, platform, ...(current.previewLanguage && {acceptLanguage:current.previewLanguage})};
     const identity = `(() => {
       const proto = Object.getPrototypeOf(navigator);
       const set = (object, key, value) => Object.defineProperty(object, key, {configurable:true, get:()=>value});
@@ -44,18 +47,28 @@ export function mobileChildTargets(connection: DebuggerCommandSender, initial: E
     })()`;
     let resumed = false;
     try {
+      if (child.kind === 'iframe') {
+        if (child.language !== current.previewLanguage) {
+          await send('Emulation.setLocaleOverride', {locale:current.previewLanguage || ''});
+          child.language = current.previewLanguage;
+        }
+        if (child.timeZone !== current.previewTimeZone) {
+          await send('Emulation.setTimezoneOverride', {timezoneId:current.previewTimeZone || ''});
+          child.timeZone = current.previewTimeZone;
+        }
+      }
       // Service-worker startup only processes queued renderer commands once the
       // startup barrier is released. Queue the identity before releasing it.
       if (paused && child.kind === 'service_worker') {
         const applying = Promise.all([
           send('Runtime.evaluate', {expression:identity}),
-          send('Emulation.setUserAgentOverride', {userAgent, platform}),
+          send('Emulation.setUserAgentOverride', ua),
           send('Runtime.runIfWaitingForDebugger')
         ]);
         resumed = true;
         await applying;
       } else {
-        await send('Emulation.setUserAgentOverride', {userAgent, platform});
+        await send('Emulation.setUserAgentOverride', ua);
         if (child.kind === 'iframe') {
           await send('Emulation.setTouchEmulationEnabled', {...current.touch});
           await send('Emulation.setEmulatedMedia', {features:current.mediaFeatures});

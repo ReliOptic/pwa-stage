@@ -1,3 +1,4 @@
+import { appInitial, limitAppName } from '../../utils/app-name.util';
 import { chooseTouchIcon } from '../../utils/home-icon.util';
 import type { WebAppListing } from '../../config/web-app-catalog';
 import { useHomePaging } from '../useHomePaging';
@@ -66,7 +67,10 @@ export interface HomeNavigation {
 }
 
 export interface ScreenContextValue {
+  readonly isStartPage: boolean;
   readonly iconDpr: number;
+  readonly previewLanguage?: string;
+  readonly previewTimeZone?: string;
   readonly browserMode: BrowserShellMode;
   readonly setAppearance: (dark: boolean) => void;
   readonly homePreview: boolean;
@@ -103,7 +107,7 @@ export interface ScreenContextValue {
 const noop = (): void => undefined;
 
 export const ScreenContext = createContext<ScreenContextValue>({
-  iconDpr: 3, browserMode: BrowserShellMode.IOS_SAFARI,
+  isStartPage: false, iconDpr: 3, browserMode: BrowserShellMode.IOS_SAFARI,
   setAppearance: noop,
   homePreview: false, setHomePreview: noop,
   homeNavigation: { page: 0, searching: false, query: '' },
@@ -199,7 +203,7 @@ function AppIcon(props: {
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [props.iconUrl]);
   const clipPath = useMemo(() => homeIconClip(props.size ?? 60), [props.size]);
-  const initial = props.label.trim().charAt(0).toUpperCase() || '•';
+  const initial = appInitial(props.label);
   return (
     <div className="home-app">
       <button
@@ -227,7 +231,7 @@ function AppIcon(props: {
           <span className="home-app-initial">{initial}</span>
         )}
       </button>
-      {!props.hideLabel && <span className="home-app-label">{props.label}</span>}
+      {!props.hideLabel && <span className="home-app-label" dir="auto">{props.label}</span>}
     </div>
   );
 }
@@ -257,7 +261,7 @@ export function HomeScreen(props: { readonly mirror?: boolean; readonly width: n
   const apps = [
     ...screen.installedApps.map(app => ({kind:'site' as const, name:app.name, app})),
     ...homeTools.map(tool => ({kind:'tool' as const, name:tool.name, tool}))
-  ].filter(item => item.name.toLowerCase().includes(query.trim().toLowerCase()));
+  ].filter(item => item.name.normalize().toLocaleLowerCase().includes(query.trim().normalize().toLocaleLowerCase()));
   const { pages, page } = resolveHomePage(apps.length, layout.capacity, requestedPage);
   const paging = useHomePaging(page, pages, next => updateNavigation({page:next}), !props.mirror && !searching && screen.phase==='home');
   const preview = screen.phase === 'app' && screen.homePreview;
@@ -325,7 +329,7 @@ function ShareSheet(): React.ReactElement {
         <span className="ios-sheet-handle" aria-hidden="true" />
         <header>
           <div className="home-app-icon ios-share-icon">
-            {identity?.iconUrl ? <img src={identity.iconUrl} alt="" /> : title.charAt(0).toUpperCase()}
+            {identity?.iconUrl ? <img src={identity.iconUrl} alt="" /> : appInitial(title)}
           </div>
           <div className="ios-share-title"><strong>{title}</strong><small>{host}</small></div>
           <button type="button" className="ios-share-close" aria-label="Cancel" onClick={() => screen.openSheet('none')}><X size={18} /></button>
@@ -390,14 +394,14 @@ function AddToHomeSheet(): React.ReactElement | null {
               {identity.iconUrl ? (
                 <img src={identity.iconUrl} alt="" draggable={false} />
               ) : (
-                <span className="home-app-initial">{name.charAt(0).toUpperCase()}</span>
+                <span className="home-app-initial">{appInitial(name)}</span>
               )}
             </div>
             <div className="ios-card-fields">
               <input
                 value={name}
-                maxLength={40}
-                onChange={(e): void => setName(e.target.value)}
+                dir="auto"
+                onChange={(e): void => setName(limitAppName(e.target.value, 40))}
                 aria-label="Home Screen name"
               />
               <span className="ios-card-host">{identity.launchUrl}</span>
@@ -509,7 +513,7 @@ export function PwaInspectorPanel(props: {
       {identity && (
         <div className="pwa-inspector-identity">
           <div className="home-app-icon pwa-inspector-icon">
-            {identity.iconUrl ? <img src={identity.iconUrl} alt="" /> : <span className="home-app-initial">{identity.name.charAt(0)}</span>}
+            {identity.iconUrl ? <img src={identity.iconUrl} alt="" /> : <span className="home-app-initial">{appInitial(identity.name)}</span>}
           </div>
           <div>
             <div className="pwa-inspector-name">{identity.name}</div>

@@ -1,3 +1,4 @@
+import { RegionControls } from './RegionControls';
 import { platformLabel, hostPlatform } from '../../utils/platform.util';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -191,12 +192,15 @@ function DisplayScale(props: FloatingToolbarProps): React.ReactElement {
 /** Row 2 — the browser: which iOS container, and what URL. */
 function BrowserRow(props: FloatingToolbarProps): React.ReactElement {
   const { state, bookmarks, onUpdateState } = props;
-  const [urlDraft, setUrlDraft] = useState<string>(state.currentUrl);
+  const startUrl = bookmarks.find(bookmark => bookmark.id === 'start')?.url;
+  const address = state.currentUrl === startUrl ? '' : state.currentUrl;
+  const [urlDraft, setUrlDraft] = useState(address);
   const [urlError, setUrlError] = useState<string | null>(null);
 
   useEffect((): void => {
-    setUrlDraft(state.currentUrl);
-  }, [state.currentUrl]);
+    setUrlDraft(address);
+    setUrlError(null);
+  }, [address]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
@@ -226,7 +230,8 @@ function BrowserRow(props: FloatingToolbarProps): React.ReactElement {
           value={urlDraft}
           spellCheck={false}
           aria-label="Page URL"
-          onChange={(e): void => setUrlDraft(e.target.value)}
+          aria-invalid={Boolean(urlError)} aria-describedby={urlError ? 'page-url-error' : undefined}
+          onChange={(e): void => {setUrlDraft(e.target.value); setUrlError(null);}}
           placeholder="URL, localhost:5173 or :3000"
         />
         <button type="submit" className="shadcn-input-submit" title="Go (Return)" aria-label="Go">
@@ -234,6 +239,7 @@ function BrowserRow(props: FloatingToolbarProps): React.ReactElement {
         </button>
       </div>
 
+      {urlError && <span id="page-url-error" className="url-error-message" role="alert">{urlError}</span>}
       <div className="shadcn-select-wrap tb-presets">
         <select
           className="shadcn-select shadcn-select-compact"
@@ -243,7 +249,7 @@ function BrowserRow(props: FloatingToolbarProps): React.ReactElement {
           onChange={(e): void => {
             const val = e.target.value;
             if (val) {
-              setUrlDraft(val);
+              setUrlDraft(val === startUrl ? '' : val);
               onUpdateState({ currentUrl: val });
             }
           }}
@@ -406,7 +412,7 @@ function ComparisonUrlRow(props: FloatingToolbarProps): React.ReactElement {
 
 export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement | null {
   const [toolsOpen, setToolsOpen] = useState(false);
-  const [section, setSection] = useState<'device' | 'captures'>('device');
+  const [section, setSection] = useState<'device' | 'region' | 'captures'>('device');
   const header = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const { state, onUpdateState } = props;
@@ -416,7 +422,7 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
       if (!header.current?.contains(event.target as Node)) setToolsOpen(false);
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { setToolsOpen(false); trigger.current?.focus(); }
+      if (!event.isComposing && event.key === 'Escape') { setToolsOpen(false); trigger.current?.focus(); }
     };
     document.addEventListener('pointerdown', dismiss, true);
     window.addEventListener('keydown', escape);
@@ -441,6 +447,7 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
       <div className="control-sections" role="group" aria-label="Control sections">
         <button type="button" aria-pressed={section==='device'} onClick={() => setSection('device')}>Device</button>
         <button type="button" aria-pressed={section==='captures'} onClick={() => setSection('captures')}>Screenshots</button>
+        {window.simulatorBridge && <button type="button" aria-controls="region-controls" aria-pressed={section==='region'} onClick={() => setSection('region')}>Region</button>}
       </div>
       <button type="button" className="tool-icon" aria-label="Close device controls" onClick={() => {setToolsOpen(false);trigger.current?.focus();}}><X size={14}/></button>
     </div>
@@ -448,7 +455,7 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
       <div className="control-display"><span>Scale</span><DisplayScale {...props}/>{!state.hudCollapsed && pin}</div>
       <HardwareRow {...props}/>
       {isDuo(props.activePreset) && state.duoDisplayMode === DuoDisplayMode.SPLIT_COMPARISON && <ComparisonUrlRow {...props}/>}
-    </> : <div className="capture-controls">
+    </> : section === 'region' ? <RegionControls state={state} onApply={onUpdateState}/> : <div className="capture-controls">
       <div><span>Save location</span><code title={props.screenshotDirectory}>{props.screenshotDirectory || 'Desktop'}</code></div>
       <div className="capture-actions">
         <ActionButton icon={<Camera size={15}/>} label="Save screenshot" title={platformLabel('Save screenshot (⌘S)')} onClick={props.onScreenshot}/>

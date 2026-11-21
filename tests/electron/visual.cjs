@@ -34,9 +34,23 @@ function readGeometry() {
     return { dpr: devicePixelRatio, polygons: [polygon], screen: r, skinLoaded: !img || (img.complete && img.naturalWidth > 0) };
   }
   const stage = rect(document.querySelector('.duo-3d-stage-root'));
-  const polygons = Array.from(document.querySelectorAll('.duo-interactive-slice')).filter(e => getComputedStyle(e).display !== 'none').map(e => {
+  const slices = Array.from(document.querySelectorAll('.duo-interactive-slice')).filter(el => {
+    const style = getComputedStyle(el);
+    return style.display !== 'none' && Number(style.opacity) > 0.01;
+  });
+  const polygons = slices.map(e => {
+    const sliceStyle = getComputedStyle(e);
+    if (sliceStyle.clipPath.startsWith('path(')) {
+      // The fully open face uses one stage-space M/L/Z stencil over the live guest.
+      const data = sliceStyle.clipPath.match(/"([^"]+)"/)?.[1];
+      if (!data || (data.match(/M/gi) || []).length !== 1 || /[a-z]/i.test(data.replace(/[MLZ]/gi,''))) {
+        throw Error('Unexpected resting Duo stencil: '+sliceStyle.clipPath);
+      }
+      const points = [...data.matchAll(/[ML]\s*(-?[\d.]+)[ ,]+(-?[\d.]+)/gi)];
+      return points.map(m => [stage.x + Number(m[1]), stage.y + Number(m[2])]);
+    }
     const inner = e.querySelector('.duo-slice-inner-viewport');
-    const css = getComputedStyle(inner), transform = new DOMMatrix(getComputedStyle(e).transform);
+    const css = getComputedStyle(inner), transform = new DOMMatrix(sliceStyle.transform);
     const w = parseFloat(css.width), h = parseFloat(css.height), left = parseFloat(css.left), top = parseFloat(css.top);
     let polygon = Array.from(css.clipPath.matchAll(/([-\d.]+)%\s+([-\d.]+)%/g), m => [Number(m[1]) * w / 100 + left, Number(m[2]) * h / 100 + top]);
     for (const [axis, bound, sign] of [[0, 0, 1], [0, parseFloat(getComputedStyle(e).width), -1], [1, 0, 1], [1, parseFloat(getComputedStyle(e).height), -1]]) {
@@ -60,7 +74,7 @@ function readGeometry() {
 function auditPixels(image, geometry) {
   const { width, height } = image.getSize(), pixels = image.toBitmap(), dpr = geometry.dpr;
   const polygons = geometry.polygons.map(p => p.map(([x, y]) => [x * dpr, y * dpr]));
-  assert(polygons.every(p => p.length >= 4), 'Every visible screen must have an aperture');
+  assert(polygons.length > 0 && polygons.every(p => p.length >= 4), 'Every visible screen must have an aperture');
   const green = (x, y) => {
     x = Math.round(x); y = Math.round(y);
     if (x < 0 || x >= width || y < 0 || y >= height) return false;

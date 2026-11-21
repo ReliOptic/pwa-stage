@@ -3,6 +3,7 @@ import { BrowserShellMode } from '../types/simulator.types';
 import { DEVICE_PRESETS } from '../config/device-presets.config';
 import type { StageCheckRequest, ModelConnection } from '../types/journey.types';
 import { JourneyRequest, MAX_VISITS } from '../types/journey.types';
+import { parseWebsiteAddress } from '../utils/website-address.util';
 
 export type ModelTransport = (url: string, options: RequestInit) => Promise<Response>;
 
@@ -18,9 +19,8 @@ export type Decision = {action: 'tap' | 'scroll' | 'wait' | 'finish' | 'blocked'
 
 export function webAddress(value:unknown):string {
   if(typeof value!=='string' || !value.trim() || value.length>2048) throw Error('Enter a website address.');
-  const address=value.trim();
-  const url=URL.parse(address.includes('://') ? address : 'https://'+address);
-  if(!url || !['http:','https:'].includes(url.protocol) || !url.hostname || url.username || url.password)
+  const url=parseWebsiteAddress(value);
+  if(!url || url.username || url.password)
     throw Error('Use an HTTP or HTTPS website without embedded credentials.');
   return url.href;
 }

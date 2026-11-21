@@ -64,7 +64,7 @@ describe('integration: simulator full device & shell switching flow', () => {
       return;
     }
 
-    expect(getHostnameForDisplay(initial.value.state.currentUrl)).toBe('Start page');
+    expect(getHostnameForDisplay(initial.value.state.currentUrl)).toBe(new URL(initial.value.state.currentUrl).host);
 
     const duoState = {
       ...initial.value.state,

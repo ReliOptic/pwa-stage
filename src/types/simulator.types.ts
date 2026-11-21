@@ -32,6 +32,8 @@ export interface SimulatorState {
   readonly alwaysOnTop: boolean;
   readonly touchCursorEnabled: boolean;
   readonly darkMode: boolean;
+  readonly previewLanguage?: string;
+  readonly previewTimeZone?: string;
   readonly isFramed: boolean;
   /** From the page's apple-mobile-web-app-status-bar-style (Home Screen web app geometry). */
   readonly pwaStatusBarStyle: PwaStatusBarStyle;

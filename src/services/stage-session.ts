@@ -118,6 +118,7 @@ export class StageSession {
 
   private profile(){
     return {preset:this.preset,orientation:this.state.orientation,shellMode:this.state.shellMode,darkMode:this.state.darkMode,
+      previewLanguage: this.state.previewLanguage, previewTimeZone: this.state.previewTimeZone,
       safariIosVersion:this.env.safariIosVersion,chromeIosVersion:this.env.chromeIosVersion};
   }
   private async until<T>(read:()=>Promise<T>|T,label:string,timeout=22000):Promise<NonNullable<T>> {

@@ -57,6 +57,7 @@ describe('storage service', () => {
     const initial = createDefaultSimulatorState(envConfig);
     const updated = {
       ...initial,
+      previewLanguage: 'ko-kr', previewTimeZone: 'Asia/Seoul',
       selectedDeviceId: DeviceModelId.IPHONE_DUO_UNFOLDED,
       shellMode: BrowserShellMode.PWA_STANDALONE,
       scale: 1.0
@@ -75,6 +76,8 @@ describe('storage service', () => {
     });
     expect(loadRes.ok).toBe(true);
     if (loadRes.ok) {
+      expect(loadRes.value.previewLanguage).toBe('ko-KR');
+      expect(loadRes.value.previewTimeZone).toBe('Asia/Seoul');
       expect(loadRes.value.selectedDeviceId).toBe(DeviceModelId.IPHONE_DUO_UNFOLDED);
       expect(loadRes.value.shellMode).toBe(BrowserShellMode.PWA_STANDALONE);
       expect(loadRes.value.scale).toBe(1.0);

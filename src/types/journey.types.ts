@@ -63,6 +63,8 @@ export interface JourneyReport {
   kind?: 'install' | 'audience';
   liveVisit?: number;
   liveDevice?:string;
+  previewLanguage?:string;
+  previewTimeZone?:string;
   orientation?:string;
   goal: string;
   model: string;

@@ -145,6 +145,7 @@ server.listen(18771,'127.0.0.1',async()=>{
  assert.equal(installed.length,2);
  assert.equal(installed[0].launchUrl,site+'/chrome');
  assert.equal(installed[0].opensAsWebApp,false);
+ assert.equal(installed[0].browser,'chrome');
  assert.equal(installed[1].name,'Coast');
  // Open the bundled tools from the same Home where both browsers installed a site.
  const tool=name=>click('.home-grid button[aria-label="'+name+'"]');
@@ -208,7 +209,8 @@ server.listen(18771,'127.0.0.1',async()=>{
  const cover='.duo-cover-mirror ';
  await click(cover+'[aria-label="More"]');
  await wait(()=>present(cover+'[role="dialog"]'));
- await clickText('Website Settings');await capture('duo-70-browser-settings');
+ await press('Array.from(document.querySelectorAll(".duo-cover-mirror button")).find(b=>b.textContent.trim()==="Settings")');
+ await capture('duo-70-browser-settings');
  await click(cover+'[aria-label="Done"]');
  // Project the actual guest button's normalized coordinates through the cover canvas.
  const tapOnCover=async selector=>{
@@ -257,7 +259,8 @@ server.listen(18771,'127.0.0.1',async()=>{
  await selectEndpoint(0);
  const homeStays=await js('!!document.querySelector(".home-screen-home")');
  const result={toolsChecked,overlapAngles,guestSettingsFromCover:true,standaloneRoutes:[site+'/safari',site+'/chrome'],installed,chromeBookmarkLaunch:chromeBookmarkLaunch.value.state.shellMode,before,closed,open,homeStays};
- assert.equal(installed[0].opensAsWebApp,false); assert.equal(result.chromeBookmarkLaunch,'ios-safari');
+ assert.equal(installed[0].opensAsWebApp,false);
+ assert.equal(result.chromeBookmarkLaunch,'ios-chrome');
  assert.equal(closed.count,1); assert.equal(open.count,1);
  assert.equal(before.id,closed.id); assert.equal(before.id,open.id);
  assert.equal(before.token,closed.token); assert.equal(before.token,open.token);

@@ -107,7 +107,7 @@ server.listen(0,'127.0.0.1',async()=>{
     // DOM attachment precedes native presentation after a window reload.
     await capture('reloaded-before-paging');
     if (!(await home())) {await swipe(0,-85);await until(home,'Home after loading two app pages');}
-    await swipe(-65,0,'.home-grid button[aria-label=Viewport]');
+    await swipe(-65,0,'.home-grid button[aria-label="Notebook 1"]');
     await until(()=>js("document.querySelector('[aria-current=page]')?.ariaLabel==='Page 2'"),'second app page');
     assert(!await js("!!document.querySelector('.home-utility')"));
     await swipe(100,0,'.home-grid button:nth-of-type(1)');

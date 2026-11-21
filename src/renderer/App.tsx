@@ -81,7 +81,7 @@ function useSimulatorShortcuts(
     };
 
     const onKeyDown = (e: KeyboardEvent): void => {
-      if (!shortcutModifier(e.metaKey, e.ctrlKey, e.altKey)) {
+      if (e.isComposing || !shortcutModifier(e.metaKey, e.ctrlKey, e.altKey)) {
         return;
       }
       const target = e.target as HTMLElement | null;

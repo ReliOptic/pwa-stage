@@ -1192,7 +1192,7 @@ html, body, #root {
   .simulator-root[data-narrow=true] .tool-location {grid-row:2;grid-column:1/-1;}
   .simulator-root[data-narrow=true] .tool-shortcuts {grid-row:1;grid-column:3;}
 
-.device-controls { width: min(320px, calc(100vw - 16px)); max-height: calc(100vh - 62px); overflow: auto; overscroll-behavior: contain; }
+.device-controls { touch-action:manipulation; width: min(320px, calc(100vw - 16px)); max-height: calc(100vh - 62px); overflow: auto; overscroll-behavior: contain; }
 .preview-handle .device-controls { right: auto; left: 50%; transform: translateX(-50%); }
 .device-control-heading { display: flex; justify-content: space-between; border-bottom: 1px solid var(--shell-line); margin-bottom: 8px; }
 .control-sections { display: flex; gap: 2px; padding: 2px; background: var(--shell-well); border-radius: 9px; }
@@ -1207,6 +1207,16 @@ html, body, #root {
 .capture-controls code { font:12px/1.4 ui-monospace,monospace; color:var(--shell-ink); }
 .capture-actions { display:flex; gap:6px; }
 .capture-last button { color:var(--shell-accent); padding:0; }
+.tool-location { position:relative; }
+.url-error-message { position:absolute; top:calc(100% + 6px); left:0; z-index:1; padding:6px 9px; border-radius:7px; background:var(--shell-surface); color:var(--shell-ink); box-shadow:var(--shell-shadow); font-size:12px; white-space:normal; }
+.region-controls { display:grid; gap:12px; padding:4px; }
+.region-controls label { display:grid; gap:4px; font-size:12px; color:var(--shell-secondary); }
+.region-controls :is(input, select) { box-sizing:border-box; width:100%; min-width:0; padding:7px 9px; border:1px solid var(--shell-line); border-radius:7px; background:var(--shell-well); color:var(--shell-ink); font:inherit; }
+.region-controls > div { display:flex; justify-content:space-between; gap:6px; }
+.region-controls button { padding:6px 8px; border:1px solid var(--shell-line); border-radius:7px; background:var(--shell-well); color:var(--shell-ink); font:inherit; cursor:pointer; }
+.region-controls button[type=submit] { color:var(--shell-accent); }
+.region-controls button:disabled { opacity:.55; cursor:default; }
+.region-controls p { margin:0; white-space:normal; font-size:12px; }
 .capturing-screen .device-controls, .capturing-screen .sim-toast { visibility:hidden; }
 
 .duo-grazing-glass { position:absolute; inset:0; z-index:61; pointer-events:none; }

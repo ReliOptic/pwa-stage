@@ -61,6 +61,8 @@ function useWebviewEffects(
     let committedUrl = '';
     let navigationStart = '';
     let appliedShell = props.state.shellMode;
+    let appliedLanguage = props.state.previewLanguage;
+    let appliedTimeZone = props.state.previewTimeZone;
     let lastReload = props.reloadTick;
     let sentWidth = 0, sentHeight = 0;
     let resizing = false;
@@ -101,7 +103,10 @@ function useWebviewEffects(
         if (!result.ok) throw new Error(result.error.message);
         if (disposed) return;
         const shellChanged = appliedShell !== next.state.shellMode;
-        const reloadChanged = lastReload !== next.reloadTick;
+        const regionChanged = appliedLanguage !== next.state.previewLanguage || appliedTimeZone !== next.state.previewTimeZone;
+        const reloadChanged = lastReload !== next.reloadTick || regionChanged;
+        appliedLanguage = next.state.previewLanguage;
+        appliedTimeZone = next.state.previewTimeZone;
         appliedShell = next.state.shellMode;
         lastReload = next.reloadTick;
         ready.current = true;
@@ -109,7 +114,8 @@ function useWebviewEffects(
         applyZoom();
         // src remains inert: even the first real request follows emulation.
         // Skip stale requests when URL/state changed while IPC was in flight.
-        if (next.targetUrl !== latest.current.targetUrl || next.state.shellMode !== latest.current.state.shellMode) { sync(); return; }
+        if (next.targetUrl !== latest.current.targetUrl || next.state.shellMode !== latest.current.state.shellMode ||
+            next.state.previewLanguage !== latest.current.state.previewLanguage || next.state.previewTimeZone !== latest.current.state.previewTimeZone) { sync(); return; }
         if ((pendingNavigation?.url ?? el.getURL()) !== next.targetUrl || (pendingNavigation && (shellChanged || reloadChanged))) {
           // Keep profile updates and Home Screen launches responsive while media is still loading.
           const request = {url:next.targetUrl};
@@ -145,9 +151,9 @@ function useWebviewEffects(
       const url = event.url || el.getURL();
       if (!ready.current || !/^https?:/.test(url)) return;
       const desired = latest.current.targetUrl;
-      // Changing a mobile profile can reload the previous document while a
-      // Home Screen deep link is being selected. Keep the requested launch.
-      if (committedUrl && desired !== committedUrl && url !== desired && navigationStart !== desired) return;
+      // A late commit from the boot page or a profile reload must not replace
+      // a newer address. A redirect from the requested navigation can commit.
+      if (desired !== committedUrl && url !== desired && navigationStart !== desired) return;
       committedUrl = url;
       // A redirect also commits the outstanding request. Reissuing its final
       // URL would interrupt the page and discard its newly initialized state.
@@ -189,7 +195,7 @@ function useWebviewEffects(
     if (!electronMode && iframeRef.current && props.reloadTick) iframeRef.current.src = props.targetUrl;
   }, [electronMode, props.targetUrl, props.reloadTick, props.state.selectedDeviceId,
     props.state.orientation, props.state.shellMode, props.state.darkMode,
-    props.state.touchCursorEnabled, props.state.pwaStatusBarStyle]);
+    props.state.touchCursorEnabled, props.state.pwaStatusBarStyle, props.state.previewLanguage, props.state.previewTimeZone]);
 
   useEffect(() => {
     if (!electronMode) return;

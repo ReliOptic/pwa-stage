@@ -1,3 +1,4 @@
+import { regionLanguage, regionTimeZone } from '../utils/region.util';
 import { SimulatorEnvConfig } from '../config/env.config';
 import { DeviceModelId, Orientation } from '../types/device.types';
 import {
@@ -80,6 +81,8 @@ export function mergeStoredStateWithDefaults(
         : defaults.scale,
     alwaysOnTop:
       typeof parsed.alwaysOnTop === 'boolean' ? parsed.alwaysOnTop : defaults.alwaysOnTop,
+    previewLanguage: regionLanguage(parsed.previewLanguage) || undefined,
+    previewTimeZone: regionTimeZone(parsed.previewTimeZone) || undefined,
     touchCursorEnabled:
       typeof parsed.touchCursorEnabled === 'boolean'
         ? parsed.touchCursorEnabled

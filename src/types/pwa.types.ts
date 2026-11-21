@@ -20,6 +20,13 @@ export interface PageInspection {
   readonly title: string;
   readonly isSecureContext: boolean;
   readonly viewport: PageViewport | null;
+  readonly environment: {
+    readonly language: string | null;
+    readonly locale: string | null;
+    readonly timeZone: string | null;
+    readonly documentLanguage: string | null;
+    readonly direction: 'ltr' | 'rtl' | null;
+  } | null;
   readonly touchIcons: readonly TouchIcon[];
   readonly viewportContent: string | null;
   readonly themeColor: string | null;

@@ -1,4 +1,5 @@
 import { chooseTouchIcon } from '../utils/home-icon.util';
+import { limitAppName } from '../utils/app-name.util';
 import {
   HomeScreenIdentity,
   PageInspection,
@@ -24,23 +25,25 @@ export const PAGE_INSPECTION_EXPRESSION = `(async () => {
   const abs = (href) => { try { return new URL(href, document.baseURI).href; } catch { return null; } };
   const themeEls = Array.from(document.querySelectorAll('meta[name="theme-color"]'));
   const themeEl = themeEls.find((m) => !m.media || matchMedia(m.media).matches) || null;
-  const touchIcon = link('link[rel="apple-touch-icon"]') || link('link[rel="apple-touch-icon-precomposed"]');
-  const manifestLink = link('link[rel="manifest"]');
+  const touchIcons = Array.from(document.querySelectorAll('link[rel~="apple-touch-icon" i], link[rel~="apple-touch-icon-precomposed" i]'))
+    .filter(el => el.getAttribute('href')?.trim() && (!el.media || matchMedia(el.media).matches))
+    .slice(0,32).map(el => ({src:el.href, sizes:el.sizes.value}));
+  const manifestLink = link('link[rel~="manifest" i]');
   let manifest = null;
   let manifestError = null;
-  let manifestHref = manifestLink ? abs(manifestLink.getAttribute('href')) : null;
+  let manifestHref = manifestLink?.getAttribute('href')?.trim() ? abs(manifestLink.href) : null;
   if (manifestHref) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
     try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 4000);
       const res = await fetch(manifestHref, {
         credentials: manifestLink.crossOrigin === 'use-credentials' ? 'include' : 'same-origin',
         signal: ctrl.signal
       });
-      clearTimeout(timer);
       if (!res.ok) { manifestError = 'HTTP ' + res.status; }
       else { manifestHref = res.url || manifestHref; manifest = await res.json(); }
-    } catch (e) { manifestError = String(e && e.message || e); }
+    } catch (e) { manifestError = ctrl.signal.aborted ? 'Manifest timed out after 4 seconds.' : String(e && e.message || e); }
+    finally { clearTimeout(timer); }
   }
   let serviceWorker = 'unsupported';
   try {
@@ -61,16 +64,18 @@ export const PAGE_INSPECTION_EXPRESSION = `(async () => {
     viewport: {layoutWidth: innerWidth, layoutHeight: innerHeight, visualWidth: visualViewport?.width,
       visualHeight: visualViewport?.height, scale: visualViewport?.scale, screenWidth: screen.width,
       screenHeight: screen.height, dpr: devicePixelRatio},
-    touchIcons: Array.from(document.querySelectorAll('link[rel~="apple-touch-icon"], link[rel~="apple-touch-icon-precomposed"]'))
-      .filter(el => !el.media || matchMedia(el.media).matches).slice(0,32).map(el=>({src:el.href,sizes:el.sizes.value})),
+    touchIcons,
+    environment: { language:navigator.language, locale:Intl.DateTimeFormat().resolvedOptions().locale,
+      timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone, documentLanguage:document.documentElement.lang,
+      direction:getComputedStyle(document.documentElement).direction },
     viewportContent: meta('viewport'),
     themeColor: themeEl ? themeEl.getAttribute('content') : null,
     bodyBackground: bodyBg && bodyBg !== 'rgba(0, 0, 0, 0)' ? bodyBg : htmlBg,
     appleCapable: meta('apple-mobile-web-app-capable') || meta('mobile-web-app-capable'),
     appleStatusBarStyle: meta('apple-mobile-web-app-status-bar-style'),
     appleTitle: meta('apple-mobile-web-app-title'),
-    appleTouchIcon: touchIcon ? abs(touchIcon.getAttribute('href')) : null,
-    appleTouchIconSizes: touchIcon ? touchIcon.getAttribute('sizes') : null,
+    appleTouchIcon: touchIcons[0]?.src ?? null,
+    appleTouchIconSizes: touchIcons[0]?.sizes ?? null,
     hasStartupImage: !!link('link[rel="apple-touch-startup-image"]'),
     manifestHref,
     manifest,
@@ -107,7 +112,7 @@ export function safeCssColor(value: unknown): string | null {
 }
 
 function sanitizeManifest(raw: unknown, baseUrl: string, documentUrl: string): WebAppManifestSubset | null {
-  if (typeof raw !== 'object' || raw === null) return null;
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const m = raw as Record<string, unknown>;
   const resolve = (v: unknown): string | undefined => {
     const s = str(v);
@@ -143,8 +148,8 @@ function sanitizeManifest(raw: unknown, baseUrl: string, documentUrl: string): W
     new URL(startUrl).pathname.startsWith(new URL(candidateScope).pathname)
     ? candidateScope : new URL('.', startUrl).href;
   return {
-    name: str(m.name, 120) ?? undefined,
-    short_name: str(m.short_name, 60) ?? undefined,
+    name: typeof m.name === 'string' ? limitAppName(m.name,120) : undefined,
+    short_name: typeof m.short_name === 'string' ? limitAppName(m.short_name,60) : undefined,
     start_url: startUrl,
     scope,
     display: str(m.display, 32) ?? undefined,
@@ -182,9 +187,17 @@ export function sanitizePageInspection(raw: unknown): PageInspection | null {
   const url = httpUrl(r.url);
   if (!url) return null;
   const sw = r.serviceWorker;
+  const environment = r.environment as Record<string,unknown> | null;
+  const manifestHref = httpUrl(r.manifestHref);
+  const manifest = sanitizeManifest(r.manifest, manifestHref ?? url, url);
   return {
     url,
-    title: str(r.title, 200) ?? '',
+    title: typeof r.title === 'string' ? limitAppName(r.title,200) : '',
+    environment: environment && typeof environment === 'object' ? {
+      language: str(environment.language,80), locale: str(environment.locale,80),
+      timeZone: str(environment.timeZone,100), documentLanguage: str(environment.documentLanguage,80),
+      direction: environment.direction === 'rtl' || environment.direction === 'ltr' ? environment.direction : null
+    } : null,
     isSecureContext: r.isSecureContext === true,
     viewport: readViewport(r.viewport),
     touchIcons: readTouchIcons(r.touchIcons),
@@ -193,13 +206,12 @@ export function sanitizePageInspection(raw: unknown): PageInspection | null {
     bodyBackground: safeCssColor(r.bodyBackground),
     appleCapable: str(r.appleCapable, 16),
     appleStatusBarStyle: str(r.appleStatusBarStyle, 32),
-    appleTitle: str(r.appleTitle, 60),
+    appleTitle: typeof r.appleTitle === 'string' ? limitAppName(r.appleTitle,60) : null,
     appleTouchIcon: httpUrl(r.appleTouchIcon),
     appleTouchIconSizes: str(r.appleTouchIconSizes, 32),
     hasStartupImage: r.hasStartupImage === true,
-    manifestHref: httpUrl(r.manifestHref),
-    manifest: sanitizeManifest(r.manifest, httpUrl(r.manifestHref) ?? url, url),
-    manifestError: str(r.manifestError, 200),
+    manifestHref, manifest,
+    manifestError: str(r.manifestError, 200) ?? (manifestHref && !manifest ? 'Expected a JSON object.' : null),
     serviceWorker:
       sw === 'controlled' || sw === 'registered' || sw === 'none' ? sw : 'unsupported'
   };
@@ -250,7 +262,7 @@ export function resolveHomeScreenIdentity(insp: PageInspection): HomeScreenIdent
     host;
   const icon = chooseTouchIcon(insp.touchIcons,60*(insp.viewport?.dpr ?? 3)) ?? insp.appleTouchIcon ?? largestIcon(m?.icons)?.src ?? null;
   return {
-    name: name.slice(0, 40),
+    name: limitAppName(name,40),
     iconUrl: icon,
     touchIcons: insp.touchIcons,
     launchUrl: m?.start_url ?? insp.url,
@@ -304,7 +316,7 @@ export function evaluatePwaChecks(insp: PageInspection): PwaCheck[] {
   }
 
   if (insp.manifestHref && !insp.manifest) {
-    add({ id: 'manifest', level: 'fail', title: 'Manifest could not be loaded', detail: `${insp.manifestHref}: ${insp.manifestError ?? 'invalid JSON'}` });
+    add({ id: 'manifest', level: 'fail', title: 'Manifest could not be loaded', detail: `${insp.manifestHref}: ${insp.manifestError ?? 'expected a JSON object'}` });
   } else if (!insp.manifest) {
     add({ id: 'manifest', level: 'warn', title: 'No web app manifest', detail: 'iOS can still add the page to the Home Screen, but name, start_url, scope and display come only from the manifest.' });
   } else {
@@ -324,16 +336,25 @@ export function evaluatePwaChecks(insp: PageInspection): PwaCheck[] {
     }
   }
 
-  if (insp.appleTouchIcon) {
-    const sizes = insp.appleTouchIconSizes ?? '';
+  const iconPixels = 60 * (insp.viewport?.dpr ?? 3);
+  const icons = insp.touchIcons.length ? insp.touchIcons :
+    insp.appleTouchIcon ? [{src:insp.appleTouchIcon, sizes:insp.appleTouchIconSizes}] : [];
+  if (icons.length) {
+    const iconUrl = chooseTouchIcon(icons,iconPixels);
+    const sizes = icons.filter(icon => icon.src === iconUrl).map(icon => icon.sizes || '').join(' ').trim();
+    const adequate = sizes.toLowerCase().split(/\s+/).some(token => {
+      const m = /^(\d+)x(\d+)$/.exec(token);
+      return token === 'any' || !!m && m[1] === m[2] && Number(m[1]) >= iconPixels;
+    });
     add({
       id: 'touch-icon',
-      level: sizes && !sizes.includes('180') ? 'warn' : 'pass',
+      level: adequate ? 'pass' : iconUrl && !sizes ? 'info' : 'warn',
       title: 'apple-touch-icon',
-      detail: sizes ? `sizes="${sizes}" (iPhone uses 180×180).` : 'Present (no sizes attribute; provide a 180×180 PNG).'
+      detail: sizes ? `Declared sizes: ${sizes}. Target for a 60 pt icon on this device: ${iconPixels}×${iconPixels}.` :
+        `No suitable size declared. Target for a 60 pt icon on this device: ${iconPixels}×${iconPixels}.`
     });
   } else if (largestIcon(insp.manifest?.icons)) {
-    add({ id: 'touch-icon', level: 'warn', title: 'No apple-touch-icon', detail: 'iOS falls back to a manifest icon. Add a 180×180 opaque PNG apple-touch-icon for a crisp, unmasked icon.' });
+    add({ id: 'touch-icon', level: 'warn', title: 'No apple-touch-icon', detail: `A manifest icon is available. A ${iconPixels}×${iconPixels} touch icon covers the 60 pt target on this device.` });
   } else {
     add({ id: 'touch-icon', level: 'fail', title: 'No icon for the Home Screen', detail: 'iOS will use a screenshot-like letter tile. Add <link rel="apple-touch-icon" href="/icon-180.png">.' });
   }

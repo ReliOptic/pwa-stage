@@ -125,6 +125,8 @@ export async function handleApplyWebviewEmulation(
     safariIosVersion: deps.envConfig.safariIosVersion,
     chromeIosVersion: deps.envConfig.chromeIosVersion,
     darkMode: payload.state.darkMode,
+    previewLanguage: payload.state.previewLanguage,
+    previewTimeZone: payload.state.previewTimeZone,
     scale: payload.state.scale,
     touchCursorEnabled: payload.state.touchCursorEnabled,
     pwaStatusBarStyle: payload.state.pwaStatusBarStyle

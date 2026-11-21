@@ -24,6 +24,14 @@ The Electron preview negotiates a mobile site on the first request. Cross-site p
 
 On macOS, for the final pixel check use real WebKit: tray menu → **Open URL in Xcode iOS Simulator**.
 
+## Test a local or multilingual PWA
+
+Open Safari or Chrome from Home and enter your site. The device address field, toolbar, Agent visits and install checks accept the same address forms, including `:5173/서울`, `[::1]:3000` and internationalized domains. Localhost development addresses use HTTP by default. Public domains use HTTPS. An explicit HTTP or HTTPS scheme takes precedence.
+
+In the desktop app, open **Device controls → Region**. Choose a preset or enter a supported BCP 47 language tag and an IANA time zone, then choose **Apply & reload**. The next page request uses the selected language and the page formats dates for that region. Install checks and AI visits inherit these settings and record them in the HTML report. **Use system defaults** restores the host settings. IP-based location follows the host’s network connection.
+
+Open **Home → Viewport** to read the page’s browser language, formatting locale, time zone, document language and text direction. **PWA Checks** evaluates the declared touch-icon size at the selected device’s pixel ratio. A manifest whose body stalls for four seconds produces a retryable inspection result.
+
 ## Run simulated customer journeys
 
 Choose **Agent** on the simulator toolbar. Choose **Install check → Check installation** to install and reopen the current site on the active device. For an exploratory visit choose **AI visit → Connect a model** and test the connection. Enter what the agent should check, then choose **Start visit**. It starts on the open site. Choose **Customize visit** to change the address or audience. Watch the isolated visitor’s page move in the simulator as the model reads and acts. Open visit history to inspect an earlier step and choose **Follow live visit** to rejoin. Close Agent to return to your device. The visit continues in the background. The panel can dock on either side. On small displays it opens as a lower drawer. Recordings and observations can be reviewed in the panel while the main device remains visible. Supply an HTTP(S) address, a localhost development server, a file, or a built site folder with `index.html`. A file opens on a temporary loopback address and exposes only that file. Choose its folder to load relative assets. Local sources close when the app quits. A backend-driven project needs its running server.

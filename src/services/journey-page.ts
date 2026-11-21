@@ -20,7 +20,8 @@ function interact(origin: string, action: PageOperation, index: number) {
     const scroll = state.journeyScroll;
     if (!scroll?.target.isConnected) return null;
     if (action === 'finish-scroll') scroll.target.scrollTo({top: scroll.goal, behavior: 'instant'});
-    return {top: scroll.target.scrollTop, start: scroll.start, goal: scroll.goal};
+    return {top: scroll.target.scrollTop, start: scroll.start, goal: scroll.goal,
+      snaps: getComputedStyle(scroll.target).scrollSnapType !== 'none'};
   }
   // Map a visible point through same-origin embedded documents into the mobile
   // viewport. Every ancestor must actually expose this pixel to a finger.
@@ -244,24 +245,29 @@ export class JourneyInteraction {
     return {page,image:'data:image/jpeg;base64,'+jpeg};
   }
   private async waitForScroll(): Promise<boolean> {
+    const paintedPosition = async () => {
+      // A hidden guest can update its DOM offset before dispatching scroll
+      // events or presenting the frame. Request a native paint before sampling.
+      await deadline(this.wc.capturePage({x:0,y:0,width:1,height:1}),1000).catch(() => this.signal.throwIfAborted());
+      return this.execute('scroll-position');
+    };
+    const reached = (position: {top:number; goal:number}) => Math.abs(position.goal - position.top) <= 2;
     const deadlineAt = performance.now() + 1500;
-    let lastTop = NaN;
-    let lastChange = performance.now();
+    let atGoal = false;
     while (performance.now() < deadlineAt) {
-      const position = await this.execute('scroll-position');
-      if (!position || Math.abs(position.goal - position.top) <= 2) return true;
-      if (position.top !== lastTop) {
-        lastTop = position.top;
-        lastChange = performance.now();
-      } else if (position.top > position.start + 2 && performance.now() - lastChange > 180) {
-        // A snap container can finish at a different offset from the requested one.
-        return true;
-      }
+      const position = await paintedPosition();
+      if (!position || (atGoal && reached(position))) return true;
+      atGoal = reached(position);
       await delay(60, undefined, {signal: this.signal});
     }
-    // A hidden compositor may never schedule the smooth animation.
-    const position = await this.execute('finish-scroll');
-    return !position || position.top > position.start + 1;
+    // Layout changes or a hidden compositor can interrupt a smooth scroll
+    // after only a few pixels. An instant scroll still respects CSS snap points.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await this.execute('finish-scroll');
+      const position = await paintedPosition();
+      if (!position || reached(position) || (position.snaps && position.top > position.start + 1)) return true;
+    }
+    return false;
   }
   async act(action:'tap'|'scroll'|'wait', index:number, sent:(kind:'tap'|'scroll'|'wait'|'navigate')=>void) {
     if (action==='wait') {

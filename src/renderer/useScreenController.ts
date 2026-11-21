@@ -1,3 +1,4 @@
+import { limitAppName } from '../utils/app-name.util';
 import { getDevicePresetById } from '../config/device-presets.config';
 import { createCatalogApp, matchesCatalogApp, webAppCatalog, type WebAppListing } from '../config/web-app-catalog';
 import { exitGuestFullscreen } from './guest-fullscreen';
@@ -73,10 +74,10 @@ export function useScreenController(
   state: SimulatorState,
   updateState: (patch: Partial<SimulatorState>) => void,
   reload: () => void,
-  startOnHome: boolean
+  isStartPage: boolean
 ): ScreenController {
   const [homePreview, setHomePreview] = useState(false);
-  const [phase, setPhase] = useState<ScreenPhase>(startOnHome ? 'home' : 'app');
+  const [phase, setPhase] = useState<ScreenPhase>(isStartPage ? 'home' : 'app');
   const [homeNavigation, setHomeNavigation] = useState<HomeNavigation>({ page: 0, searching: false, query: '' });
   const [launchOrigin, setLaunchOrigin] = useState<LaunchOrigin>({ x: 0.5, y: 0.92, width: 0.15, height: 0.075 });
   const [splash, setSplash] = useState<ScreenContextValue['splash']>(null);
@@ -91,7 +92,7 @@ export function useScreenController(
   const [sheet, setSheet] = useState<ScreenSheetState>({ kind: 'none' });
   const [permissionQueue, setPermissionQueue] = useState<PermissionPromptState[]>([]);
   const [inspectionResult, setReport] = useState<PageInspectionReport | null>(null);
-  const report = inspectionResult?.inspection.url === state.currentUrl ? inspectionResult : null;
+  const report = !isStartPage && inspectionResult?.inspection.url === state.currentUrl ? inspectionResult : null;
   const inspectionSequence = useRef(0);
   useEffect(() => {
     if (report && state.shellMode !== BrowserShellMode.PWA_STANDALONE) {
@@ -244,7 +245,8 @@ export function useScreenController(
       const app: InstalledWebApp = {
         ...identity,
         launchUrl: opensAsWebApp ? identity.launchUrl : state.currentUrl,
-        name,
+        name: limitAppName(name.trim(), 40),
+        browser: state.shellMode === BrowserShellMode.IOS_CHROME ? 'chrome' : 'safari',
         opensAsWebApp,
         id: `${identity.launchUrl}#${Date.now()}`,
         addedAt: Date.now()
@@ -256,7 +258,7 @@ export function useScreenController(
       setSheet({ kind: 'none' });
       setPhase('closing');
     },
-    [report, state.currentUrl]
+    [report, state.currentUrl, state.shellMode]
   );
 
   const installCatalogApps = useCallback((listings: readonly WebAppListing[]) => {
@@ -269,7 +271,7 @@ export function useScreenController(
   }, []);
 
   const updateApp = useCallback((id: string, name: string, opensAsWebApp: boolean, browser: 'safari' | 'chrome') => {
-    const label = name.trim().slice(0, 80);
+    const label = limitAppName(name.trim(), 80);
     if (!label) return;
     setInstalledApps(previous => previous.map(app => app.id === id ? {...app, name:label, opensAsWebApp, browser} : app));
   }, []);
@@ -299,6 +301,8 @@ export function useScreenController(
 
   const value = useMemo<ScreenContextValue>(
     () => ({
+      previewLanguage: state.previewLanguage, previewTimeZone: state.previewTimeZone,
+      isStartPage,
       iconDpr: getDevicePresetById(state.selectedDeviceId).deviceScaleFactor,
       browserMode: state.shellMode,
       setAppearance: darkMode => updateState({darkMode}),
@@ -328,7 +332,7 @@ export function useScreenController(
       reload
     }),
     [
-      state.shellMode, state.selectedDeviceId, updateState, openSheet,
+      isStartPage, state.shellMode, state.selectedDeviceId, state.previewLanguage, state.previewTimeZone, updateState, openSheet,
       homePreview, setHomePreview, homeNavigation,
       phase,
       launchOrigin,

@@ -303,6 +303,8 @@ export function buildEmulationProfile(input: EmulationProfileInput): EmulationPr
       input.chromeIosVersion
     ),
     platform: 'iPhone',
+    previewLanguage: input.previewLanguage,
+    previewTimeZone: input.previewTimeZone,
     standalone: input.shellMode === BrowserShellMode.PWA_STANDALONE,
     mediaFeatures: [
       { name: 'prefers-color-scheme', value: input.darkMode ? 'dark' : 'light' },
@@ -343,6 +345,8 @@ interface AppliedGuestState {
   viewport?: GuestViewportSize;
   metrics?: CdpDeviceMetricsPayload;
   children?: ReturnType<typeof mobileChildTargets>;
+  language?: string;
+  timeZone?: string;
   initScriptId: string | null;
 }
 const appliedByGuest = new Map<number, AppliedGuestState>();
@@ -390,6 +394,28 @@ async function replaceInitScript(
     .catch(() => undefined);
 }
 
+type PreviewSession = NonNullable<EmulationTargetWebContents['session']>;
+const workerScriptLanguages = new WeakMap<PreviewSession,string>();
+
+// Chromium fetches the service-worker script before there is a CDP worker target.
+// Keep its default language negotiation intact when the user returns to System.
+function setWorkerScriptLanguage(session: PreviewSession | undefined, language?: string): void {
+  if (!session || workerScriptLanguages.get(session) === (language || undefined)) return;
+  if (!language) {
+    session.webRequest.onBeforeSendHeaders(null);
+    workerScriptLanguages.delete(session);
+    return;
+  }
+  session.webRequest.onBeforeSendHeaders({urls:['http://*/*','https://*/*']}, (request, reply) => {
+    const headers = request.requestHeaders;
+    const keys = Object.keys(headers);
+    if (!keys.some(key => key.toLowerCase() === 'service-worker' && headers[key] === 'script')) return reply({});
+    const accept = keys.find(key => key.toLowerCase() === 'accept-language') || 'Accept-Language';
+    reply({requestHeaders:{...headers,[accept]:language}});
+  });
+  workerScriptLanguages.set(session, language);
+}
+
 async function applyEmulationNow(
   target: EmulationTargetWebContents,
   input: EmulationProfileInput,
@@ -403,21 +429,33 @@ async function applyEmulationNow(
       bookkeeping.children?.dispose();
       bookkeeping.children = undefined;
       target.debugger.attach('1.3');
+      bookkeeping.language = undefined;
+      bookkeeping.timeZone = undefined;
     }
     // Page must be enabled before registering scripts, otherwise Chromium
     // acknowledges the registration but skips it at document creation.
     await target.debugger.sendCommand('Page.enable');
     target.session?.setUserAgent(profile.userAgent);
+    setWorkerScriptLanguage(target.session, profile.previewLanguage);
     target.setUserAgent(profile.userAgent);
     bookkeeping.children ??= mobileChildTargets(target.debugger, profile);
     target.setZoomFactor?.(1.0);
 
+    if (bookkeeping.language !== profile.previewLanguage) {
+      await target.debugger.sendCommand('Emulation.setLocaleOverride', {locale: profile.previewLanguage || ''});
+      bookkeeping.language = profile.previewLanguage;
+    }
+    if (bookkeeping.timeZone !== profile.previewTimeZone) {
+      await target.debugger.sendCommand('Emulation.setTimezoneOverride', {timezoneId: profile.previewTimeZone || ''});
+      bookkeeping.timeZone = profile.previewTimeZone;
+    }
     bookkeeping.metrics = profile.metrics;
     await Promise.all([
       bookkeeping.children.update(profile),
       target.debugger.sendCommand('Emulation.setUserAgentOverride', {
         userAgent: profile.userAgent,
-        platform: profile.platform
+        platform: profile.platform,
+        ...(profile.previewLanguage && {acceptLanguage: profile.previewLanguage})
       }),
       // Use the actual pane's unscaled layout box, including at document start.
       // CSS transforms used for the simulated hardware never enter these metrics.

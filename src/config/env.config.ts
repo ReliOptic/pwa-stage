@@ -1,4 +1,5 @@
 import { ConfigValidationError, QuickUrlBookmark, Result } from '../types/simulator.types';
+import { parseWebsiteAddress } from '../utils/website-address.util';
 
 export interface SimulatorEnvConfig {
   readonly defaultTargetUrl: string;
@@ -50,38 +51,17 @@ export function validateHttpUrl(rawUrl: string, fieldName: string): Result<strin
     };
   }
 
-  const normalized = /^https?:\/\//i.test(trimmed)
-    ? trimmed
-    : /^:\d+/.test(trimmed)
-      ? `http://localhost${trimmed}`
-      : /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+|\/|$)/i.test(trimmed)
-        ? `http://${trimmed}`
-        : `https://${trimmed}`;
-  try {
-    const parsed = new URL(normalized);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return {
-        ok: false,
-        error: {
-          kind: 'CONFIG_VALIDATION_ERROR',
-          field: fieldName,
-          message: `Unsupported protocol: ${parsed.protocol}`,
-          recoveryHint: 'Use http:// or https:// protocol'
-        }
-      };
+  const parsed = parseWebsiteAddress(trimmed);
+  if (parsed) return { ok: true, value: parsed.href };
+  return {
+    ok: false,
+    error: {
+      kind: 'CONFIG_VALIDATION_ERROR',
+      field: fieldName,
+      message: 'Enter an HTTP(S) website or a local development address.',
+      recoveryHint: 'Use a domain, localhost:5173, or an HTTP(S) URL.'
     }
-    return { ok: true, value: parsed.toString() };
-  } catch {
-    return {
-      ok: false,
-      error: {
-        kind: 'CONFIG_VALIDATION_ERROR',
-        field: fieldName,
-        message: `Invalid URL format: ${rawUrl}`,
-        recoveryHint: 'Enter a valid domain or localhost URL'
-      }
-    };
-  }
+  };
 }
 
 export function loadSimulatorEnvConfig(

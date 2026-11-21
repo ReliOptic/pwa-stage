@@ -1,3 +1,4 @@
+import { appInitial, limitAppName } from '../../src/utils/app-name.util';
 import { chooseTouchIcon } from '../../src/utils/home-icon.util';
 import { describe, expect, it } from 'vitest';
 import {
@@ -93,6 +94,32 @@ describe('page inspector', () => {
     const id2 = resolveHomeScreenIdentity(noTouch);
     expect(id2.name).toBe('Mail');
     expect(id2.iconUrl).toBe('https://app.example.com/i/512.png'); // maskable-only ignored
+  });
+
+  it('evaluates the selected touch icon at the device pixel ratio', () => {
+    const icons = [{src:GOOD.appleTouchIcon, sizes:'120x120'}, {src:'https://app.example.com/high.png', sizes:'180x180'}];
+    const inspect = (dpr:number, touchIcons=icons) => sanitizePageInspection({...GOOD, appleTouchIconSizes:'120x120', touchIcons,
+      viewport:{layoutWidth:375,layoutHeight:667,visualWidth:375,visualHeight:600,screenWidth:375,screenHeight:667,dpr,scale:1}})!;
+    const check = (dpr:number, options=icons) => evaluatePwaChecks(inspect(dpr,options)).find(c=>c.id==='touch-icon');
+    expect(check(2)?.level).toBe('pass');
+    expect(check(3)?.level).toBe('pass');
+    expect(resolveHomeScreenIdentity(inspect(3)).iconUrl).toBe(icons[1].src);
+    expect(check(3,[icons[0]])?.level).toBe('warn');
+    expect(check(3,[{...icons[0],sizes:'1800x1'}])?.level).toBe('warn');
+  });
+
+  it('keeps emoji sequences and combining marks intact in Home names and icon initials', () => {
+    const text = 'A'.repeat(39) + '👩🏽‍💻';
+    const inspection = sanitizePageInspection({...GOOD,appleTitle:null,manifest:{short_name:text+'!'}})!;
+    expect(resolveHomeScreenIdentity(inspection).name).toBe(text);
+    expect(appInitial('👩🏽‍💻 Studio')).toBe('👩🏽‍💻');
+    expect(limitAppName('e\u0301cole',1)).toBe('e\u0301');
+  });
+
+  it('fails a linked manifest that is a JSON array', () => {
+    const inspection = sanitizePageInspection({...GOOD,manifest:[]})!;
+    expect(inspection.manifest).toBeNull();
+    expect(evaluatePwaChecks(inspection).find(c=>c.id==='manifest')?.level).toBe('fail');
   });
 
   it('passes a well-built PWA and flags a bare page', () => {

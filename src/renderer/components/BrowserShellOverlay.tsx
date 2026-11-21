@@ -47,9 +47,6 @@ export interface BrowserShellOverlayProps {
 export function getHostnameForDisplay(rawUrl: string): string {
   try {
     const parsed = new URL(rawUrl);
-    if (parsed.hostname === '127.0.0.1' && parsed.pathname === '/index.html') {
-      return 'Start page';
-    }
     return parsed.host;
   } catch {
     return rawUrl;
@@ -149,12 +146,13 @@ export function HardwareCutout(props: {
 }
 
 function DeviceTime({period=false}:{period?:boolean}) {
+  const {previewLanguage, previewTimeZone} = useScreen();
   const [now,setNow]=React.useState(()=>new Date());
   React.useEffect(()=>{
     const timer=window.setTimeout(()=>setNow(new Date()),60000-Date.now()%60000);
     return ()=>window.clearTimeout(timer);
   },[now]);
-  const parts=new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).formatToParts(now);
+  const parts=new Intl.DateTimeFormat(previewLanguage || undefined,{hour:'numeric',minute:'2-digit',timeZone:previewTimeZone || undefined}).formatToParts(now);
   return <>{parts.filter(p=>period || p.type!=='dayPeriod').map(p=>p.value).join('').trim()}</>;
 }
 
@@ -295,11 +293,12 @@ export interface BrowserShellBarOverlayProps {
 function AddressField(props: { readonly url: string; readonly chrome?: boolean; readonly inputRef: React.RefObject<HTMLInputElement> }): React.ReactElement {
   const screen = useScreen();
   const [draft, setDraft] = React.useState<string | null>(null);
-  const host = getHostnameForDisplay(props.url);
+  const address = screen.isStartPage && props.url === screen.currentUrl ? '' : props.url;
+  const host = getHostnameForDisplay(address);
   return (
     <form className={`ios-shell-domain ios-address-form${props.chrome ? ' ios-chrome-domain' : ''}`} onSubmit={event => {
       event.preventDefault();
-      const result = validateHttpUrl(draft ?? props.url, 'Address');
+      const result = validateHttpUrl(draft ?? address, 'Address');
       if (!result.ok) {
         props.inputRef.current?.setCustomValidity(result.error.recoveryHint);
         props.inputRef.current?.reportValidity();
@@ -310,13 +309,13 @@ function AddressField(props: { readonly url: string; readonly chrome?: boolean; 
     }}>
       {props.url.startsWith('https://') && draft === null && <Lock size={10} />}
       <input ref={props.inputRef} type="text" inputMode="url" enterKeyHint="go" autoCapitalize="none"
-        autoComplete="off" spellCheck={false} aria-label="Website address" title={props.url}
+        autoComplete="off" spellCheck={false} aria-label="Website address" title={address || undefined} placeholder="Website address"
         value={draft ?? host} onFocus={e => {
           const input = e.currentTarget;
-          setDraft(props.url);
+          setDraft(address);
           requestAnimationFrame(() => { if (input === document.activeElement) input.select(); });
         }} onBlur={() => setDraft(null)} onChange={e => { e.currentTarget.setCustomValidity(''); setDraft(e.target.value); }}
-        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); e.currentTarget.blur(); } }} />
+        onKeyDown={e => { if (!e.nativeEvent.isComposing && e.key === 'Escape') { e.stopPropagation(); e.currentTarget.blur(); } }} />
     </form>
   );
 }
@@ -327,7 +326,7 @@ export function BrowserShellBarOverlay(props: BrowserShellBarOverlayProps): Reac
   if (props.shellMode === BrowserShellMode.PWA_STANDALONE) {
     return null;
   }
-  const host = getHostnameForDisplay(props.currentUrl);
+  const host = screen.isStartPage && props.currentUrl === screen.currentUrl ? 'New Tab' : getHostnameForDisplay(props.currentUrl);
   const isSecure = props.currentUrl.startsWith('https://');
   const isSafari = props.shellMode === BrowserShellMode.IOS_SAFARI;
   const glassClass = props.darkMode ? 'ios-liquid-glass-dark' : 'ios-liquid-glass-light';

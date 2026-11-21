@@ -309,7 +309,7 @@ export function JourneyStudio({bridge,open,currentUrl,aperture,onClose,onRunning
         </section>
         <button className="journey-primary" type="submit" disabled={connection!=='ready' || !goal.trim() || !address.trim()}>{running?'Run in progress':iterations===1?'Start visit':'Start visits'}<ArrowRight size={16}/></button>
         <div className="journey-group model-gate" data-connection={connection} onKeyDown={e=>{
-          if(e.key==='Enter' && e.target instanceof HTMLInputElement){e.preventDefault();if(canVerify && connection!=='checking')void connect();}
+          if(!e.nativeEvent.isComposing && e.key==='Enter' && e.target instanceof HTMLInputElement){e.preventDefault();if(canVerify && connection!=='checking')void connect();}
         }}>
             <OptionRow name="model" icon={<Cable/>} title={connection==='ready'?'Model connection':'Connect a model'} value={connection==='ready'?'Verified':connection==='checking'?'Checking…':connection==='failed'?'Failed':'Disconnected'}>
               <label>Model provider<select value={useLocal?'local':'openrouter'} onChange={e=>{resetConnection();setUseLocal(e.target.value==='local');}}><option value="openrouter">OpenRouter</option><option value="local">Local OpenAI-compatible server</option></select></label>

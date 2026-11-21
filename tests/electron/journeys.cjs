@@ -1,6 +1,6 @@
 // Real isolated mobile pages. Only the model transport is replaced for repeatable CI without paid credentials.
 const assert=require('node:assert/strict'),http=require('node:http'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {app,BrowserWindow,dialog,nativeImage,session}=require('electron');
+const {app,BrowserWindow,dialog,nativeImage,session,webContents}=require('electron');
 const out=process.env.SIMULATOR_TEST_OUTPUT || fs.mkdtempSync(path.join(os.tmpdir(),'journey-proof-'));
 fs.mkdirSync(out,{recursive:true});app.setPath('userData',fs.mkdtempSync(path.join(os.tmpdir(),'journey-user-')));
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -22,7 +22,10 @@ const server=http.createServer((req,res)=>{
     res.end('TOP ONLY\n'+Array.from({length:300},(_,i)=>'Line '+i).join('\n'));return;
   }
   if(req.url==='/scroll'){
-    res.end('<!doctype html><meta name="viewport" content="width=device-width"><style>*{margin:0}section{height:100vh;background:#bf272e}section+section{background:#259341}</style><section>First screen</section><section>Second screen</section>');
+    res.end(`<!doctype html><meta name="viewport" content="width=device-width">
+      <style>*{margin:0}section{height:100vh;background:#bf272e}section+section{background:#259341}</style>
+      <section>First screen</section><section>Second screen</section>
+      <script>addEventListener('scroll',()=>scrollTo({top:5,behavior:'instant'}),{once:true})</script>`);
     return;
   }
   if(req.url==='/pending-image'){res.writeHead(200,{'Content-Type':'image/png'});res.flushHeaders();return;}
@@ -151,7 +154,21 @@ server.listen(0,'127.0.0.1',async()=>{
   await until(()=>sampleColors('.journey-live-screen img'),'live visitor pixels must change before the next model decision');
   assert.equal((await status()).visits[0].inputs.length,0);
   await js("document.querySelector('[aria-label=\"Close Agent\"]').click()");
-  const hiddenAt=Date.now();await sleep(850);const reopenedAt=Date.now();
+  const hiddenAt=Date.now();
+  const visitor=webContents.getAllWebContents().find(page=>page.getURL()===site+'/moving');
+  assert(visitor, 'the recorded visitor is still open');
+  let previousColor, changes=0;
+  await until(async()=>{
+    const shot=await visitor.capturePage();
+    if(shot.isEmpty())return false;
+    const [blue,,red]=shot.resize({width:1,height:1}).toBitmap();
+    if(Math.abs(red-blue)<80)return false;
+    const color=red>blue?'red':'blue';
+    if(previousColor && color!==previousColor)changes++;
+    previousColor=color;
+    return changes>=3;
+  },'visitor paints while the panel is closed');
+  const reopenedAt=Date.now();
   await js("document.querySelector('.agent-toggle').click()");
   await until(()=>js("!!document.querySelector('.journey-live-screen img')?.naturalWidth"),'resume live view');
   releaseDecision();
@@ -194,7 +211,7 @@ server.listen(0,'127.0.0.1',async()=>{
   const documentFrames=(await status()).visits[0].frames;
   assert(documentFrames[0].observation.text.includes('TOP ONLY'),JSON.stringify(documentFrames.map(f=>f.observation)));
   assert(documentFrames[1].observation.text.includes('Line'));
-  assert(!documentFrames[1].observation.text.includes('TOP ONLY'));
+  assert(!documentFrames[1].observation.text.includes('TOP ONLY'),JSON.stringify(documentFrames.map(f=>f.observation)));
   mode='bad-key';await start();await until(async()=>(await status()).status==='error','provider error');
   assert((await status()).message.includes('401'));
   mode='slow';const before=apiCalls;await start();await until(()=>apiCalls>before,'pending request');

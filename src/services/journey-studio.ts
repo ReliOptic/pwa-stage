@@ -193,8 +193,9 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
     const req=journeyRequest(raw,process.env.OPENROUTER_API_KEY);
     const {state,preset}=device();
     const profile:EmulationProfileInput={preset,orientation:state.orientation,shellMode:state.shellMode,darkMode:state.darkMode,
+      previewLanguage: state.previewLanguage, previewTimeZone: state.previewTimeZone,
       safariIosVersion:ctx.deps.envConfig.safariIosVersion,chromeIosVersion:ctx.deps.envConfig.chromeIosVersion};
-    const current:JourneyReport={id:randomUUID(),kind:'audience',origin:new URL(req.address).origin,goal:req.goal,model:(req.localEndpoint?'Local · ':'OpenRouter · ')+req.model,iterations:req.iterations,device:preset.name,orientation:state.orientation,
+    const current:JourneyReport={id:randomUUID(),previewLanguage:state.previewLanguage,previewTimeZone:state.previewTimeZone,kind:'audience',origin:new URL(req.address).origin,goal:req.goal,model:(req.localEndpoint?'Local · ':'OpenRouter · ')+req.model,iterations:req.iterations,device:preset.name,orientation:state.orientation,
       status:'running',message:'Opening the start page',visits:[]};
     launch(current,signal=>run(req,current,profile,state,signal));
   });
@@ -216,7 +217,7 @@ export function registerJourneyStudio(ctx: MenuControllerContext, inspect:Inspec
   handle('check',raw=>{
     if(controller)throw Error('A run is already in progress.');
     const req=stageRequest(raw), {state}=device();
-    const current:JourneyReport={id:randomUUID(),kind:'install',origin:new URL(req.addresses[0]).origin,goal:'Install and reopen from the Home Screen',
+    const current:JourneyReport={id:randomUUID(),previewLanguage:state.previewLanguage,previewTimeZone:state.previewTimeZone,kind:'install',origin:new URL(req.addresses[0]).origin,goal:'Install and reopen from the Home Screen',
       model:'Built-in installation check',iterations:req.devices.length*req.browsers.length*req.addresses.length,
       device:req.devices.map(id=>getDevicePresetById(id).name).join(', '),status:'running',message:'Opening simulator',visits:[]};
     launch(current,signal=>check(req,current,state,signal));

@@ -1,3 +1,4 @@
+import type { Session } from 'electron';
 import { DevicePreset, Orientation, SafeAreaInsets } from './device.types';
 import { BrowserShellMode, EmulationFailureError, PwaStatusBarStyle, Result } from './simulator.types';
 
@@ -25,6 +26,8 @@ export interface CdpTouchEmulationPayload {
 export interface EmulationProfile {
   readonly userAgent: string;
   readonly platform: string;
+  readonly previewLanguage?: string;
+  readonly previewTimeZone?: string;
   readonly standalone: boolean;
   readonly mediaFeatures: { name: string; value: string }[];
   readonly metrics: CdpDeviceMetricsPayload;
@@ -42,6 +45,8 @@ export interface EmulationProfileInput {
   readonly safariIosVersion: string;
   readonly chromeIosVersion: string;
   readonly darkMode: boolean;
+  readonly previewLanguage?: string;
+  readonly previewTimeZone?: string;
   readonly scale?: number;
   readonly touchCursorEnabled?: boolean;
   readonly pwaStatusBarStyle?: PwaStatusBarStyle;
@@ -63,7 +68,7 @@ export interface DebuggerCommandSender {
 
 export interface EmulationTargetWebContents {
   readonly id: number;
-  readonly session?: {setUserAgent: (userAgent: string) => void};
+  readonly session?: Pick<Session, 'setUserAgent' | 'webRequest'>;
   readonly setUserAgent: (userAgent: string) => void;
   readonly setZoomFactor?: (factor: number) => void;
   readonly insertCSS: (css: string) => Promise<string>;

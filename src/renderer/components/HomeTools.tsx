@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, House, RotateCw } from 'lucide-react';
+import { appInitial, limitAppName } from '../../utils/app-name.util';
 import { chooseTouchIcon } from '../../utils/home-icon.util';
 import { catalogIcon, matchesCatalogApp, webAppCatalog } from '../../config/web-app-catalog';
-import type { InstalledWebApp, PageViewport } from '../../types/pwa.types';
+import type { InstalledWebApp, PageInspection } from '../../types/pwa.types';
 import type { ScreenContextValue } from './ScreenLayers';
 
-function ViewportReadings({viewport}: {viewport: PageViewport | null}) {
+function ViewportReadings({inspection}: {inspection: PageInspection}) {
+  const { viewport, environment } = inspection;
   if (!viewport) return <p role="status">Viewport measurements are unavailable for this page.</p>;
   const size = (w: number, h: number) => Math.round(w * 10) / 10 + ' × ' + Math.round(h * 10) / 10;
   return <>
@@ -17,6 +19,13 @@ function ViewportReadings({viewport}: {viewport: PageViewport | null}) {
       <dt>Device pixel ratio</dt><dd>{viewport.dpr}×</dd>
       <dt>Visual viewport scale</dt><dd>{Math.round(viewport.scale*100)}%</dd>
     </dl></div>
+    {environment && <><h3>Language and region</h3><div className="home-tool-group viewport-readings"><dl>
+      <dt>Browser language</dt><dd>{environment.language || 'Unavailable'}</dd>
+      <dt>Formatting locale</dt><dd>{environment.locale || 'Unavailable'}</dd>
+      <dt>Time zone</dt><dd>{environment.timeZone || 'Unavailable'}</dd>
+      <dt>Document language</dt><dd>{environment.documentLanguage || 'Unspecified'}</dd>
+      <dt>Text direction</dt><dd>{environment.direction || 'Unavailable'}</dd>
+    </dl></div></>}
   </>;
 }
 
@@ -24,7 +33,7 @@ function AppBadge({app,dpr}: {app:InstalledWebApp; dpr:number}) {
   const url = chooseTouchIcon(app.touchIcons,32*dpr) ?? app.iconUrl;
   const [failed,setFailed] = useState<string | null>(null);
   return <span className="installed-app-badge" aria-hidden="true">
-    {url && url !== failed ? <img src={url} alt="" onError={()=>setFailed(url)}/> : app.name.charAt(0).toUpperCase()}
+    {url && url !== failed ? <img src={url} alt="" onError={()=>setFailed(url)}/> : appInitial(app.name)}
   </span>;
 }
 
@@ -35,9 +44,9 @@ function AppDetails({app, screen, back}: {app: InstalledWebApp; screen: ScreenCo
   const [confirm,setConfirm] = useState(false);
   const dirty = name.trim() !== app.name || standalone !== app.opensAsWebApp || browser !== (app.browser ?? 'safari');
   return <>
-    <div className="app-settings-title"><AppBadge app={app} dpr={screen.iconDpr}/><h2>{app.name}</h2></div>
+    <div className="app-settings-title"><AppBadge app={app} dpr={screen.iconDpr}/><h2 dir="auto">{app.name}</h2></div>
     <div className="home-tool-group">
-      <label>Name<input value={name} maxLength={80} onChange={e=>setName(e.target.value)}/></label>
+      <label>Name<input value={name} dir="auto" onChange={e=>setName(limitAppName(e.target.value,80))}/></label>
       <label>Open as Web App<input type="checkbox" checked={standalone} onChange={e=>setStandalone(e.target.checked)}/></label>
       {!standalone && <label>Open in<select value={browser} onChange={e=>setBrowser(e.target.value === 'chrome' ? 'chrome' : 'safari')}>
         <option value="safari">Safari</option><option value="chrome">Chrome</option>
@@ -88,7 +97,7 @@ export function HomeTools({screen}: {screen: ScreenContextValue}) {
   useEffect(()=>{
     header.current?.focus({preventScroll:true});
     const onKey=(event:KeyboardEvent)=>{
-      if(event.key==='Escape'){event.preventDefault(); if(selected)setSelected(null);else openSheet('none');}
+      if(!event.isComposing && event.key==='Escape'){event.preventDefault(); if(selected)setSelected(null);else openSheet('none');}
     };
     window.addEventListener('keydown',onKey);
     return ()=>window.removeEventListener('keydown',onKey);
@@ -114,13 +123,13 @@ export function HomeTools({screen}: {screen: ScreenContextValue}) {
           <div className="home-tool-group catalog-shortcut"><button onClick={()=>screen.openSheet('web-apps')}>Browse web apps<ChevronRight size={16}/></button></div>
           <div className="home-tool-group">{screen.installedApps.length ? screen.installedApps.map(item=>
             <button className="home-tool-app" key={item.id} onClick={()=>setSelected(item.id)}>
-              <AppBadge app={item} dpr={screen.iconDpr}/><span className="installed-app-name">{item.name}<small>{URL.parse(item.launchUrl)?.hostname ?? item.launchUrl}</small></span><ChevronRight size={16}/>
+              <AppBadge app={item} dpr={screen.iconDpr}/><span className="installed-app-name"><bdi>{item.name}</bdi><small>{URL.parse(item.launchUrl)?.hostname ?? item.launchUrl}</small></span><ChevronRight size={16}/>
             </button>) : <p>Add a website from the browser’s share menu to manage it here.</p>}</div>
         </> : <>
           <p className="home-tool-value">{screen.currentUrl}</p>
           {kind==='viewport' && screen.inspecting ? <p role="status">Measuring this page…</p> :
             !inspection || !report ? <p role="status">{screen.inspecting?'Reading website details…':'Open a website in Safari or Chrome to inspect it.'}</p> :
-            kind==='viewport' ? <ViewportReadings viewport={inspection.viewport}/> : kind==='manifest' ? <>
+            kind==='viewport' ? <ViewportReadings inspection={inspection}/> : kind==='manifest' ? <>
               <h3>Web app manifest</h3>
               <div className="home-tool-group"><dl>
                 <dt>Manifest URL</dt><dd>{inspection.manifestHref || 'No manifest linked'}</dd>
