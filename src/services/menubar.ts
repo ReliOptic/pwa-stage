@@ -3,8 +3,10 @@ import { execFile } from 'node:child_process';
 import { logStructured } from '../utils/logger.util';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { app, BrowserWindow, Menu, nativeImage, Tray } from 'electron';
-import { DEVICE_PRESETS } from '../config/device-presets.config';
+import { app, BrowserWindow, Menu, nativeImage, Tray, dialog, webContents } from 'electron';
+import { captureSafari, measurePage } from './xcode-reference';
+import { isGuestOfShell } from './security';
+import { DEVICE_PRESETS, getDevicePresetById } from '../config/device-presets.config';
 import { DeviceModelId, Orientation } from '../types/device.types';
 import { CoordinatorDependencies } from '../types/ipc-coordinator.types';
 import { BrowserShellMode, SimulatorState } from '../types/simulator.types';
@@ -61,6 +63,38 @@ export function openInXcodeSimulator(rawUrl: string): void {
   });
 }
 
+let comparingSafari = false;
+
+async function compareWithSafari(ctx: MenuControllerContext): Promise<void> {
+  if (comparingSafari) return;
+  comparingSafari = true;
+  try {
+    const state = readCurrentState(ctx.deps);
+    const pages = webContents.getAllWebContents().filter(page =>
+      isGuestOfShell(page, ctx.getWindow()) && page.getURL() === state.currentUrl);
+    if (pages.length !== 1 || state.shellMode !== BrowserShellMode.IOS_SAFARI)
+      throw Error('Open the project in a single Safari preview before comparing.');
+    const page = pages[0];
+    const preview: ReturnType<typeof measurePage> = await page.executeJavaScriptInIsolatedWorld(101, [{code: '(' + measurePage.toString() + ')()'}]);
+    if(preview.url!==state.currentUrl)throw Error('The preview navigated during measurement. Run the comparison again.');
+    const reference = await captureSafari(getDevicePresetById(state.selectedDeviceId).name, state.currentUrl);
+    if (reference.measurements.url !== preview.url)
+      throw Error('Safari landed on a different URL. Check redirects and sign-in before comparing.');
+    const keys = Object.keys(preview) as (keyof typeof preview)[];
+    const differences = keys.filter(key => preview[key] !== reference.measurements[key]);
+    const report = { capturedAt:new Date().toISOString(), scope:'Safari page metrics', differences,
+      preview:{engine:'Chromium',version:process.versions.chrome,preset:state.selectedDeviceId,orientation:state.orientation,measurements:preview},reference };
+    const file = await dialog.showSaveDialog({title:'Save Safari comparison',defaultPath:'ios-27.3-safari-comparison.json'});
+    if (!file.canceled && file.filePath) {
+      await fs.promises.writeFile(file.filePath, JSON.stringify(report,null,2)+'\n');
+      await dialog.showMessageBox({message:'Safari comparison saved',detail:differences.length ?
+        'Different measurements: '+differences.join(', ') : 'All sampled page metrics matched.'});
+    }
+  } catch (error) {
+    await dialog.showMessageBox({type:'warning',message:'Safari comparison incomplete',detail:error instanceof Error?error.message:String(error)});
+  } finally { comparingSafari = false; }
+}
+
 export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
   const state = readCurrentState(ctx.deps);
   const win = ctx.getWindow();
@@ -75,6 +109,12 @@ export function buildQuickActionMenu(ctx: MenuControllerContext): Menu {
       label: 'Open URL in Xcode iOS Simulator (WebKit reference)',
       visible: process.platform === 'darwin',
       click: (): void => openInXcodeSimulator(state.currentUrl)
+    },
+    {
+      label: comparingSafari ? 'Comparing with Xcode Safari…' : 'Compare page with Xcode Safari 27.3…',
+      visible: process.platform === 'darwin',
+      enabled: !comparingSafari,
+      click: () => void compareWithSafari(ctx)
     },
     { type: 'separator' },
     {

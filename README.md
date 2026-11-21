@@ -157,3 +157,15 @@ A moving reflection on the cover peaks at a physical hinge angle of 70°. Its gr
 Click Open / Close again to reverse. Escape or Pause stops the hinge, and Resume continues it. Drag the visible Duo slider or use its arrow, Home and End keys. The options menu includes 1° and 5° steps, the finish and camera reset.
 
 When the system has Reduce Motion enabled, Duo opens and closes immediately. Choose the play button next to Open to preview the fold animation. The setting is saved on this computer. Choose **Use system motion setting** in the hinge options to follow the system again.
+
+### Compare a project with Xcode Safari 27.3
+
+On macOS, boot the matching iPhone model in the iOS 27.3 Simulator runtime. Enable Safari WebDriver on the Mac and remote automation in the simulator. Open the project in the Stage Safari preview. Right-click the tray icon and choose **Compare page with Xcode Safari 27.3…**. The command opens a separate Safari automation session, navigates to the current URL and offers to save a JSON comparison. Use the same orientation, appearance, page zoom and login state in both environments. A redirect to another URL stops comparison.
+
+The report includes the selected Xcode version, simulator runtime build and device UDID, Chromium version, and both sets of page measurements. Inspect layout and visual viewport, safe-area insets, pixel ratio, display mode, viewport declaration and API availability. A match covers these fields at capture time. Standalone installation, offline navigation, notifications, payment, accessibility and physical Duo hinge behavior need separate testing. Simulator models missing from Xcode cannot produce a reference for that preset.
+
+Apple lists Xcode 27.3 beta 2 with the iOS 27.3 SDK. Safari 27.3 beta documents changes to grid sizing after layout, scrolling and fullscreen behavior. Engine behavior matters even when device metrics match. [Xcode support](https://developer.apple.com/support/xcode/) · [Safari 27.3 release notes](https://developer.apple.com/documentation/safari-release-notes/safari-27_3-release-notes) · [WebDriver setup](https://developer.apple.com/documentation/safari-developer-tools/ios-enabling-webdriver)
+
+For a Mac CI runner, build the project and run `node scripts/xcode-safari.cjs "iPhone 17 Pro" https://your-project.example/ > safari-reference.json`. This captures the native side only. Apple lists new CSS syntax for hyphenation limits and custom overflow strings, and removal of percentage line-clamp values. The report probes these three declarations with CSS.supports in each engine. Syntax acceptance and page geometry can be reviewed independently.
+
+Run `node tests/xcode/safari-reference.cjs "iPhone 17 Pro"` after building to test the native integration on a Mac. It serves a loopback page, requires the selected 27.3 runtime and checks Safari's measured display mode and two documented CSS changes. A missing simulator or an unexpected response exits with an error.

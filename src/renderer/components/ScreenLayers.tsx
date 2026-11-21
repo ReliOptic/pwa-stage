@@ -493,7 +493,7 @@ export function PwaInspectorPanel(props: {
   return (
     <aside className="pwa-inspector" role="dialog" aria-label="iOS Web App Inspector">
       <header className="pwa-inspector-head">
-        <strong>iOS Web App Check</strong>
+        <strong>PWA checks · Chromium preview</strong>
         <span className="pwa-inspector-counts">
           <span className="pwa-check-pass">{counts.pass}✓</span>
           <span className="pwa-check-warn">{counts.warn}!</span>
