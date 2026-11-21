@@ -8,3 +8,4 @@ dist_dmg/
 
 .cache/
 .vitest-cache/
+/pwa-stage-reports/

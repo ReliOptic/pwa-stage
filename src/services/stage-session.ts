@@ -8,13 +8,13 @@ import { BrowserShellMode, DuoDisplayMode, type SimulatorState } from '../types/
 import type { DevicePreset } from '../types/device.types';
 import type { PageInspectionReport } from '../types/ipc-coordinator.types';
 import { applyEmulationToTarget, readGuestViewportSize, resizeGuestViewport } from './emulation';
+import { inspectGuestPage } from './inspect-guest';
 import { deadline, JourneyInteraction, limitJourneySession } from './journey-page';
 import { installNavigationGuards, isGuestOfShell, isTrustedShellSender } from './security';
 import { startGuestMirror, stopGuestMirror, clampMirrorFps } from './guest-mirror';
 import { projectGuestPoint } from '../utils/guest-point.util';
 import { computeViewportMetrics } from '../utils/viewport-math.util';
 
-export type InspectGuest=(id:number)=>Promise<{ok:boolean;value?:PageInspectionReport}>;
 export type StageFrame=(action:string,title:string,url:string,image:string)=>void;
 
 export class StageSession {
@@ -32,7 +32,7 @@ export class StageSession {
   private inspection?:PageInspectionReport;
 
   constructor(private readonly address:string, private readonly preset:DevicePreset, browser:BrowserShellMode,
-    initial:SimulatorState, private readonly env:SimulatorEnvConfig, inspect:InspectGuest, private readonly signal:AbortSignal) {
+    initial:SimulatorState, private readonly env:SimulatorEnvConfig, private readonly signal:AbortSignal) {
     signal.throwIfAborted();
     this.origin=new URL(address).origin;
     const id=randomUUID(), guestName='stage-content-'+id;
@@ -103,7 +103,7 @@ export class StageSession {
       else stopGuestMirror(guest.id);
     });
     shellMethod('inspect',async id=>{
-      const result=await inspect(ownGuest(id).id);
+      const result=await inspectGuestPage(ownGuest(id));
       if(result.ok && result.value) this.inspection=result.value;
       return result;
     });
@@ -189,7 +189,7 @@ export class StageSession {
     },'the installed app to reopen in standalone mode',60000);
     await this.record(frame,'Reopen from Home Screen',name);
     const actual=new URL(this.guest!.getURL());
-    return {name,path:actual.pathname,manifest:!!page.inspection.manifest, manifestError:page.inspection.manifestError || undefined};
+    return {name,path:actual.pathname,manifest:!!page.inspection.manifest, manifestError:page.inspection.manifestError || undefined, checks:page.checks};
   }
   interaction(){
     if(!this.guest)throw Error('The installed app is not open.');

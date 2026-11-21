@@ -1,3 +1,4 @@
+import type { PwaCheck } from './pwa.types';
 import type { DeviceModelId } from './device.types';
 
 export const MAX_VISITS = 12;
@@ -51,7 +52,7 @@ export interface JourneyVisit {
   quote?: string;
   persona: string;
   source?: string;
-  installation?: {name:string; path:string; manifest:boolean; manifestError?:string};
+  installation?: {name:string; path:string; manifest:boolean; manifestError?:string; checks?:readonly PwaCheck[]};
   frames: JourneyFrame[];
   outcome: 'exploring' | 'finished' | 'verified' | 'unconfirmed' | 'blocked' | 'limit' | 'stopped' | 'error';
   note: string;

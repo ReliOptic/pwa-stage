@@ -14,6 +14,7 @@
   },
   "include": [
     "src/index.ts",
+    "src/check-pwa.ts",
     "src/preload.ts",
     "src/stage-preload.ts",
     "src/config/**/*",

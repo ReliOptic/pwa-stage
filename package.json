@@ -11,6 +11,7 @@
     "dev:electron": "tsc -p tsconfig.electron.json && concurrently -k \"vite --port 5199\" \"wait-on tcp:5199 && cross-env SIMULATOR_DEV_SERVER_URL=http://localhost:5199 electron .\"",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test": "vitest run",
+    "pwa:check": "node scripts/check-pwa.cjs",
     "test:watch": "vitest",
     "test:electron": "node tests/electron/run.cjs",
     "test:visual": "cross-env SIMULATOR_VISUAL_ONLY=1 node tests/electron/run.cjs",

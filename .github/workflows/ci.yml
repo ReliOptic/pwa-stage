@@ -22,6 +22,9 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Check a PWA from a headless terminal
+        if: runner.os == 'Linux'
+        run: node tests/cloud-check.cjs
       - name: Verify fold optics and in-device video in macOS Electron
         if: runner.os == 'macOS'
         run: |

@@ -40,12 +40,7 @@ import {
   startGuestMirror,
   stopGuestMirror
 } from './services/guest-mirror';
-import {
-  evaluatePwaChecks,
-  PAGE_INSPECTION_EXPRESSION,
-  resolveHomeScreenIdentity,
-  sanitizePageInspection
-} from './services/page-inspector';
+import { inspectGuestPage } from './services/inspect-guest';
 import {
   createMenuBarTray,
   MenuControllerContext,
@@ -188,7 +183,7 @@ const GUEST_ID_REJECTED = {
 
 function registerIpcHandlers(ctx: MenuControllerContext): void {
   const { deps } = ctx;
-  registerJourneyStudio(ctx, inspectGuestPage);
+  registerJourneyStudio(ctx);
   let anchor: { original: number[]; expanded: number[] } | undefined;
   handleTrusted('simulator:open-journeys', (_event, open = true) => {
     const win = ctx.getWindow();
@@ -261,10 +256,8 @@ function registerIpcHandlers(ctx: MenuControllerContext): void {
   });
   handleTrusted('simulator:inspect-page', async (_event, rawId) => {
     const id = resolveGuestId(rawId);
-    if (id === null) {
-      return GUEST_ID_REJECTED;
-    }
-    return inspectGuestPage(id);
+    const guest = id === null ? undefined : webContents.fromId(id);
+    return guest && !guest.isDestroyed() ? inspectGuestPage(guest) : GUEST_ID_REJECTED;
   });
   handleTrusted('simulator:screenshot-directory', () => app.getPath('desktop'));
   handleTrusted('simulator:open-screenshot-location', async (_event, latest) => {
@@ -319,38 +312,6 @@ function registerIpcHandlers(ctx: MenuControllerContext): void {
 }
 
 // --- PWA inspection & screenshots -----------------------------------------
-async function inspectGuestPage(id: number) {
-  const guest = webContents.fromId(id);
-  if (!guest || guest.isDestroyed()) {
-    return GUEST_ID_REJECTED;
-  }
-  try {
-    if (!guest.debugger.isAttached()) {
-      guest.debugger.attach('1.3');
-    }
-    const res = (await guest.debugger.sendCommand('Runtime.evaluate', {
-      expression: PAGE_INSPECTION_EXPRESSION,
-      awaitPromise: true,
-      returnByValue: true,
-      timeout: 8000
-    })) as { result?: { value?: unknown } };
-    const inspection = sanitizePageInspection(res.result?.value);
-    if (!inspection) {
-      return { ok: false, error: { kind: 'EMULATION_FAILURE_ERROR', operation: 'inspect', message: 'Page returned no inspectable data', recoveryHint: 'Wait for the page to finish loading' } };
-    }
-    return {
-      ok: true,
-      value: {
-        inspection,
-        checks: evaluatePwaChecks(inspection),
-        identity: resolveHomeScreenIdentity(inspection)
-      }
-    };
-  } catch (err) {
-    return { ok: false, error: { kind: 'EMULATION_FAILURE_ERROR', operation: 'inspect', message: err instanceof Error ? err.message : 'inspect failed', recoveryHint: 'Reload the page' } };
-  }
-}
-
 function sanitizeFileToken(raw: unknown): string {
   return (typeof raw === 'string' ? raw : 'iPhone').replace(/[^A-Za-z0-9 ._()-]/g, '').slice(0, 60) || 'iPhone';
 }

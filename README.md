@@ -24,6 +24,24 @@ The Electron preview negotiates a mobile site on the first request. Cross-site p
 
 On macOS, for the final pixel check use real WebKit: tray menu → **Open URL in Xcode iOS Simulator**.
 
+## Check your PWA from a cloud workspace
+
+Start your PWA's development server in your workspace. From a checkout of PWA Stage, run `npm ci` and `npm run build` once. Then check the running preview from a terminal. Linux supports a headless display with Electron's normal sandbox. The runner needs Electron's Linux system libraries.
+
+```sh
+npm run pwa:check -- http://127.0.0.1:5173
+```
+
+The default run opens the preview on iPhone 17 Pro in the Safari and Chrome shells, shares the page, adds it to Home, and reopens the installed icon. A loopback address works when Stage and the dev server share a network namespace. For a separate runner, use its reachable preview URL. The visit uses a fresh guest session and follows same-origin navigation.
+
+You can also run it from your PWA repository with Stage checked out alongside it. The output path is relative to the terminal's working directory.
+
+```sh
+npm --prefix ../pwa-stage run pwa:check -- :5173 --browser safari --language ko-KR --timezone Asia/Seoul --out ./artifacts
+```
+
+Each invocation prints paths to `report.html` and `report.json` in a unique run directory. The HTML includes the actual device captures and individual findings. CI or a coding agent can read the `passed` flag, the launch path and the failed checks in the JSON. Exit code **0** means every chosen browser read a manifest, reopened the app in standalone mode, and reported no failing PWA checks. A missing manifest, blocked launch or failing check returns **1** and saves the evidence. Input or runner errors return **2**. Warnings are advisory. Run `npm run pwa:check -- --help` for device, browser and region options.
+
 ## Test a local or multilingual PWA
 
 Open Safari or Chrome from Home and enter your site. The device address field, toolbar, Agent visits and install checks accept the same address forms, including `:5173/서울`, `[::1]:3000` and internationalized domains. Localhost development addresses use HTTP by default. Public domains use HTTPS. An explicit HTTP or HTTPS scheme takes precedence.
