@@ -403,17 +403,19 @@ html, body, #root {
 .duo-posture-picker { width: 76px; }
 .duo-posture-picker select, .duo-more-picker select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 
-.cutout-island-landscape {
-  top: 50% !important; left: 11px !important; width: 36px !important; height: 122px !important;
-  transform: translateY(-50%) !important; flex-direction: column-reverse; padding: 11px 0 !important;
-}
 .cutout-island {
-  position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
-  width: 122px; height: 36px; background: #000000; border-radius: 18px;
+  position: absolute; top: var(--island-top); left: 50%; transform: translateX(-50%);
+  box-sizing: border-box; width: var(--island-width); height: var(--island-height); background: #000; border-radius: 999px;
   z-index: 40; pointer-events: none; display: flex; align-items: center; justify-content: space-between;
-  padding: 0 11px; box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+  padding-inline: 11px;
 }
-
+.cutout-island-landscape {
+  top: 50%; left: calc(var(--island-top) + var(--island-height) / 2);
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+.ios-overlay-scaler:has(.cutout-island) .ios-status-horizontal {
+  top: var(--island-top); height: var(--island-height);
+}
 .island-sensor-ir {
   width: 9px; height: 9px; border-radius: 50%;
   background: radial-gradient(circle, #18181c 0%, #09090b 75%);
@@ -439,7 +441,7 @@ html, body, #root {
 }
 
 .ios-status-ear-left, .ios-status-ear-right {
-  width: calc(50% - 61px); display: flex; align-items: center; justify-content: center;
+  width: calc((100% - var(--island-width)) / 2); display: flex; align-items: center; justify-content: center;
 }
 .ios-status-pad-left { padding-left: 28px; }
 .ios-status-pad-right { padding-right: 28px; }

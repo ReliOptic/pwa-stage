@@ -79,6 +79,7 @@ function StatusRightCluster(props: { readonly darkMode: boolean }): React.ReactE
 export function HardwareCutout(props: {
   readonly cutoutType: HardwareCutoutType;
   readonly wideNotch?: boolean;
+  readonly island?: DevicePreset['island'];
   readonly orientation: Orientation;
 }): React.ReactElement | null {
   const { cutoutType, orientation } = props;
@@ -133,10 +134,13 @@ export function HardwareCutout(props: {
       </svg>
     );
   }
+  if (!props.island) return null;
   return (
     <div
+      data-source={props.island.source}
+      aria-hidden="true"
       className={isLandscape ? 'cutout-island cutout-island-landscape' : 'cutout-island'}
-      style={{ zIndex: 40 }}
+      style={{flexDirection: props.island.camera === 'left' ? 'row-reverse' : 'row'}}
     >
       <div className="island-sensor-ir" />
       <div className="camera-lens-ring" />
@@ -512,9 +516,11 @@ export function ScreenSystemOverlay(props: ScreenSystemOverlayProps): React.Reac
   return (<>
     <div
       className={`ios-overlay-scaler ${onHome ? 'ios-overlay-home' : ''} ${insideTool ? 'ios-overlay-tool' : ''}`}
-      style={{ width: `${props.logicalW}px`, height: `${props.logicalH}px` }}
+      style={{ width: `${props.logicalW}px`, height: `${props.logicalH}px`, ...(lit.island && {
+        '--island-width': `${lit.island.width}px`, '--island-height': `${lit.island.height}px`, '--island-top': `${lit.island.top}px`
+      }) } as React.CSSProperties}
     >
-      <HardwareCutout wideNotch={lit.id === DeviceModelId.IPHONE_11} cutoutType={props.cutoutType} orientation={props.orientation} />
+      <HardwareCutout island={lit.island} wideNotch={lit.id === DeviceModelId.IPHONE_11} cutoutType={props.cutoutType} orientation={props.orientation} />
       {(!fullscreen || onHome) && <>
       {pwaBand && (
         <div

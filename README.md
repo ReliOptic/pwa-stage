@@ -169,3 +169,5 @@ Apple lists Xcode 27.3 beta 2 with the iOS 27.3 SDK. Safari 27.3 beta documents 
 For a Mac CI runner, build the project and run `node scripts/xcode-safari.cjs "iPhone 17 Pro" https://your-project.example/ > safari-reference.json`. This captures the native side only. Apple lists new CSS syntax for hyphenation limits and custom overflow strings, and removal of percentage line-clamp values. The report probes these three declarations with CSS.supports in each engine. Syntax acceptance and page geometry can be reviewed independently.
 
 Run `node tests/xcode/safari-reference.cjs "iPhone 17 Pro"` after building to test the native integration on a Mac. It serves a loopback page, requires the selected 27.3 runtime and checks Safari's measured display mode and two documented CSS changes. A missing simulator or an unexpected response exits with an error.
+
+Idle Dynamic Island sizes, camera sides and rotation use model-specific profiles. [Apple image measurements and projected models](docs/dynamic-island.md)

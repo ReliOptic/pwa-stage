@@ -30,7 +30,9 @@ describe('device catalogue', () => {
   it('uses consistent cutouts, safe areas and density', () => {
     for (const p of DEVICE_PRESETS) {
       expect([2, 3]).toContain(p.deviceScaleFactor);
-      if (p.cutoutType === HardwareCutoutType.DYNAMIC_ISLAND) {
+      if ([HardwareCutoutType.DYNAMIC_ISLAND,HardwareCutoutType.COMPACT_ISLAND].includes(p.cutoutType)) {
+        expect(p.island).toBeDefined();
+        expect(p.island!.top+p.island!.height).toBeLessThan(p.safeAreaPortrait.top);
         expect(p.safeAreaPortrait.top).toBeGreaterThanOrEqual(59);
       }
       if (p.cutoutType === HardwareCutoutType.NOTCH) {

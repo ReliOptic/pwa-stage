@@ -51,6 +51,25 @@ app.whenReady().then(async()=>{
         if(i%(result.gridWidth>600?8:4)) assert(icon.left>=previous.left+previous.width);
         else assert(icon.top>=previous.top+previous.width);
       }
+      const island = await js(`(() => {
+        const el=document.querySelector('.cutout-island');
+        if(!el)return null;
+        const shell=el.closest('.ios-overlay-scaler'), r=el.getBoundingClientRect(), view=shell.getBoundingClientRect();
+        const sx=view.width/shell.offsetWidth, sy=view.height/shell.offsetHeight;
+        return {x:(r.left-view.left)/sx,y:(r.top-view.top)/sy,w:r.width/sx,h:r.height/sy,
+          cameraFirst:getComputedStyle(el).flexDirection==='row-reverse',source:el.dataset.source};
+      })()`);
+      if (preset.island) {
+        const g=preset.island;
+        const portrait=orientation==='portrait';
+        const expected=portrait?[(width-g.width)/2,g.top,g.width,g.height]:[g.top,(height-g.width)/2,g.height,g.width];
+        assert(island,preset.name+' missing island');
+        for(const [index,key] of ['x','y','w','h'].entries())
+          assert(Math.abs(island[key]-expected[index])<0.1,preset.name+' '+orientation+' '+key+' '+island[key]+' expected '+expected[index]);
+        assert.equal(island.cameraFirst,g.camera==='left');
+        assert.equal(island.source,g.source);
+      } else assert.equal(island,null,preset.name+' unexpected island');
+      result.island=island;
       // A marker round trip also lets the host finish its native resize.
       await js("(()=>{const m=document.createElement('i');m.id='home-paint';m.style.cssText='position:fixed;top:0;left:0;width:8px;height:8px;background:lime;z-index:2147483647';document.body.append(m)})()");
       const green=image=>{const {width}=image.getSize(),i=4*(2*width+2),p=image.toBitmap();return p[i+1]>245 && p[i+2]<8;};

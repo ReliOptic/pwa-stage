@@ -4,6 +4,7 @@ import {
   DeviceModelId,
   DevicePreset,
   HardwareCutoutType,
+  IslandGeometry,
   SafeAreaInsets
 } from '../types/device.types';
 import { IOS27_CHROME_ASSETS } from './ios27-assets.config';
@@ -32,7 +33,7 @@ function radii(r: number): CornerRadiiSpec {
   return { topLeft: r, topRight: r, bottomRight: r, bottomLeft: r };
 }
 
-interface SlabSpec {
+type SlabSpec = {
   readonly id: DeviceModelId;
   readonly name: string;
   readonly group: string;
@@ -42,14 +43,16 @@ interface SlabSpec {
   readonly height: number;
   readonly dpr: number;
   readonly radius: number;
-  readonly cutout: HardwareCutoutType;
   readonly safePortrait: SafeAreaInsets;
   readonly safeLandscape: SafeAreaInsets;
   readonly finish: string;
   readonly formFactor?: DeviceFormFactor;
   readonly bezel?: SafeAreaInsets;
   readonly chassisCornerRadius?: number;
-}
+} & (
+  | {cutout:HardwareCutoutType.DYNAMIC_ISLAND|HardwareCutoutType.COMPACT_ISLAND; island:IslandGeometry}
+  | {cutout:Exclude<HardwareCutoutType, HardwareCutoutType.DYNAMIC_ISLAND|HardwareCutoutType.COMPACT_ISLAND>; island?:never}
+);
 
 function slab(spec: SlabSpec): DevicePreset {
   const bezel = spec.bezel ?? SLAB_BEZEL_INSETS;
@@ -70,6 +73,7 @@ function slab(spec: SlabSpec): DevicePreset {
     chromeAssetPath: IOS27_CHROME_ASSETS.phone11,
     titaniumFinish: spec.finish,
     cutoutType: spec.cutout,
+    island: spec.island,
     safeAreaPortrait: spec.safePortrait,
     safeAreaLandscape: spec.safeLandscape,
     hinge: { ...NO_HINGE, leftPaneWidthPx: spec.width },
@@ -98,7 +102,8 @@ export const DEVICE_PRESETS: readonly DevicePreset[] = [
     height: 874,
     dpr: 3,
     radius: 56,
-    cutout: HardwareCutoutType.DYNAMIC_ISLAND,
+    cutout: HardwareCutoutType.COMPACT_ISLAND,
+    island: { width: 94, height: 36, top: 14, camera: 'right', source: 'product-image' },
     safePortrait: DI_62.p,
     safeLandscape: DI_62.l,
     finish: '#2d2b2a',
@@ -113,7 +118,8 @@ export const DEVICE_PRESETS: readonly DevicePreset[] = [
     height: 956,
     dpr: 3,
     radius: 58,
-    cutout: HardwareCutoutType.DYNAMIC_ISLAND,
+    cutout: HardwareCutoutType.COMPACT_ISLAND,
+    island: { width: 94, height: 35, top: 15, camera: 'right', source: 'product-image' },
     safePortrait: DI_62.p,
     safeLandscape: DI_62.l,
     finish: '#2d2b2a',
@@ -129,6 +135,7 @@ export const DEVICE_PRESETS: readonly DevicePreset[] = [
     dpr: 3,
     radius: 62,
     cutout: HardwareCutoutType.DYNAMIC_ISLAND,
+    island: { width: 122, height: 36, top: 11, camera: 'right', source: 'projected' },
     safePortrait: DI_62.p,
     safeLandscape: DI_62.l,
     finish: '#32343a'
@@ -143,6 +150,7 @@ export const DEVICE_PRESETS: readonly DevicePreset[] = [
     dpr: 3,
     radius: 47,
     cutout: HardwareCutoutType.DYNAMIC_ISLAND,
+    island: { width: 122, height: 36, top: 11, camera: 'right', source: 'projected' },
     safePortrait: DI_59.p,
     safeLandscape: DI_59.l,
     finish: '#1f2124',
@@ -160,6 +168,7 @@ export const DEVICE_PRESETS: readonly DevicePreset[] = [
     dpr: 3,
     radius: 62,
     cutout: HardwareCutoutType.DYNAMIC_ISLAND,
+    island: { width: 126, height: 36, top: 14, camera: 'right', source: 'product-image' },
     safePortrait: DI_62.p,
     safeLandscape: DI_62.l,
     finish: '#2b2b2e'
@@ -175,6 +184,7 @@ export const DEVICE_PRESETS: readonly DevicePreset[] = [
     dpr: 3,
     radius: 62,
     cutout: HardwareCutoutType.DYNAMIC_ISLAND,
+    island: { width: 126, height: 36, top: 15, camera: 'right', source: 'product-image' },
     safePortrait: DI_62.p,
     safeLandscape: DI_62.l,
     finish: '#2b2b2e'
@@ -189,6 +199,7 @@ export const DEVICE_PRESETS: readonly DevicePreset[] = [
     dpr: 3,
     radius: 62,
     cutout: HardwareCutoutType.DYNAMIC_ISLAND,
+    island: { width: 123, height: 36, top: 21, camera: 'left', source: 'product-image' },
     safePortrait: DI_62.p,
     safeLandscape: DI_62.l,
     finish: '#32353b',
@@ -204,6 +215,7 @@ export const DEVICE_PRESETS: readonly DevicePreset[] = [
     dpr: 3,
     radius: 62,
     cutout: HardwareCutoutType.DYNAMIC_ISLAND,
+    island: { width: 123, height: 35, top: 15, camera: 'right', source: 'product-image' },
     safePortrait: DI_62.p,
     safeLandscape: DI_62.l,
     finish: '#252629'
@@ -220,6 +232,7 @@ export const DEVICE_PRESETS: readonly DevicePreset[] = [
     dpr: 3,
     radius: 55,
     cutout: HardwareCutoutType.DYNAMIC_ISLAND,
+    island: { width: 125, height: 36, top: 12, camera: 'right', source: 'product-image' },
     safePortrait: DI_59.p,
     safeLandscape: DI_59.l,
     finish: '#2f3136'
@@ -235,6 +248,7 @@ export const DEVICE_PRESETS: readonly DevicePreset[] = [
     dpr: 3,
     radius: 55,
     cutout: HardwareCutoutType.DYNAMIC_ISLAND,
+    island: { width: 124, height: 36, top: 12, camera: 'right', source: 'product-image' },
     safePortrait: DI_59.p,
     safeLandscape: DI_59.l,
     finish: '#32343a'

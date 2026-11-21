@@ -58,6 +58,14 @@ export interface DualScreenHingeSpec {
   readonly showCreaseOverlay: boolean;
 }
 
+export interface IslandGeometry {
+  readonly width:number;
+  readonly height:number;
+  readonly top:number;
+  readonly camera:'left'|'right';
+  readonly source:'product-image'|'projected';
+}
+
 export interface DevicePreset {
   readonly id: DeviceModelId;
   readonly name: string;
@@ -73,6 +81,7 @@ export interface DevicePreset {
   readonly chromeAssetPath: string;
   readonly titaniumFinish: string;
   readonly cutoutType: HardwareCutoutType;
+  readonly island?: IslandGeometry;
   readonly safeAreaPortrait: SafeAreaInsets;
   readonly safeAreaLandscape: SafeAreaInsets;
   readonly hinge: DualScreenHingeSpec;
