@@ -21,6 +21,7 @@ import {
   Pin,
   PinOff,
   Plus,
+  RefreshCw,
   RotateCw,
   Smartphone,
   Sparkles,
@@ -436,6 +437,8 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
     aria-label="Pin to current desktop" aria-pressed={state.alwaysOnTop}
     onClick={() => onUpdateState({alwaysOnTop: !state.alwaysOnTop})}>
     {state.alwaysOnTop ? <Pin size={15}/> : <PinOff size={15}/>}</button>;
+  const reloadButton = <button type="button" className="tool-icon" title={platformLabel("Reload (⌘R)")}
+    aria-label="Reload page" onClick={props.onReload}><RefreshCw size={14}/></button>;
   const controlsButton = <button ref={trigger} type="button" className="tool-icon" aria-label="Device controls" title="Device controls"
     aria-controls="device-controls" aria-expanded={toolsOpen} onClick={() => setToolsOpen(!toolsOpen)}><Settings size={16}/></button>;
   const agentButton = props.onJourneys && <button type="button" className="tool-icon agent-toggle"
@@ -471,6 +474,7 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
       <GripHorizontal size={14} className="preview-grip" aria-hidden="true" />
       <button type="button" className="handle-expand" title={platformLabel("Show Toolbar (⌘B)")}
         onClick={() => onUpdateState({hudCollapsed:false})}>{deviceLabel(props.activePreset)}<ChevronDown size={12}/></button>
+      {reloadButton}
       {agentButton}
       {controlsButton}
       {pin}
@@ -486,6 +490,7 @@ export function FloatingToolbar(props: FloatingToolbarProps): React.ReactElement
       <BrowserRow {...props}/>
       <div className="tool-shortcuts">
         <button type="button" className="tool-icon" aria-label="Home" title={platformLabel("Home (⇧⌘H)")} onClick={props.onGoHome}><House size={16}/></button>
+        {reloadButton}
         {agentButton}
       {controlsButton}
         <button type="button" className="tool-icon" aria-label="Hide toolbar" title={platformLabel("Hide toolbar (⌘B)")}
